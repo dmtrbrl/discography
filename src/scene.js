@@ -19,8 +19,26 @@ const C = {
   diffractionStrength: 1.1, diffractionSaturation: 0.8, diffractionFocus: 1.5, diffractionSpacing: 1600,
   diffractionLights: [[-0.3, 0.75, 0.6, 1], [0.7, -0.2, 0.7, 0.6]],
   edgeColor: '#e4e7ec', edgeRoughness: 0.16, edgeMetalness: 0.2,
-  galleryScale: 1.08, hGap: 2.3, depthGap: 1, activeDiscY: 0.06, galleryRotX: -30, galleryRotY: -30, inactiveScale: 0.8,
-  cameraDistance: 4.4, cameraFOV: 40, exposure: 0.86, environmentIntensity: 1, fogColor: '#f1f0eb',
+  // Jewel case in millimetres; a disc radius (60 mm) is one unit. A standard case is 142 × 125 ×
+  // 10.4 mm, hinged on the left. Back to front: base plate, back insert, black tray, disc, booklet,
+  // lid plate. The insert's ends fold forward into the two spines.
+  caseWidth: 142, caseHeight: 125, caseDepth: 10.4, lidPlate: 1.5, lidFlange: 8, basePlate: 1, caseWall: 1, hingeInset: 1,
+  bookletSize: 120, bookletThickness: 0.8, bookletInset: 3, insertWidth: 138, insertHeight: 118, spineWidth: 6.5,
+  trayWidth: 136, trayHeight: 118, trayDepth: 5, discOffsetX: 6, discTurn: 25, hingeStrip: 14, hingeRibs: 18,
+  // The case plastic (makeCasePlastic). Its reflection: a long, soft strip light running left to
+  // right, above and in front (caseSheenDir, world space), seen as a soft band with no ends.
+  // Strength and angular half-width in radians. The disc print and rim reflect the same light
+  // (discSheen) instead of the direct lights, so the open case is lit like the closed one. Cut edges get a little extra opacity, so they read
+  // as thicker plastic; wear adds scratches and smudges.
+  caseSheen: 0.12, caseSheenWidth: 0.1, caseSheenDir: [0, 0.75, 0.66], discSheen: 0.18, caseEdgeAlpha: 0.15, caseScratches: 0.32, caseSmudges: 0.8,
+  // Black tray: satin, finely stippled polystyrene, with a raised ring around the disc well.
+  casePlasticOpacity: 0.04, trayColor: '#151518', trayRough: 0.5, trayStipple: 0.35, printRough: 0.5, paperColor: '#ece7dc', caseScale: 0.78,
+  // Opening: the case turns square to the camera and tips back by openTilt degrees, like a book
+  // lying open on a table seen from the front (no sideways angle). It comes forward and settles at
+  // openScale, the neighbours move aside and back (on screen), then the lid swings open.
+  openDuration: 1.3, lidOpenAngle: 180, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 2.6, openRecede: 1.2,
+  galleryScale: 1.08, hGap: 2.8, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
+  cameraDistance: 4.4, cameraFOV: 40, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
   keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
@@ -35,6 +53,27 @@ const C = {
 };
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+// Millimetres to scene units.
+const MM = 1 / 60;
+
+// Depths through the closed case in millimetres, measured from its centre, plus the hinge line and
+// the booklet's centre across.
+const CASE = (() => {
+  const back = -C.caseDepth / 2;
+  const insert = back + C.basePlate + 0.05;
+  const trayFront = insert + 0.05 + C.trayDepth;
+  const lidInner = C.caseDepth / 2 - C.lidPlate;
+  return {
+    back, insert, trayFront, lidInner,
+    // The disc rests on the 0.8 mm platform around the rosette.
+    disc: trayFront + 0.8 + (C.discThickness / MM) / 2,
+    // A hair behind the lid plate so the two faces never fight over depth.
+    booklet: lidInner - C.bookletThickness / 2 - 0.1,
+    hingeX: -C.caseWidth / 2 + C.hingeInset,
+    bookletX: C.caseWidth / 2 - C.bookletInset - C.bookletSize / 2,
+  };
+})();
 
 // Pixel ratio multipliers, stepped down while frames keep running long.
 const QUALITY = [1, 0.85, 0.7, 0.55];
@@ -222,17 +261,153 @@ function makeHubGeometry() {
   return latheParts([[[inner, -half], [outer, -half]], [[outer, -half], [outer, half]], [[outer, half], [inner, half]], [[inner, half], [inner, -half]]], 160);
 }
 
+function mergeParts(parts) {
+  const geometry = mergeGeometries(parts);
+  parts.forEach((part) => part.dispose());
+  return geometry.scale(MM, MM, MM);
+}
+
+const box = (width, height, depth, x, y, z) => new THREE.BoxGeometry(width, height, depth).translate(x, y, z);
+
+// Marks a part of the clear case for makeCasePlastic: faces that cut through the sheet (normal
+// across its thin axis: 0, 1 or 2 for x, y, z) get plasticEdge 1. Without an axis (the hinge pins)
+// nothing is marked.
+function sheet(geometry, thinAxis = -1) {
+  const normal = geometry.attributes.normal;
+  const edge = new Float32Array(normal.count);
+  if (thinAxis >= 0) for (let n = 0; n < normal.count; n++) edge[n] = Math.abs(normal.getComponent(n, thinAxis)) < 0.5 ? 1 : 0;
+  geometry.setAttribute('plasticEdge', new THREE.BufferAttribute(edge, 1));
+  return geometry;
+}
+
+// A flat quad from four corners, counterclockwise as seen from its printed side, with their UVs.
+function quad(corners, uvs) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(corners.flat(), 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs.flat(), 2));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+// The back insert folded as in the case: the back panel faces out through the base, and each end
+// folds forward into a spine. The texture holds the insert flat (spine, panel, spine), so text
+// reads the right way from outside.
+function makeInsertGeometry() {
+  const x = C.insertWidth / 2;
+  const y = C.insertHeight / 2;
+  const z = CASE.insert;
+  const fold = z + C.spineWidth;
+  const s = C.spineWidth / (C.insertWidth + C.spineWidth * 2);
+  return mergeParts([
+    quad([[x, -y, z], [-x, -y, z], [-x, y, z], [x, y, z]], [[s, 0], [1 - s, 0], [1 - s, 1], [s, 1]]),
+    quad([[x, -y, fold], [x, -y, z], [x, y, z], [x, y, fold]], [[0, 0], [s, 0], [s, 1], [0, 1]]),
+    quad([[-x, -y, z], [-x, -y, fold], [-x, y, fold], [-x, y, z]], [[1 - s, 0], [1, 0], [1, 1], [1 - s, 1]]),
+  ]);
+}
+
+// The clear base: back plate, side walls over the spines, and the hinge pins.
+function makeBaseShellGeometry() {
+  const wallDepth = CASE.trayFront + 1.5 - CASE.back;
+  const wallX = C.caseWidth / 2 - 1;
+  const pins = [-1, 1].map((side) => sheet(new THREE.CylinderGeometry(1.6, 1.6, 10, 16).translate(CASE.hingeX, side * 48, 0)));
+  return mergeParts([
+    sheet(box(C.caseWidth - 2, C.caseHeight - 2, C.basePlate, 0, 0, CASE.back + C.basePlate / 2), 2),
+    sheet(box(C.caseWall, C.insertHeight + 2, wallDepth, -wallX, 0, CASE.back + wallDepth / 2), 0),
+    sheet(box(C.caseWall, C.insertHeight + 2, wallDepth, wallX, 0, CASE.back + wallDepth / 2), 0),
+    ...pins,
+  ]);
+}
+
+// The clear lid: front plate, the flanges along the top and bottom, and the two tabs that hold the
+// booklet. Built around the hinge line so the lid group can rotate about its origin.
+function makeLidShellGeometry() {
+  const front = C.caseDepth / 2;
+  const flangeY = C.caseHeight / 2 - C.caseWall / 2;
+  const tabZ = CASE.lidInner - C.bookletThickness - 0.3;
+  const tabX = C.caseWidth / 2 - 4;
+  return mergeParts([
+    sheet(box(C.caseWidth, C.caseHeight, C.lidPlate, 0, 0, front - C.lidPlate / 2), 2),
+    sheet(box(C.caseWidth, C.caseWall, C.lidFlange, 0, flangeY, front - C.lidFlange / 2), 1),
+    sheet(box(C.caseWidth, C.caseWall, C.lidFlange, 0, -flangeY, front - C.lidFlange / 2), 1),
+    sheet(box(5, 12, 0.6, tabX, 40, tabZ), 2),
+    sheet(box(5, 12, 0.6, tabX, -40, tabZ), 2),
+  ].map((part) => part.translate(-CASE.hingeX, 0, 0)));
+}
+
+// The black tray and its rosette: a raised platform the disc rests on and a ring of teeth that
+// grips the centre hole. Along the hinge the tray rises into a finely ribbed strip, full height and
+// just under the lid, which is what shows on the left of a closed case. A low ring outlines the
+// disc well; the tray's top and bottom edges cut through it, as on real trays.
+function makeTrayGeometry() {
+  const top = CASE.trayFront;
+  const turnUp = (geometry) => geometry.rotateX(Math.PI / 2);
+  const teeth = Array.from({ length: 12 }, (_, n) => new THREE.BoxGeometry(4.2, 1.1, 1)
+    .translate(5.2, 0, 0).rotateZ((n / 12) * Math.PI * 2).translate(C.discOffsetX, 0, top + 1.3));
+  const stripLeft = -C.caseWidth / 2 + 1.5;
+  const stripHeight = C.trayHeight;
+  const stripBack = CASE.insert + 0.05;
+  const stripFront = CASE.lidInner - 0.4;
+  const ribGap = (C.hingeStrip - 2) / C.hingeRibs;
+  const ribs = Array.from({ length: C.hingeRibs }, (_, n) => box(ribGap * 0.45, stripHeight - 2, 0.2, stripLeft + 1 + ribGap * (n + 0.5), 0, stripFront + 0.1));
+  // Lathed about y, then turned up, so angle 0 points down the tray; keep the arcs inside its height.
+  const wellOuter = 62.4;
+  const gap = Math.acos((C.trayHeight / 2 - 1) / wellOuter);
+  const wellProfile = [[60.8, 0], [wellOuter, 0], [wellOuter, 0.5], [60.8, 0.5], [60.8, 0]].map(([x, y]) => new THREE.Vector2(x, y));
+  const well = [gap, Math.PI + gap].map((start) => turnUp(new THREE.LatheGeometry(wellProfile, 48, start, Math.PI - gap * 2)).translate(C.discOffsetX, 0, top));
+  return mergeParts([
+    box(C.trayWidth, C.trayHeight, C.trayDepth, 0, 0, top - C.trayDepth / 2),
+    box(C.hingeStrip, stripHeight, stripFront - stripBack, stripLeft + C.hingeStrip / 2, 0, (stripFront + stripBack) / 2),
+    ...ribs,
+    ...well,
+    turnUp(new THREE.CylinderGeometry(17, 17, 0.8, 64)).translate(C.discOffsetX, 0, top + 0.4),
+    turnUp(new THREE.CylinderGeometry(2.6, 2.6, 1, 24)).translate(C.discOffsetX, 0, top + 1.3),
+    ...teeth,
+  ]);
+}
+
+// GLSL for the end of a physical material's fragment shader that swaps the direct lights'
+// reflections for one soft light: a long strip running left to right, above and in front
+// (caseSheenDir). Flat, glossy parts (the case lid, the disc in the open case) otherwise mirror the
+// strip light's exact rectangle. Leaves softBand, 0 to 1, for the caller to add as it needs.
+function softReflection() {
+  const glsl = (value) => value.toFixed(4);
+  // The strip's plane holds its left-to-right axis and the direction to it; the band is how far the
+  // reflected view ray points off that plane.
+  const plane = new THREE.Vector3(1, 0, 0).cross(new THREE.Vector3(...C.caseSheenDir)).normalize();
+  return `#ifdef USE_CLEARCOAT
+outgoingLight -= reflectedLight.directSpecular * (1.0 - material.clearcoat * Fcc) + clearcoatSpecularDirect * material.clearcoat;
+#else
+outgoingLight -= reflectedLight.directSpecular;
+#endif
+vec3 softPlane = normalize((viewMatrix * vec4(${plane.toArray().map(glsl).join(', ')}, 0.0)).xyz);
+float softBand = exp(-pow(asin(clamp(dot(reflect(-geometryViewDir, normal), softPlane), -1.0, 1.0)) / ${glsl(C.caseSheenWidth)}, 2.0));`;
+}
+
+// Adds the soft reflection (softReflection) to an otherwise plain physical material at the given
+// strength. A metal's reflection takes its own colour, so the part-metallic disc print tints it.
+function withSoftReflection(material, key, strength) {
+  material.customProgramCacheKey = () => key;
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `${softReflection()}
+outgoingLight += mix(vec3(1.0), diffuseColor.rgb, metalnessFactor) * softBand * ${strength.toFixed(4)};
+#include <opaque_fragment>`);
+  };
+  return material;
+}
+
 // Clear polycarbonate for the centre: plain see-through plastic with a slight tint. Real
 // refraction (transmission) would show a blurred copy of the artwork and render the scene twice.
 // Plain opacity would also fade the reflections, so edges seen side-on (Fresnel) and specular
 // highlights stay opaque. That outlines the hole and rim and keeps the glints, like real plastic.
-function makePlastic({ roughness, opacity }) {
+// Like the case, it reflects the soft strip light rather than the direct lights.
+function makePlastic({ roughness, opacity, rings: ringList = [] }) {
   const material = new THREE.MeshPhysicalMaterial({
     color: C.plasticTint, roughness, metalness: 0, transparent: true, opacity, depthWrite: false,
     clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1, side: THREE.DoubleSide, forceSinglePass: true,
   });
   // Faint moulded rings (stacking ring, hole lip) as soft bands of extra opacity.
-  const rings = C.plasticRings.map(([radius, width, amount]) => `plasticAlpha += ${amount.toFixed(3)} * exp(-pow((plasticRadius - ${radius.toFixed(4)}) / ${width.toFixed(4)}, 2.0));`).join('\n');
+  const rings = ringList.map(([radius, width, amount]) => `plasticAlpha += ${amount.toFixed(3)} * exp(-pow((plasticRadius - ${radius.toFixed(4)}) / ${width.toFixed(4)}, 2.0));`).join('\n');
   material.customProgramCacheKey = () => 'plastic';
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
@@ -240,11 +415,61 @@ function makePlastic({ roughness, opacity }) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nplasticRadius = length(position.xz);');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying float plasticRadius;')
-      .replace('#include <opaque_fragment>', `float plasticFresnel = pow(1.0 - abs(dot(normal, geometryViewDir)), 3.0);
-float plasticGlint = dot(reflectedLight.directSpecular + reflectedLight.indirectSpecular, vec3(0.3333));
+      .replace('#include <opaque_fragment>', `${softReflection()}
+outgoingLight += vec3(softBand * ${C.caseSheen.toFixed(4)});
+float plasticFresnel = pow(1.0 - abs(dot(normal, geometryViewDir)), 3.0);
+float plasticGlint = dot(reflectedLight.indirectSpecular, vec3(0.3333)) + softBand * ${C.caseSheen.toFixed(4)};
 float plasticAlpha = diffuseColor.a + plasticFresnel * ${C.plasticEdge.toFixed(3)} + plasticGlint;
 ${rings}
 diffuseColor.a = clamp(plasticAlpha, 0.0, 1.0);
+#include <opaque_fragment>`);
+  };
+  return material;
+}
+
+// The jewel case's clear polystyrene, one material per case so each has its own wear. Built on
+// the hub's plastic, with three changes from reference photos:
+// - No mirror images of the direct lights: the flat lid showed the strip light's exact rectangle.
+//   Instead it reflects a long, soft strip light running left to right (caseSheenDir): a soft band
+//   with no ends that slides across the lid as the case tilts.
+// - Faces that cut through a sheet (marked by the plasticEdge attribute) get a little extra
+//   opacity, so they read as thicker plastic. A bright, tinted version of these edges looked like
+//   white outlines.
+// - Wear from a shared map, shifted per case: fine scratches and cloth swirls (red) that show
+//   mostly where the band reflects, and smudges (green) that make the band patchy.
+function makeCasePlastic(shared, seed) {
+  const material = new THREE.MeshPhysicalMaterial({
+    color: C.plasticTint, roughness: 0.04, metalness: 0, transparent: true, opacity: C.casePlasticOpacity, depthWrite: false,
+    clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1, side: THREE.DoubleSide, forceSinglePass: true,
+  });
+  const glsl = (value) => value.toFixed(4);
+  material.customProgramCacheKey = () => 'case-plastic';
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.caseWearMap = { value: shared.textures.caseWear };
+    shader.uniforms.caseSeed = { value: new THREE.Vector2(seed, (seed * 7.13) % 1) };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float plasticEdge;
+varying float vCaseEdge;
+varying vec2 vCaseUv;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vCaseEdge = plasticEdge;
+vCaseUv = uv;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform sampler2D caseWearMap;
+uniform vec2 caseSeed;
+varying float vCaseEdge;
+varying vec2 vCaseUv;`)
+      .replace('#include <opaque_fragment>', `${softReflection()}
+vec2 caseWear = texture2D(caseWearMap, vCaseUv + caseSeed).rg;
+float caseBand = softBand;
+float caseSheen = caseBand * ${glsl(C.caseSheen)} * (1.0 + (caseWear.g - 0.5) * ${glsl(C.caseSmudges)});
+float caseScratch = caseWear.r * ${glsl(C.caseScratches)} * (0.01 + caseBand) * (1.0 - vCaseEdge);
+outgoingLight += vec3(caseSheen + caseScratch);
+float caseFresnel = pow(1.0 - abs(dot(normal, geometryViewDir)), 3.0);
+float caseGlint = dot(reflectedLight.indirectSpecular, vec3(0.3333));
+diffuseColor.a = clamp(diffuseColor.a + caseFresnel * ${glsl(C.plasticEdge)} + caseGlint + caseSheen + caseScratch + vCaseEdge * ${glsl(C.caseEdgeAlpha)}, 0.0, 1.0);
 #include <opaque_fragment>`);
   };
   return material;
@@ -408,6 +633,65 @@ function makeScratchCanvas(size) {
   return canvas;
 }
 
+// Wear on the case plastic. Red: many fine, short scratches, a few longer faint ones, and swirls
+// of short arcs where a cloth wiped the lid. Green: smudges as soft blotches around mid grey.
+// Tiles, so each case can sample it at its own offset.
+function makeCaseWearCanvas(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgb(0, 110, 0)';
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  const line = (x, y, angle, length, alpha, width) => {
+    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
+    ctx.stroke();
+  };
+  for (let n = 0; n < 70; n++) line(Math.random() * size, Math.random() * size, Math.random() * Math.PI, size * (0.008 + Math.random() * 0.035), 0.2 + Math.random() * 0.4, 0.5 + Math.random() * 0.4);
+  for (let n = 0; n < 4; n++) line(Math.random() * size, Math.random() * size, Math.random() * Math.PI, size * (0.15 + Math.random() * 0.25), 0.15 + Math.random() * 0.2, 0.7);
+  for (let n = 0; n < 4; n++) {
+    const cx = Math.random() * size;
+    const cy = Math.random() * size;
+    for (let k = 0; k < 14; k++) {
+      const radius = size * (0.05 + Math.random() * 0.12);
+      const start = Math.random() * Math.PI * 2;
+      ctx.strokeStyle = `rgba(255, 0, 0, ${0.1 + Math.random() * 0.15})`;
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, start, start + 0.3 + Math.random() * 0.6);
+      ctx.stroke();
+    }
+  }
+  for (let n = 0; n < 26; n++) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const radius = size * (0.03 + Math.random() * 0.08);
+    const blot = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    blot.addColorStop(0, `rgba(0, 255, 0, ${0.15 + Math.random() * 0.2})`);
+    blot.addColorStop(1, 'rgba(0, 255, 0, 0)');
+    ctx.fillStyle = blot;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+  return canvas;
+}
+
+// Satin black tray: a fine stipple as bumps (normal map) and as roughness variation.
+function makeTrayMaps(size) {
+  const heightMap = new Float32Array(size * size);
+  for (let n = 0; n < heightMap.length; n++) heightMap[n] = valueNoise(n % size, Math.floor(n / size)) * C.trayStipple;
+  const roughness = new Uint8Array(size * size * 4);
+  for (let n = 0; n < heightMap.length; n++) {
+    roughness[n * 4] = roughness[n * 4 + 1] = roughness[n * 4 + 2] = clamp(C.trayRough + (heightMap[n] / C.trayStipple - 0.5) * 0.3, 0.05, 1) * 255;
+    roughness[n * 4 + 3] = 255;
+  }
+  return { normal: normalsFromHeight(heightMap, size), roughness };
+}
+
 // A stable 0 to 1 value per album, so each disc keeps its own wear.
 function seedFrom(text) {
   let hash = 2166136261;
@@ -422,21 +706,43 @@ function makeSharedResources(renderer) {
     frontNormal: makeDataTexture(makeFrontNormal(size), size, anisotropy),
     frontRough: makeDataTexture(makeFrontRoughness(size), size, anisotropy),
     scratches: new THREE.CanvasTexture(makeScratchCanvas(size)),
+    caseWear: new THREE.CanvasTexture(makeCaseWearCanvas(size)),
   };
+  textures.caseWear.wrapS = textures.caseWear.wrapT = THREE.RepeatWrapping;
+  textures.caseWear.anisotropy = anisotropy;
+  const trayMaps = makeTrayMaps(512);
+  textures.trayNormal = makeDataTexture(trayMaps.normal, 512, anisotropy);
+  textures.trayRough = makeDataTexture(trayMaps.roughness, 512, anisotropy);
+  for (const texture of [textures.trayNormal, textures.trayRough]) {
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 3);
+  }
   const geometries = {
     front: planarRing(C.hubSize, 1 - C.edgeBleed),
     back: planarRing(C.hubSize, 1 - C.edgeBleed),
     edge: makeEdgeGeometry(),
     hub: makeHubGeometry(),
     pick: new THREE.CircleGeometry(1, 24),
+    baseShell: makeBaseShellGeometry(),
+    lidShell: makeLidShellGeometry(),
+    tray: makeTrayGeometry(),
+    insert: makeInsertGeometry(),
+    booklet: new THREE.BoxGeometry(C.bookletSize * MM, C.bookletSize * MM, C.bookletThickness * MM),
+    casePick: new THREE.PlaneGeometry(C.caseWidth * MM, C.caseHeight * MM),
   };
   const materials = {
     // Clear polycarbonate rim with a faint thin-film shimmer.
-    edge: new THREE.MeshPhysicalMaterial({
+    edge: withSoftReflection(new THREE.MeshPhysicalMaterial({
       color: C.edgeColor, roughness: C.edgeRoughness, metalness: C.edgeMetalness, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.1,
       iridescence: 1, iridescenceIOR: 1.6, iridescenceThicknessRange: [300, 900], side: THREE.DoubleSide,
+    }), 'cd-edge', C.discSheen),
+    hub: makePlastic({ roughness: 0.05, opacity: C.plasticOpacity, rings: C.plasticRings }),
+    // Satin black polystyrene with a fine stipple.
+    tray: new THREE.MeshPhysicalMaterial({
+      color: C.trayColor, roughness: 1, roughnessMap: textures.trayRough, normalMap: textures.trayNormal, normalScale: new THREE.Vector2(1, 1), metalness: 0, envMapIntensity: 1.8,
+      clearcoat: 0.15, clearcoatRoughness: 0.35,
     }),
-    hub: makePlastic({ roughness: 0.05, opacity: C.plasticOpacity }),
+    paper: new THREE.MeshStandardMaterial({ color: C.paperColor, roughness: 0.9 }),
     pick: new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide, depthWrite: false }),
   };
   return { textures, geometries, materials, anisotropy };
@@ -642,16 +948,119 @@ function makeFallbackArt(album, index) {
   return canvas;
 }
 
+// A booklet page from an image, cropped to fill the square.
+function makeSquareCanvas(image) {
+  const size = C.artResolution;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const crop = Math.min(width, height);
+  canvas.getContext('2d').drawImage(image, (width - crop) / 2, (height - crop) / 2, crop, crop, 0, 0, size, size);
+  return canvas;
+}
+
+// A plain back page for booklets without a scan: the album colour, the artist name small at the foot.
+function makeBookletBackCanvas(album) {
+  const size = C.artResolution;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = album.color || '#3b3a36';
+  ctx.fillRect(0, 0, size, size);
+  const shade = ctx.createLinearGradient(0, 0, size, size);
+  shade.addColorStop(0, 'rgba(255,255,255,.08)');
+  shade.addColorStop(1, 'rgba(0,0,0,.3)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = album.accent || '#dcc5a2';
+  ctx.font = '500 20px Arial, sans-serif';
+  ctx.letterSpacing = '8px';
+  ctx.textAlign = 'center';
+  ctx.fillText((album.artist || 'NIRVANA').toUpperCase(), size / 2, size - 90);
+  return canvas;
+}
+
+// The back insert as printed, laid flat: spine, back panel, spine. A scan that includes the spines
+// fills it. A scan of the panel alone gets generated spines, and without a scan the panel is
+// generated too, with the tracklist when the album has one.
+function makeInsertCanvas(album, image) {
+  const total = C.insertWidth + C.spineWidth * 2;
+  const height = C.artResolution;
+  const width = Math.round((height * total) / C.insertHeight);
+  const spine = Math.round((width * C.spineWidth) / total);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const ratio = image ? (image.naturalWidth || image.width) / (image.naturalHeight || image.height) : 0;
+  // Between the panel's proportions (138 × 118) and the whole insert's (151 × 118).
+  if (ratio > (C.insertWidth + total) / 2 / C.insertHeight) {
+    ctx.drawImage(image, 0, 0, width, height);
+    return canvas;
+  }
+  const artist = (album.artist || 'NIRVANA').toUpperCase();
+  const accent = album.accent || '#dcc5a2';
+  ctx.fillStyle = album.color || '#3b3a36';
+  ctx.fillRect(0, 0, width, height);
+  const shade = ctx.createLinearGradient(0, 0, width, height);
+  shade.addColorStop(0, 'rgba(255,255,255,.06)');
+  shade.addColorStop(1, 'rgba(0,0,0,.32)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, width, height);
+  if (image) {
+    ctx.drawImage(image, spine, 0, width - spine * 2, height);
+  } else {
+    const left = spine + 72;
+    ctx.fillStyle = accent;
+    ctx.font = '500 18px Arial, sans-serif';
+    ctx.letterSpacing = '6px';
+    ctx.fillText(artist, left, 104);
+    ctx.letterSpacing = '0px';
+    fitText(ctx, album.title, width - spine * 2 - 144, 60, 30);
+    ctx.fillText(album.title, left, 178);
+    const lines = album.tracks?.length ? album.tracks.map((track, n) => `${n + 1}   ${track}`) : [album.kind, album.year].filter(Boolean);
+    ctx.font = '400 24px Georgia, serif';
+    lines.slice(0, 18).forEach((line, n) => ctx.fillText(line, left, 270 + n * 36));
+    // Barcode sticker and the small print beside it.
+    ctx.fillStyle = '#f2efe8';
+    ctx.fillRect(left, height - 196, 236, 118);
+    ctx.fillStyle = '#16161a';
+    for (let x = 0, n = 0; x < 200; n++) {
+      const bar = 2 + (Math.floor(seedFrom(`${album.id}${n}`) * 4) % 3);
+      if (n % 2 === 0) ctx.fillRect(left + 18 + x, height - 180, bar, 70);
+      x += bar + 1;
+    }
+    ctx.fillStyle = accent;
+    ctx.font = '400 15px Arial, sans-serif';
+    ctx.fillText(`℗ © ${album.year || ''} ${artist}`, left + 270, height - 94);
+  }
+  // Spines: artist and title along the length, reading top to bottom.
+  ctx.fillStyle = accent;
+  ctx.font = '500 22px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.letterSpacing = '3px';
+  for (const x of [spine / 2, width - spine / 2]) {
+    ctx.save();
+    ctx.translate(x, height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText(`${artist}   ${album.title.toUpperCase()}`, 0, 0);
+    ctx.restore();
+  }
+  return canvas;
+}
+
 function makeDisc(shared, seed) {
   const { geometries, materials } = shared;
   const group = new THREE.Group();
   const spin = new THREE.Group();
   group.add(spin);
-  const frontMaterial = new THREE.MeshPhysicalMaterial({
+  const frontMaterial = withSoftReflection(new THREE.MeshPhysicalMaterial({
     roughness: C.frontRough, metalness: C.frontMetal, roughnessMap: shared.textures.frontRough,
     clearcoat: C.frontClearcoat, clearcoatRoughness: 0.18 * (1 - C.texGloss),
     normalMap: shared.textures.frontNormal, normalScale: new THREE.Vector2(0.3, 0.3), envMapIntensity: 0.85,
-  });
+  }), 'cd-front', C.discSheen);
   const front = new THREE.Mesh(geometries.front, frontMaterial);
   const backMaterial = makeBackMaterial(shared, seed);
   const back = new THREE.Mesh(geometries.back, backMaterial);
@@ -672,8 +1081,50 @@ function makeDisc(shared, seed) {
   };
 }
 
-export class DiscScene {
-  // onProgress(loaded, total) reports artwork loading; onReady fires when the gallery appears.
+// A jewel case holding the disc. The layout moves `group`, a drag turns `spin`, and `body` slides
+// right as the lid opens so the open case stays centred on the spin pivot. The lid rotates about
+// the hinge line. Prints start in the album colour until their artwork is set.
+function makeCase(shared, album, seed) {
+  const { geometries, materials } = shared;
+  const print = (side) => new THREE.MeshStandardMaterial({ color: album.color || '#3b3a36', roughness: C.printRough, side });
+  const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: print(THREE.DoubleSide) };
+  const plastic = makeCasePlastic(shared, seed);
+  const group = new THREE.Group();
+  const spin = new THREE.Group();
+  const body = new THREE.Group();
+  const lid = new THREE.Group();
+  group.add(spin);
+  spin.add(body);
+  const disc = makeDisc(shared, seed);
+  disc.group.position.set(C.discOffsetX * MM, 0, CASE.disc * MM);
+  // Discs sit in the tray at a slight turn, each its own.
+  disc.group.rotation.z = THREE.MathUtils.degToRad((seed * 2 - 1) * C.discTurn);
+  disc.group.visible = false;
+  body.add(
+    new THREE.Mesh(geometries.baseShell, plastic),
+    new THREE.Mesh(geometries.insert, prints.insert),
+    new THREE.Mesh(geometries.tray, materials.tray),
+    disc.group,
+    lid,
+  );
+  lid.position.x = CASE.hingeX * MM;
+  // Box faces run +x, -x, +y, -y, +z, -z: paper edges, the cover, and the booklet's back page.
+  const booklet = new THREE.Mesh(geometries.booklet, [materials.paper, materials.paper, materials.paper, materials.paper, prints.cover, prints.bookletBack]);
+  booklet.position.set((CASE.bookletX - CASE.hingeX) * MM, 0, CASE.booklet * MM);
+  lid.add(booklet, new THREE.Mesh(geometries.lidShell, plastic));
+  // The flat, invisible pick plane stays outside the spin group so hit tests ignore spin.
+  const pick = new THREE.Mesh(geometries.casePick, materials.pick);
+  group.add(pick);
+  return {
+    group, spin, body, lid, pick, disc, prints, plastic, disposed: false,
+    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, resetTween: null, placed: false,
+    pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
+  };
+}
+
+export class GalleryScene {
+  // onProgress(loaded, total) reports artwork loading; onReady fires once everything is loaded and
+  // compiled. The gallery then stays hidden until reveal(), so the page can clear its loading screen first.
   constructor(element, albums, onIndexChange, { onProgress, onReady } = {}) {
     this.element = element;
     this.onIndexChange = onIndexChange;
@@ -681,7 +1132,7 @@ export class DiscScene {
     this.onReady = onReady;
     this.ready = false;
     this.albums = [];
-    this.discs = [];
+    this.cases = [];
     this.tweens = new Set();
     this.raf = 0;
     this.lastTime = 0;
@@ -691,7 +1142,7 @@ export class DiscScene {
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.canHover = window.matchMedia('(hover: hover)').matches;
 
-    // Gallery motion state: position is a fractional disc index.
+    // Gallery motion state: position is a fractional case index.
     this.position = 0;
     this.lastPosition = 0;
     this.inertia = 0;
@@ -700,7 +1151,7 @@ export class DiscScene {
     this.target = -1;
     this.indexTween = null;
     this.active = -1;
-    // Discs start shrunk away; the intro grows them in once the gallery is revealed.
+    // Cases start shrunk away; the intro grows them in once the gallery is revealed.
     this.intro = { active: 0, others: 0 };
 
     // Pointer state.
@@ -733,7 +1184,16 @@ export class DiscScene {
     this.camera.lookAt(0, 0, 0);
     this.gallery = new THREE.Group();
     this.gallery.rotation.set(THREE.MathUtils.degToRad(C.galleryRotX), THREE.MathUtils.degToRad(C.galleryRotY), 0);
-    // Hidden until every disc has its artwork, so nothing pops in.
+    // The open case's rotation in gallery space (square to the camera, top tipped away), and the
+    // screen's right and toward-camera directions in gallery space.
+    const unturn = this.gallery.quaternion.clone().invert();
+    const tipBack = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -THREE.MathUtils.degToRad(C.openTilt));
+    this.facing = new THREE.Euler().setFromQuaternion(unturn.clone().multiply(tipBack));
+    this.screenRight = new THREE.Vector3(1, 0, 0).applyQuaternion(unturn);
+    this.toCamera = new THREE.Vector3(0, 0, 1).applyQuaternion(unturn);
+    // Index of the case that is open or opening, or -1.
+    this.opened = -1;
+    // Hidden until every case has its artwork, so nothing pops in.
     this.gallery.visible = false;
     this.scene.add(this.gallery);
     this.addLights();
@@ -759,23 +1219,34 @@ export class DiscScene {
 
     this.setAlbums(albums);
     this.resize();
-    // Reveal once every disc has its final artwork and the page fonts are in. The timeout reveals
+    // Reveal once every case has its final artwork and the page fonts are in. The timeout reveals
     // anyway (with placeholders) so a hung request never blocks the page.
     const timeout = new Promise((resolve) => {
       this.loadTimer = setTimeout(resolve, C.loadTimeout);
     });
-    Promise.race([Promise.all([this.loaded, document.fonts?.ready]), timeout]).then(() => this.reveal());
+    Promise.race([Promise.all([this.loaded, document.fonts?.ready]), timeout]).then(() => this.prepare());
   }
 
-  reveal() {
-    if (this.ready || this.destroyed) return;
+  prepare() {
+    if (this.prepared || this.destroyed) return;
     clearTimeout(this.loadTimer);
+    this.prepared = true;
+    // Compile every shader now rather than when a case first scrolls into view or opens. Compiling
+    // skips hidden objects, so the gallery and the discs (hidden while their case is closed) are
+    // shown just for the call.
+    this.gallery.visible = true;
+    this.cases.forEach((item) => { item.disc.group.visible = true; });
+    this.renderer.compile(this.scene, this.camera);
+    this.gallery.visible = false;
+    this.onReady?.();
+  }
+
+  // Shows the gallery and plays the intro; input works from here on.
+  reveal() {
+    if (!this.prepared || this.ready || this.destroyed) return;
     this.ready = true;
     this.gallery.visible = true;
-    // Compile every shader now rather than when a disc first scrolls into view.
-    this.renderer.compile(this.scene, this.camera);
     this.playIntro();
-    this.onReady?.();
     this.request(3);
   }
 
@@ -804,12 +1275,17 @@ export class DiscScene {
   }
 
   setAlbums(albums) {
-    this.discs.forEach((disc) => {
-      disc.disposed = true;
-      disc.frontMaterial.dispose();
-      disc.backMaterial.dispose();
-      disc.art?.dispose();
-      this.gallery.remove(disc.group);
+    this.cases.forEach((item) => {
+      item.disposed = true;
+      item.disc.frontMaterial.dispose();
+      item.disc.backMaterial.dispose();
+      item.disc.art?.dispose();
+      item.plastic.dispose();
+      Object.values(item.prints).forEach((material) => {
+        material.map?.dispose();
+        material.dispose();
+      });
+      this.gallery.remove(item.group);
     });
     this.albums = albums;
     this.tweens.clear();
@@ -819,33 +1295,40 @@ export class DiscScene {
     this.target = -1;
     this.active = -1;
     this.hovered = -1;
+    this.opened = -1;
     let loaded = 0;
     this.onProgress?.(0, albums.length);
     const pending = [];
-    this.discs = albums.map((album, index) => {
-      const disc = makeDisc(this.shared, seedFrom(album.id ?? index));
-      disc.pick.userData.index = index;
-      this.setArt(disc, makeFallbackArt(album, index));
-      // Prefer a scan of the printed disc, then the square cover, then the generated placeholder.
-      const sources = [album.disc && { url: album.disc, scan: true }, album.cover && { url: album.cover, scan: false }].filter(Boolean);
-      pending.push(new Promise((resolve) => {
-        const loadNext = () => {
-          const source = sources.shift();
-          if (!source) return resolve();
-          this.loader.load(source.url, (image) => {
-            if (!disc.disposed) this.setArt(disc, image, source.scan);
-            resolve();
-          }, undefined, loadNext);
-        };
-        loadNext();
-      }).then(() => {
-        if (!disc.disposed) this.onProgress?.((loaded += 1), albums.length);
+    this.cases = albums.map((album, index) => {
+      const item = makeCase(this.shared, album, seedFrom(album.id ?? index));
+      item.pick.userData.index = index;
+      const placeholder = makeFallbackArt(album, index);
+      this.setArt(item.disc, placeholder);
+      this.setPrint(item, 'cover', placeholder);
+      // The disc prefers a scan of the printed disc, then the cover. The back insert and the
+      // booklet's back page are generated when there is no scan.
+      const urls = [album.disc, album.cover, album.back, album.bookletBack];
+      pending.push(Promise.all(urls.map((url) => this.loadImage(url))).then(([scan, cover, back, bookletBack]) => {
+        if (item.disposed) return;
+        if (scan || cover) this.setArt(item.disc, scan || cover, Boolean(scan));
+        if (cover) this.setPrint(item, 'cover', makeSquareCanvas(cover));
+        this.setPrint(item, 'insert', makeInsertCanvas(album, back));
+        this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack) : makeBookletBackCanvas(album));
+        this.onProgress?.((loaded += 1), albums.length);
       }));
-      this.gallery.add(disc.group);
-      return disc;
+      this.gallery.add(item.group);
+      return item;
     });
     this.loaded = Promise.all(pending);
     this.request(3);
+  }
+
+  // Resolves with the image, or null when there is no URL or it fails to load.
+  loadImage(url) {
+    return new Promise((resolve) => {
+      if (!url) return resolve(null);
+      this.loader.load(url, resolve, undefined, () => resolve(null));
+    });
   }
 
   setArt(disc, image, scan = false) {
@@ -856,6 +1339,20 @@ export class DiscScene {
     // Upload now; a first upload mid-scroll stalls the frame.
     this.renderer.initTexture(art);
     disc.frontMaterial.needsUpdate = true;
+    this.request();
+  }
+
+  // Sets one of a case's printed parts: the cover, the back insert or the booklet's back page.
+  setPrint(item, part, canvas) {
+    const material = item.prints[part];
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = this.shared.anisotropy;
+    material.map?.dispose();
+    material.map = texture;
+    material.color.set('#ffffff');
+    this.renderer.initTexture(texture);
+    material.needsUpdate = true;
     this.request();
   }
 
@@ -899,7 +1396,7 @@ export class DiscScene {
   }
 
   get lastIndex() {
-    return Math.max(0, this.discs.length - 1);
+    return Math.max(0, this.cases.length - 1);
   }
 
   activeIndex() {
@@ -912,9 +1409,11 @@ export class DiscScene {
   }
 
   goTo(index, source = 'snap') {
-    if (!this.ready || !this.discs.length) return;
+    if (!this.ready || !this.cases.length) return;
     const target = clamp(Math.round(index), 0, this.lastIndex);
     const motion = motionFor(source, Math.abs(target - this.position));
+    // Moving to another case closes the open one on the way.
+    if (target !== this.opened) this.close();
     this.target = target;
     this.inertia = 0;
     this.settle = 0;
@@ -940,45 +1439,66 @@ export class DiscScene {
     this.goTo(this.targetIndex() + delta, 'key');
   }
 
-  // Flips a disc to its data side, or back.
-  flip(index = this.activeIndex()) {
-    const disc = this.discs[index];
-    if (!this.ready || !disc) return;
-    this.killTween(disc.resetTween);
-    disc.resetTween = this.tween(disc, { spinY: Math.abs(disc.spinY) > Math.PI / 2 ? 0 : Math.PI, spinX: 0 }, this.reducedMotion ? 0.15 : 0.75, ease.power3InOut, () => {
-      disc.resetTween = null;
+  // Opens the front case, or closes it if it is open.
+  toggle(index = this.activeIndex()) {
+    if (index === this.opened) this.close();
+    else this.open(index);
+  }
+
+  // Only the case in front opens; opening it also turns it back from any drag.
+  open(index = this.activeIndex()) {
+    if (!this.ready || !this.cases[index] || index !== this.activeIndex()) return;
+    this.close();
+    this.opened = index;
+    this.resetSpin(index);
+    this.animateOpen(index, 1);
+  }
+
+  close() {
+    if (this.opened < 0) return;
+    this.animateOpen(this.opened, 0);
+    this.opened = -1;
+  }
+
+  // Tweens a case's open amount; a reversal part way through takes only the remaining time.
+  animateOpen(index, to) {
+    const item = this.cases[index];
+    this.killTween(item.openTween);
+    const duration = this.reducedMotion ? 0.15 : C.openDuration * (to ? 1 : 0.85) * Math.max(0.2, Math.abs(to - item.open));
+    item.openTween = this.tween(item, { open: to }, duration, ease.linear, () => {
+      item.openTween = null;
     });
   }
 
   resetSpin(index) {
-    const disc = this.discs[index];
-    if (!disc || (Math.abs(disc.spinX) < 0.001 && Math.abs(disc.spinY) < 0.001)) return;
-    this.killTween(disc.resetTween);
-    disc.resetTween = this.tween(disc, { spinX: 0, spinY: 0 }, this.reducedMotion ? 0.15 : C.resetDuration, ease.power3Out, () => {
-      disc.resetTween = null;
+    const item = this.cases[index];
+    if (!item || (Math.abs(item.spinX) < 0.001 && Math.abs(item.spinY) < 0.001)) return;
+    this.killTween(item.resetTween);
+    item.resetTween = this.tween(item, { spinX: 0, spinY: 0 }, this.reducedMotion ? 0.15 : C.resetDuration, ease.power3Out, () => {
+      item.resetTween = null;
     });
   }
 
-  // A fast mouse pass over a disc nudges and twists it.
+  // A fast mouse pass over a case nudges and twists it.
   swipe(index) {
-    const disc = this.discs[index];
-    if (!disc || this.reducedMotion || Math.hypot(this.move.speedX, this.move.speedY) < C.wipeMinSpeed) return;
+    const item = this.cases[index];
+    if (!item || this.reducedMotion || Math.hypot(this.move.speedX, this.move.speedY) < C.wipeMinSpeed) return;
     const push = C.wipePushMax;
     const twist = C.wipeSpinMax;
-    disc.pushVX += clamp(this.move.speedX * C.wipePush, -push, push);
-    disc.pushVY -= clamp(this.move.speedY * C.wipePush, -push, push);
-    disc.pushRotVY += clamp(this.move.speedX * C.wipeSpin, -twist, twist);
-    disc.pushRotVX += clamp(this.move.speedY * C.wipeSpin, -twist, twist);
+    item.pushVX += clamp(this.move.speedX * C.wipePush, -push, push);
+    item.pushVY -= clamp(this.move.speedY * C.wipePush, -push, push);
+    item.pushRotVY += clamp(this.move.speedX * C.wipeSpin, -twist, twist);
+    item.pushRotVX += clamp(this.move.speedY * C.wipeSpin, -twist, twist);
     this.request();
   }
 
-  // A click presses the disc in, tilting around the point that was hit.
-  pressDisc(index) {
-    const disc = this.discs[index];
-    if (!disc || this.reducedMotion) return;
-    disc.pushVZ -= C.pressDepth;
-    disc.pushRotVY += this.hitUV.x * C.pressTilt;
-    disc.pushRotVX -= this.hitUV.y * C.pressTilt;
+  // A click presses the case in, tilting around the point that was hit.
+  pressCase(index) {
+    const item = this.cases[index];
+    if (!item || this.reducedMotion) return;
+    item.pushVZ -= C.pressDepth;
+    item.pushRotVY += this.hitUV.x * C.pressTilt;
+    item.pushRotVX -= this.hitUV.y * C.pressTilt;
     this.request();
   }
 
@@ -992,7 +1512,7 @@ export class DiscScene {
   }
 
   pick() {
-    const targets = this.discs.filter((disc) => disc.group.visible).map((disc) => disc.pick);
+    const targets = this.cases.filter((item) => item.group.visible).map((item) => item.pick);
     if (!targets.length) return -1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects(targets, false)[0];
@@ -1034,7 +1554,7 @@ export class DiscScene {
   }
 
   onPointerDown(event) {
-    if (!this.ready || event.button !== 0 || !event.isPrimary || !this.discs.length) return;
+    if (!this.ready || event.button !== 0 || !event.isPrimary || !this.cases.length) return;
     const point = this.updatePointer(event);
     const hit = this.pick();
     this.press = {
@@ -1042,7 +1562,7 @@ export class DiscScene {
       touch: event.pointerType !== 'mouse',
       startX: point.x, startY: point.y,
       lastX: point.x, lastY: point.y, lastTime: performance.now(),
-      // Only the disc in front can be grabbed and spun.
+      // Only the case in front can be grabbed and turned.
       grabbed: hit >= 0 && Math.abs(hit - this.position) < 0.6 ? hit : -1,
     };
     this.hovered = hit;
@@ -1061,12 +1581,14 @@ export class DiscScene {
     this.inertia = 0;
     this.settle = 0;
     this.spinning = this.press.grabbed;
+    // Scrubbing the row closes an open case; turning it keeps it open.
+    if (this.spinning < 0) this.close();
     this.element.style.cursor = 'grabbing';
     this.element.style.userSelect = 'none';
-    const disc = this.discs[this.spinning];
-    if (disc) {
-      this.killTween(disc.resetTween);
-      disc.resetTween = null;
+    const item = this.cases[this.spinning];
+    if (item) {
+      this.killTween(item.resetTween);
+      item.resetTween = null;
     }
     try { this.element.setPointerCapture(event.pointerId); } catch {}
   }
@@ -1079,7 +1601,7 @@ export class DiscScene {
       const dx = point.x - press.startX;
       const dy = point.y - press.startY;
       if (Math.hypot(dx, dy) < C.dragStartDistance) return;
-      // Horizontal touch drags browse instead of spinning the front disc.
+      // Horizontal touch drags browse instead of turning the front case.
       if (press.touch && Math.abs(dx) >= Math.abs(dy)) press.grabbed = -1;
       this.startDrag(event);
     }
@@ -1093,11 +1615,11 @@ export class DiscScene {
     press.lastTime = now;
     this.request();
 
-    const disc = this.discs[this.spinning];
-    if (disc) {
+    const item = this.cases[this.spinning];
+    if (item) {
       const sensitivity = C.dragSensitivity * 0.0045;
-      disc.spinY = softSpin(disc.spinY, dx * sensitivity);
-      disc.spinX = softSpin(disc.spinX, dy * sensitivity);
+      item.spinY = softSpin(item.spinY, dx * sensitivity);
+      item.spinX = softSpin(item.spinX, dy * sensitivity);
       return;
     }
     const span = press.touch ? C.touchDragSpan : 6 * C.dragSensitivity;
@@ -1163,14 +1685,18 @@ export class DiscScene {
     }
     this.updatePointer(event);
     const hit = this.pick();
-    if (hit < 0) return;
+    // A click beside the cases closes the open one.
+    if (hit < 0) {
+      this.close();
+      return;
+    }
     this.resetWheel();
     if (hit !== this.activeIndex()) {
-      this.pressDisc(hit);
+      this.pressCase(hit);
       this.goTo(hit, 'click');
       return;
     }
-    this.flip(hit);
+    this.toggle(hit);
   }
 
   resetWheel() {
@@ -1242,7 +1768,7 @@ export class DiscScene {
     const aspect = width / height;
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
-    // Narrow viewports shrink the whole gallery so the front disc still fits.
+    // Narrow viewports shrink the whole gallery so the front case still fits.
     this.gallery.scale.setScalar(C.galleryScale * clamp(aspect / 1.5, 0.45, 1));
     const stats = this.frameStats;
     const dpr = window.devicePixelRatio || 1;
@@ -1308,14 +1834,14 @@ export class DiscScene {
       }
     }
 
-    if (this.discs.length && !this.dragging) {
+    if (this.cases.length && !this.dragging) {
       if (Math.abs(this.inertia) > 1e-5) {
         this.position += this.inertia * frames;
         this.inertia *= this.reducedMotion ? 0 : C.friction ** frames;
         if (Math.abs(this.inertia) < 4e-4) this.inertia = 0;
       }
       if (this.inertia === 0 && !this.indexTween) {
-        // Critically damped-ish spring onto the nearest disc.
+        // Critically damped-ish spring onto the nearest case.
         const nearest = Math.round(clamp(this.position, 0, this.lastIndex));
         const offset = nearest - this.position;
         if (offset !== 0 || Math.abs(this.settle) > 1e-5) {
@@ -1331,7 +1857,7 @@ export class DiscScene {
     }
     this.position = clamp(this.position, -0.05, this.lastIndex + 0.05);
 
-    // Smoothed scroll velocity drives the lean, bank and dip of the discs.
+    // Smoothed scroll velocity drives the lean, bank and dip of the cases.
     if (this.reducedMotion) {
       this.flow = 0;
     } else if (dt > 0) {
@@ -1342,7 +1868,7 @@ export class DiscScene {
     this.lastPosition = this.position;
 
     const active = this.activeIndex();
-    if (this.discs.length && active !== this.active) {
+    if (this.cases.length && active !== this.active) {
       this.active = active;
       this.onIndexChange(active);
     }
@@ -1354,7 +1880,7 @@ export class DiscScene {
     if (busy) this.raf = requestAnimationFrame(this.frame);
   }
 
-  // Places every disc on a shallow arc, then eases each one toward its slot. Discs further
+  // Places every case on a shallow arc, then eases each one toward its slot. Cases further
   // from the front follow more loosely, so the row trails behind fast moves.
   layout(dt) {
     const active = this.activeIndex();
@@ -1363,9 +1889,19 @@ export class DiscScene {
     const dip = moving ? Math.min(C.flowDipMax, Math.abs(this.flow) * C.flowDip) : 0;
     const follow = this.dragging ? C.followTight : C.followBase;
     const depth = Math.max(C.discThickness * 3, 0.12, C.depthGap) * 2.4;
+    // While a case opens, the others move aside and back to make room.
+    let focus = -1;
+    let room = 0;
+    this.cases.forEach((item, index) => {
+      if (item.open > room) {
+        room = item.open;
+        focus = index;
+      }
+    });
+    room = ease.power3InOut(clamp(room / 0.6, 0, 1));
     let residual = 0;
 
-    this.discs.forEach((disc, index) => {
+    this.cases.forEach((item, index) => {
       const offset = index - this.position;
       const distance = Math.abs(offset);
       const isActive = index === active;
@@ -1375,9 +1911,16 @@ export class DiscScene {
       let z = depth - Math.cos(angle) * depth;
       let rotX = 0;
       let rotY = -angle + lean * (isActive ? 1 : 1.12);
-      const rotZ = -lean * C.flowBank * (isActive ? 0.7 : 1);
-      const restScale = isActive ? 1 : Math.max(C.inactiveScale, 1 - distance * (1 - C.inactiveScale) * 0.6);
+      let rotZ = -lean * C.flowBank * (isActive ? 0.7 : 1);
+      const restScale = (isActive ? 1 : Math.max(C.inactiveScale, 1 - distance * (1 - C.inactiveScale) * 0.6)) * C.caseScale;
       let scale = restScale * this.intro.active;
+      if (focus >= 0 && index !== focus) {
+        const aside = Math.sign(index - focus) * room * C.openSpread;
+        const back = room * C.openRecede;
+        x += this.screenRight.x * aside - this.toCamera.x * back;
+        y += this.screenRight.y * aside - this.toCamera.y * back;
+        z += this.screenRight.z * aside - this.toCamera.z * back;
+      }
       let visible = distance <= C.renderRadius + 0.5;
       if (!isActive) {
         // Intro: neighbours grow in from behind, staggered by distance.
@@ -1389,63 +1932,81 @@ export class DiscScene {
         scale = restScale * grow;
         z -= (1 - Math.min(1, grow)) * C.flightRecede;
       }
-      disc.group.visible = visible;
+      item.group.visible = visible;
 
-      // The hovered disc tilts toward the cursor.
+      // Opening: first the case turns toward the camera and settles at its open size, then the lid
+      // swings open while the body slides right, keeping the open case centred.
+      const face = ease.power3InOut(clamp(item.open / 0.6, 0, 1));
+      const swing = ease.power3InOut(clamp((item.open - 0.3) / 0.7, 0, 1));
+      if (face > 0) {
+        rotX += (this.facing.x - rotX) * face;
+        rotY += (this.facing.y - rotY) * face;
+        rotZ += (this.facing.z - rotZ) * face;
+        scale += (C.openScale * this.intro.active - scale) * face;
+        x += this.toCamera.x * C.openForward * face;
+        y += this.toCamera.y * C.openForward * face;
+        z += this.toCamera.z * C.openForward * face;
+      }
+      item.lid.rotation.y = -swing * THREE.MathUtils.degToRad(C.lidOpenAngle);
+      item.body.position.x = -CASE.hingeX * MM * swing;
+      item.pick.scale.x = 1 + swing;
+      item.disc.group.visible = swing > 0;
+
+      // The hovered case tilts toward the cursor; an open case only tilts vertically.
       const hoverTarget = this.hovered === index && this.spinning < 0 ? 1 : 0;
-      disc.hover += (hoverTarget - disc.hover) * Math.min(1, dt * 10);
-      if (disc.hover > 0.001) {
-        rotX += disc.hover * C.hoverTiltStrength * this.pointer.y;
-        rotY += disc.hover * C.hoverTiltStrength * this.pointer.x;
+      item.hover += (hoverTarget - item.hover) * Math.min(1, dt * 10);
+      if (item.hover > 0.001) {
+        rotX += item.hover * C.hoverTiltStrength * this.pointer.y;
+        rotY += item.hover * C.hoverTiltStrength * this.pointer.x * (1 - face);
       }
 
-      const pushTotal = Math.abs(disc.pushX) + Math.abs(disc.pushY) + Math.abs(disc.pushZ) + Math.abs(disc.pushVX) + Math.abs(disc.pushVY)
-        + Math.abs(disc.pushVZ) + Math.abs(disc.pushRotX) + Math.abs(disc.pushRotY) + Math.abs(disc.pushRotVX) + Math.abs(disc.pushRotVY);
+      const pushTotal = Math.abs(item.pushX) + Math.abs(item.pushY) + Math.abs(item.pushZ) + Math.abs(item.pushVX) + Math.abs(item.pushVY)
+        + Math.abs(item.pushVZ) + Math.abs(item.pushRotX) + Math.abs(item.pushRotY) + Math.abs(item.pushRotVX) + Math.abs(item.pushRotVY);
       if (pushTotal > 8e-4) {
         const damping = Math.exp(-C.pushDamping * dt);
         const pull = Math.min(1, dt * C.pushReturn);
-        disc.pushX += disc.pushVX * dt; disc.pushVX *= damping; disc.pushX -= disc.pushX * pull;
-        disc.pushY += disc.pushVY * dt; disc.pushVY *= damping; disc.pushY -= disc.pushY * pull;
-        disc.pushZ += disc.pushVZ * dt; disc.pushVZ *= damping; disc.pushZ -= disc.pushZ * pull;
-        disc.pushRotX += disc.pushRotVX * dt; disc.pushRotVX *= damping; disc.pushRotX -= disc.pushRotX * pull;
-        disc.pushRotY += disc.pushRotVY * dt; disc.pushRotVY *= damping; disc.pushRotY -= disc.pushRotY * pull;
-        x += disc.pushX;
-        y += disc.pushY;
-        z += disc.pushZ;
+        item.pushX += item.pushVX * dt; item.pushVX *= damping; item.pushX -= item.pushX * pull;
+        item.pushY += item.pushVY * dt; item.pushVY *= damping; item.pushY -= item.pushY * pull;
+        item.pushZ += item.pushVZ * dt; item.pushVZ *= damping; item.pushZ -= item.pushZ * pull;
+        item.pushRotX += item.pushRotVX * dt; item.pushRotVX *= damping; item.pushRotX -= item.pushRotX * pull;
+        item.pushRotY += item.pushRotVY * dt; item.pushRotVY *= damping; item.pushRotY -= item.pushRotY * pull;
+        x += item.pushX;
+        y += item.pushY;
+        z += item.pushZ;
         residual += pushTotal;
       } else if (pushTotal > 0) {
-        Object.assign(disc, { pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0 });
+        Object.assign(item, { pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0 });
       }
 
-      const { position, rotation } = disc.group;
-      if (!disc.placed) {
+      const { position, rotation } = item.group;
+      if (!item.placed) {
         position.set(x, y, z);
         rotation.set(rotX, rotY, rotZ);
-        disc.group.scale.setScalar(scale);
-        disc.placed = true;
+        item.group.scale.setScalar(scale);
+        item.placed = true;
       } else {
         const k = clamp(follow - distance * C.followFalloff, C.followMin, C.followTight);
         const amount = this.reducedMotion ? 1 : Math.min(1, dt * k);
-        residual += Math.abs(x - position.x) + Math.abs(y - position.y) + Math.abs(z - position.z) + Math.abs(scale - disc.group.scale.x)
-          + Math.abs(rotX - rotation.x) + Math.abs(rotY - rotation.y) + Math.abs(rotZ - rotation.z) + Math.abs(hoverTarget - disc.hover);
+        residual += Math.abs(x - position.x) + Math.abs(y - position.y) + Math.abs(z - position.z) + Math.abs(scale - item.group.scale.x)
+          + Math.abs(rotX - rotation.x) + Math.abs(rotY - rotation.y) + Math.abs(rotZ - rotation.z) + Math.abs(hoverTarget - item.hover);
         position.x += (x - position.x) * amount;
         position.y += (y - position.y) * amount;
         position.z += (z - position.z) * amount;
-        disc.group.scale.setScalar(disc.group.scale.x + (scale - disc.group.scale.x) * amount);
+        item.group.scale.setScalar(item.group.scale.x + (scale - item.group.scale.x) * amount);
         rotation.x += (rotX - rotation.x) * amount;
         rotation.y += (rotY - rotation.y) * amount;
         rotation.z += (rotZ - rotation.z) * amount;
       }
 
-      // Tilt from a spin drag relaxes on its own; a flip (spinY) stays until flipped back.
-      if (this.spinning !== index && !disc.resetTween) {
-        disc.spinX += (0 - disc.spinX) * Math.min(1, dt * 2.5);
-        if (Math.abs(disc.spinX) < 1e-4) disc.spinX = 0;
-        residual += Math.abs(disc.spinX);
+      // Tilt from a drag relaxes on its own; the turn (spinY) eases back when the drag ends.
+      if (this.spinning !== index && !item.resetTween) {
+        item.spinX += (0 - item.spinX) * Math.min(1, dt * 2.5);
+        if (Math.abs(item.spinX) < 1e-4) item.spinX = 0;
+        residual += Math.abs(item.spinX);
       }
-      disc.spin.rotation.x = disc.spinX + disc.pushRotX;
-      disc.spin.rotation.y = disc.spinY + disc.pushRotY;
-      disc.group.renderOrder = Math.round(500 + position.z * 10 - index * 0.01);
+      item.spin.rotation.x = item.spinX + item.pushRotX;
+      item.spin.rotation.y = item.spinY + item.pushRotY;
+      item.group.renderOrder = Math.round(500 + position.z * 10 - index * 0.01);
     });
     return residual;
   }

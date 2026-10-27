@@ -14,7 +14,7 @@ decision changes.
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 | CD gallery: motion, CD look, real disc scans, loading screen, performance | Done (initial commit `bb3b070`) |
-| 1 | Jewel cases instead of discs, opening the front case | Next, waiting on open questions |
+| 1 | Jewel cases instead of discs, opening the front case | Done |
 | 2a | Booklet as a flip book with LeafThrough | Planned |
 | 2b | Disc to CD player animation, tracklist, 30-second previews | Planned |
 
@@ -25,7 +25,8 @@ npm install
 npm run dev        # Vite dev server
 npm run build      # production build into dist/
 npm run preview    # serve the build
-bash scripts/download-covers.sh   # refresh covers and disc scans (needs curl and jq)
+bash scripts/download-covers.sh   # refresh all artwork (needs curl and jq)
+bash scripts/download-covers.sh nevermind   # refresh only the listed albums
 ```
 
 ## Phase 0: what is implemented
@@ -34,18 +35,20 @@ bash scripts/download-covers.sh   # refresh covers and disc scans (needs curl an
 
 | File | Role |
 | --- | --- |
-| `src/scene.js` | Everything 3D: the `DiscScene` class, materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
+| `src/scene.js` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
 | `src/main.jsx` | Solid app: loading screen, caption, prev/next buttons, counter, keyboard shortcuts. Talks to the scene through its public methods. |
-| `src/data.js` | The album list. Each item: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, plus `color`, `accent`, `motif` for the generated placeholder art. |
-| `src/style.css` | Page shell (beige background, grain, bottom bar, loading screen). |
-| `scripts/download-covers.sh` | Fetches covers and disc scans from MusicBrainz and the Cover Art Archive. |
-| `public/covers/`, `public/discs/` | Local artwork, so the demo runs without network access. |
+| `src/data.js` | The album list. Each item: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, plus `color`, `accent`, `motif` for the generated placeholder art. |
+| `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
+| `scripts/download-covers.sh` | Fetches covers, disc scans, back inserts and booklet back pages from MusicBrainz and the Cover Art Archive. |
+| `public/covers/`, `public/discs/`, `public/backs/`, `public/booklets/` | Local artwork, so the demo runs without network access. |
 
 ### Scene API used by the UI
 
-`new DiscScene(element, albums, onIndexChange, { onProgress, onReady })`, then `step(delta)`,
-`goTo(index, source)`, `flip(index?)`, `setAlbums(albums)` and `destroy()`. The scene owns the
-position and reports the front disc through `onIndexChange`.
+`new GalleryScene(element, albums, onIndexChange, { onProgress, onReady })`, then `reveal()` once
+`onReady` has fired and the page is ready to show it, `step(delta)`,
+`goTo(index, source)`, `toggle(index?)`, `open(index?)`, `close()`, `setAlbums(albums)` and
+`destroy()`. The scene owns the position and reports the front case through `onIndexChange`.
+Phase 0 had `flip(index?)` instead of the open methods.
 
 ### Motion (ported from the reference)
 
@@ -53,7 +56,7 @@ The reference site's bundle keeps readable config names, so its constants were r
 its source rather than guessed. They live in `C` with the same names.
 
 - Layout: discs sit on a shallow arc (`angle = offset × 0.35`, `x = sin(angle) × hGap × 2.4`,
-  `z = 2.4 × (1 − cos(angle))`) inside a group rotated −30° on X and Y. Camera: 40° field of view at
+  `z = 2.4 × (1 − cos(angle))`) inside a group rotated −30° on X and Y (−22° since phase 1). Camera: 40° field of view at
   4.4 units. Next discs come toward the viewer on the right; earlier ones recede left into fog.
 - Each disc eases toward its slot at its own rate (`followBase`, `followFalloff`), so the row trails
   during fast moves. The row leans, banks and dips with scroll speed (`flowLean`, `flowBank`,
@@ -65,7 +68,8 @@ its source rather than guessed. They live in `C` with the same names.
   the nearest disc (`snapFreq`, `snapDamping`).
 - The wheel moves one album per gesture. A decaying envelope tells trackpad momentum apart from a
   fresh flick (`wheel*` constants).
-- Keys: arrows, Home, End, Space (flip). Clicking the front disc also flips it.
+- Keys: arrows, Home, End, Space (flip). Clicking the front disc also flips it. (Phase 1 replaced
+  the flip with opening the case.)
 - Touch: horizontal drags browse, flicks step one album.
 - Reduced motion: transitions jump instead of animating.
 
@@ -124,7 +128,8 @@ Proportions follow a real disc and the reference photos, as fractions of the dis
 3. MusicBrainz rate limits (about one request per second, 503 when exceeded). The script waits,
    retries, and keeps an existing scan if MusicBrainz can't be reached.
 
-Current coverage: 9 of 10 albums have a disc scan; Icon has none, so it uses its cover. After
+Current coverage: all 7 albums have a disc scan. (Phase 0 also had Sliver, Live at Reading and
+Icon; they were dropped in phase 1 to keep the classic discography up to the 2002 compilation.) After
 editing scans, update `disc:` paths in `src/data.js` by hand.
 
 ### Design decisions from review (do not reintroduce)
@@ -142,6 +147,10 @@ These came from rounds of feedback on the look. Each was tried and rejected:
 - Saturated rainbow spokes all around the disc with dark gaps (looked fake). Real discs show soft
   pastel wedges on bright silver.
 - A light outline around the clear hub or at the print edge.
+- Sharp reflections of the lights on the jewel case lid, such as the strip light's rectangle
+  (phase 1). Keep the lid's reflection a soft band.
+- Bright or tinted case edges, and a black page (phase 1): both read as white outlines.
+- An open case at a sideways angle (phase 1): it should face the viewer like an open book.
 
 General preference: match real photos of CDs rather than stylised effects. When in doubt, compare
 against reference photos (Wikimedia Commons has several freely licensed ones) before tuning.
@@ -156,29 +165,139 @@ the repo:
 - Navigate with arrow keys and record `requestAnimationFrame` intervals to count frames over 50 ms.
 - Load with `waitUntil: 'commit'` when testing the loading screen, because the page `load` event
   waits for the artwork.
+- Phase 1 used a small screenshot script (`playwright-core` from a sibling project, Chrome channel)
+  that runs steps such as key presses, clicks, held drags and `page.evaluate`, and compared against
+  the phase 0 build served from a temporary `git worktree`.
 
 ## Phase 1: jewel cases
 
 Goal: replace each disc with a CD jewel case showing the real cover, displayed and navigated
 exactly like the discs today. Clicking the front case opens it.
 
-- **Model:** a standard jewel case is about 142 × 125 × 10 mm. It has a clear lid hinged on the left
-  with the booklet's front cover behind it, and a black or clear tray holding the disc. Behind the
-  tray sits the back insert, whose ends fold into the two printed spines.
-- **Reuse:** the disc inside the tray is the existing disc model with its scan and data side.
-- **Opened state:** the lid swings open on its hinge; the disc sits in the tray on the right and the
-  booklet's inside on the left. Build the opened state in this phase, because phases 2a and 2b
-  start from it.
-- **Clear plastic:** reflections and edge highlights like the disc hub, no refraction.
-- **Layout:** retune spacing (`hGap`, `depthGap`, scale) for a square, thicker object. Keep the arc,
-  trailing, lean, hover tilt, wheel and keyboard behaviour.
-- **Interactions to redefine:** click on the front case opens it (today it flips the disc). Drag on
-  the closed case might rotate it to show the spine and back (open question).
-- **Artwork:** extend the download script to fetch Cover Art Archive images tagged `Back`, `Spine`,
-  `Tray` and `Booklet`. Coverage is patchier than covers, so plan fallbacks: a generated back insert
-  with the tracklist from MusicBrainz, and generated spines with artist and title.
-- **Suggested first step:** build one album end to end (Nevermind has the best artwork coverage),
-  then scale to all.
+Decisions from the open questions: a standard jewel case for every album (no digipaks or slim
+cases for now), and dragging the closed front case turns it to show the spines and back. Work
+follows the suggested order: one album (Nevermind) end to end, then the rest.
+
+### What is implemented
+
+- **Model** (`makeCase` and the `make*Geometry` functions in `src/scene.js`), built in millimetres
+  (one unit is 60 mm, the disc radius, so the phase 0 disc fits unchanged). Back to front: clear
+  base plate; back insert, whose ends fold forward into the two spines behind the base's clear side
+  walls; black tray with a rosette (platform and ring of teeth through the disc's hole); the disc
+  itself, turned up to ±25° per album; a black hinge strip, part of the tray, finely ribbed, full
+  height and reaching up to just under the lid (`hingeStrip`, `hingeRibs`); the booklet, 120 × 120 mm, pushed toward the open side; the
+  clear lid plate, with flanges along the top and bottom and two tabs holding the booklet. Hinge on
+  the left. Dimensions and depths are in `C` and the derived `CASE` object.
+- **Clear plastic** (`makeCasePlastic`, one material per case): built on the disc hub's plastic at
+  4% opacity, so edges seen side-on and glints stay opaque. No refraction. It drops reflections of
+  the direct lights: on the flat lid
+  the top strip light (a 6 × 0.4 area light) showed as a sharp pale rectangle whenever a hover tilt
+  lined it up. Instead the lid reflects a long, soft strip light running left to right
+  (`caseSheen`, `caseSheenWidth`, `caseSheenDir`): a soft band with no ends that slides across the
+  lid as the case tilts, like a softbox in product photos. Found by rendering the frame with each
+  light switched off and comparing.
+- **Same lighting open and closed:** the disc print, its rim and its clear hub reflect the same
+  soft strip light as the lid (`softReflection`, `withSoftReflection`, strength `discSheen`), not the
+  direct lights. Before, the open case showed the disc lit the phase 0 way, with the strip light's
+  hard white band across it. The gallery's lights are unchanged, so the disc's data side and the
+  printed parts keep their shading.
+- **Plastic detail** (so the case stops reading as a grey draft box, especially on black):
+  - Cut edges: the geometry marks faces that cut through a sheet (`sheet()` sets a `plasticEdge`
+    attribute), and the shader gives them a little extra opacity (`caseEdgeAlpha`) so they read as
+    thicker plastic. A brighter, tinted version with its own wide reflection band read as white
+    outlines ("fake 3D") and was removed.
+  - Wear: a shared, tiling map (`makeCaseWearCanvas`) with fine scratches, a few long faint ones,
+    cloth swirls, and smudges. Each case samples it at its own offset. Scratches show almost only
+    inside the reflected band (`caseScratches`); smudges make the band patchy (`caseSmudges`). A
+    first version with many scratches visible everywhere looked drawn on, as on the disc.
+  - Tray: satin black polystyrene with a fine stipple (normal and roughness maps from
+    `makeTrayMaps`, `trayStipple`), and a low ring outlining the disc well, cut by the tray's top
+    and bottom edges as on real trays.
+- **Page:** a warmer beige than phase 0 (`#ebe3d4`, radial gradient; fog to match). A solid black
+  page with white text was tried and reverted: on black, the case's edges and clear parts read as
+  white outlines.
+- **Prints:** the cover sits behind the lid (square crop of `cover`). The back insert texture is the
+  insert laid flat (spine, panel, spine), and the geometry folds it, so scans map without
+  per-album fixes and spine text reads the right way. `makeInsertCanvas` uses a scan with spines
+  as is, adds generated spines to a scan of the panel alone (told apart by aspect ratio), and
+  generates the whole insert (title, tracklist when `tracks` exists, barcode, spine text) without
+  a scan. The booklet's back page is a scan or a plain page in the album colour.
+- **Opening** (`open`, `close`, `toggle`, `animateOpen`; layout in `layout()`): one `open` value
+  per case, tweened over `openDuration`. In the first 60% the case turns most of the way to face
+  the camera with no sideways angle, tipped back by `openTilt` like a book lying open on a table,
+  comes forward (`openForward`) and settles at `openScale`, while the
+  other cases move aside and back along the screen axes (`openSpread`, `openRecede`). From 30% on,
+  the lid swings 180° about the hinge and the body slides right so the open case stays centred.
+  Hovering the open case tilts it only vertically.
+  Open, the lid lies flat on the left showing the booklet's back page, and the disc sits in the
+  tray on the right. Phases 2a and 2b start from this state.
+- **Interactions:** click or Space opens the front case and closes it again. A click beside the
+  cases, Escape, moving to another album (keys, wheel, buttons, clicking a side case) or scrubbing
+  the row closes it. Dragging the front case, open or closed, turns it with the phase 0 soft limit
+  and it eases back on release. Hover tilt, wipe nudges, trailing, lean, wheel and keyboard
+  behaviour are unchanged.
+- **Layout retune:** `caseScale` 0.78 and `hGap` 2.8 (was 2.3) leave more room between cases than
+  between the discs. The gallery tilt is −22° on X and Y (was −30°, the reference's value): at −30°
+  the square cases looked oddly skewed, so they now turn more toward the viewer.
+- **Loading sequence:** the scene compiles its shaders when everything has loaded (`prepare`), then
+  reports `onReady`. The page fades the loading screen out, and on its `transitionend` calls
+  `reveal()`, which fades the gallery in with the intro; the caption follows 0.3 s later. With
+  reduced motion there is no fade, so the page reveals at once.
+- **Performance:** discs are hidden while their case is closed (shown once for the shader compile at
+  reveal). Navigation plus opening and closing at 1440 × 900 with vsync: no frames over 25 ms.
+
+### Reference photos
+
+Checked against 10 jewel case photos on Wikimedia Commons (search "jewel case CD"): front views
+with black and clear trays, open cases on a table and in the hand, stacks and racks showing the
+spines, and a close-up of the case edges. Findings: the lid is clear everywhere, including along
+the hinge. On the base, the tray rises into a ribbed strip along the hinge in the tray's colour
+(black in most), visible through the lid when closed and beside the disc when open. Spines show
+the insert through the clear base walls. Earlier, the hinge side showed clear plastic over the
+black tray floor; that was replaced by the strip.
+
+### Artwork
+
+- The download script now takes the disc scan and the back insert from the same edition: the
+  earliest CD release with both a `Medium` and a `Back` image. For Nevermind that is a 1991 US BMG
+  Direct pressing (release `347666eb`), which replaced the Canadian Columbia House disc scan used in
+  phase 0. The Cover Art Archive answered that release with an error at first; when it does, the
+  script falls back to the next release.
+- Covers are now fetched at 1200 px (500 px fallback), since the case shows the cover larger.
+- No release had a `Tray` image (the inside of the insert, seen through clear trays). With black
+  trays it is hidden, so it is not fetched.
+- The booklet's back page has no reliable tag: `Booklet` images come unordered, and `Front,Booklet`
+  can be the whole fold-out (as on the German 1991 release). So the script lists it per album as
+  `release/imageId@left|right`. Nevermind uses the left half of the Canadian release's outer spread
+  (`350a8190`). `sips` reads a crop offset of 0 as "centred", so the left half is cut from a
+  mirrored copy.
+- All 7 albums have a disc scan, a back insert and a booklet back page from the archive. For the
+  other six the same-edition rule picked the editions already used for their phase 0 disc scans,
+  so those scans did not change. Bleach's back insert is a scan of the panel without spines, so
+  its spines are generated. Booklet back pages were picked by eye from contact sheets: tagged
+  "Back Page" where it exists (In Utero, Nirvana), the panel with the catalogue number (Bleach),
+  the left half of the outer spread (Incesticide), the image tagged `Back,Booklet` (MTV
+  Unplugged), and for Muddy Banks, whose edition has no booklet scans, a single back page from
+  another release (`6213251a`). Checked by opening and turning every case.
+- Since no album needs a generated back insert any more, tracklists (`tracks`) are not fetched yet.
+  The generated insert and its tracklist support stay as the fallback for future albums.
+
+### Page
+
+- The Nirvana wordmark sits top left, 42 px from the left and 39 px from the top, matching the
+  caption's inset (20 and 24 px on phones). It is `src/nirvana-logo.svg`, cleaned from Wikimedia
+  Commons' `NirvanaLogo.svg` (public domain as a simple text logo, taken from the 2002 compilation
+  cover; possibly trademarked): background removed, cropped to the letters, filled with
+  `currentColor`. It fades in with the caption.
+- The caption no longer names the band (the page is about one band): year and kind, then title.
+  When the album changes it fades out and down slightly, swaps, and fades back in (0.22 s each
+  way); several quick moves keep it hidden until they settle.
+
+### Possible follow-ups
+
+- Clear trays (needs `Tray` scans or a generated inside of the insert).
+- A narrower open pose on phones (it fits at 390 px wide, with little margin).
+- Fetch `tracks` from MusicBrainz in the download script if albums without back scans are added.
 
 ## Phase 2a: booklet as a flip book
 
@@ -224,9 +343,10 @@ Integration plan:
 
 ## Open questions
 
-1. Standard jewel case for every album, or some digipaks or slim cases?
-2. On the closed case, should a drag rotate it to show the spine and back?
-3. Player style: portable Discman, hi-fi deck with a sliding tray, or sketch both? (Phase 2b.)
+1. Player style: portable Discman, hi-fi deck with a sliding tray, or sketch both? (Phase 2b.)
+
+Answered: every album uses a standard jewel case; a drag on the closed case turns it to show the
+spines and back (both phase 1).
 
 ## Later ideas (from the original README)
 
