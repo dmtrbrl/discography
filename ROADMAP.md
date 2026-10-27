@@ -25,8 +25,9 @@ npm install
 npm run dev        # Vite dev server
 npm run build      # production build into dist/
 npm run preview    # serve the build
-bash scripts/download-covers.sh   # refresh all artwork (needs curl and jq)
-bash scripts/download-covers.sh nevermind   # refresh only the listed albums
+bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
+bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
+# Open /?band=<folder> to show another band from public/bands/ (default: nirvana).
 ```
 
 ## Phase 0: what is implemented
@@ -36,15 +37,16 @@ bash scripts/download-covers.sh nevermind   # refresh only the listed albums
 | File | Role |
 | --- | --- |
 | `src/scene.js` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
-| `src/main.jsx` | Solid app: loading screen, caption, prev/next buttons, counter, keyboard shortcuts. Talks to the scene through its public methods. |
-| `src/data.js` | The album list. Each item: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, plus `color`, `accent`, `motif` for the generated placeholder art. |
+| `src/main.jsx` | Solid app: loading screen, logo, caption, bubble cursor, screen-reader prev/next buttons, keyboard shortcuts. Talks to the scene through its public methods. |
+| `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, `logo`, `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script. Paths are relative to the JSON file. |
+| `src/band.js` | Loads the band picked by `?band=` (default `nirvana`), resolves its paths and adds the band name to each album. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
-| `scripts/download-covers.sh` | Fetches covers, disc scans, back inserts and booklet back pages from MusicBrainz and the Cover Art Archive. |
-| `public/covers/`, `public/discs/`, `public/backs/`, `public/booklets/` | Local artwork, so the demo runs without network access. |
+| `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
+| `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
 
 ### Scene API used by the UI
 
-`new GalleryScene(element, albums, onIndexChange, { onProgress, onReady })`, then `reveal()` once
+`new GalleryScene(element, albums, onIndexChange, { onProgress, onReady, onPointer })`, then `reveal()` once
 `onReady` has fired and the page is ready to show it, `step(delta)`,
 `goTo(index, source)`, `toggle(index?)`, `open(index?)`, `close()`, `setAlbums(albums)` and
 `destroy()`. The scene owns the position and reports the front case through `onIndexChange`.
@@ -119,18 +121,20 @@ Proportions follow a real disc and the reference photos, as fractions of the dis
 
 ### Artwork sources
 
-`scripts/download-covers.sh`, per album (release group IDs are listed in the script):
+`scripts/download-covers.sh`, per album (release group IDs come from `band.json`):
 
-1. Front cover: `coverartarchive.org/release-group/<id>/front-500` into `public/covers/`.
+1. Front cover: `coverartarchive.org/release-group/<id>/front-1200` (500 px fallback) into `covers/`.
 2. Disc scan: lists the release group's CD releases on MusicBrainz, oldest first (ties broken by
    ID, so reruns are stable), and takes the first Cover Art Archive image tagged `Medium`. Saved to
-   `public/discs/`, shrunk to 1200 px with `sips` when available.
+   `discs/`, shrunk to 1200 px with `sips` when available. (Phase 1 added back inserts and
+   booklet pages; see below.)
 3. MusicBrainz rate limits (about one request per second, 503 when exceeded). The script waits,
    retries, and keeps an existing scan if MusicBrainz can't be reached.
 
 Current coverage: all 7 albums have a disc scan. (Phase 0 also had Sliver, Live at Reading and
-Icon; they were dropped in phase 1 to keep the classic discography up to the 2002 compilation.) After
-editing scans, update `disc:` paths in `src/data.js` by hand.
+Icon; they were dropped in phase 1 to keep the classic discography up to the 2002 compilation.)
+The script records the paths of downloaded files in `band.json`; after editing scans by hand,
+update the paths there.
 
 ### Design decisions from review (do not reintroduce)
 
@@ -228,14 +232,19 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
   comes forward (`openForward`) and settles at `openScale`, while the
   other cases move aside and back along the screen axes (`openSpread`, `openRecede`). From 30% on,
   the lid swings 180° about the hinge and the body slides right so the open case stays centred.
+  (Since the bubble cursor, the case closes from the Back button rather than a click on it.)
   Hovering the open case tilts it only vertically.
   Open, the lid lies flat on the left showing the booklet's back page, and the disc sits in the
   tray on the right. Phases 2a and 2b start from this state.
 - **Interactions:** click or Space opens the front case and closes it again. A click beside the
   cases, Escape, moving to another album (keys, wheel, buttons, clicking a side case) or scrubbing
-  the row closes it. Dragging the front case, open or closed, turns it with the phase 0 soft limit
-  and it eases back on release. Hover tilt, wipe nudges, trailing, lean, wheel and keyboard
-  behaviour are unchanged.
+  the row closes it. Dragging the closed front case turns it with the phase 0 soft limit, counted
+  from where it rests. On release it turns over to its back (over `flipDuration`) if it was turned
+  past halfway or flicked fast (`flipFlickVelocity`; mouse only, since horizontal touch drags
+  browse); otherwise it eases back. A turned-over case stays there until the gallery moves: any navigation or scrub turns the front case back to its
+  front. The open case doesn't turn or scrub when dragged; it only follows the cursor a little
+  (`openHoverTilt` of the hover tilt, both axes). Hover tilt, wipe nudges, trailing, lean, wheel
+  and keyboard behaviour are otherwise unchanged.
 - **Layout retune:** `caseScale` 0.78 and `hGap` 2.8 (was 2.3) leave more room between cases than
   between the discs. The gallery tilt is −22° on X and Y (was −30°, the reference's value): at −30°
   the square cases looked oddly skewed, so they now turn more toward the viewer.
@@ -284,14 +293,36 @@ black tray floor; that was replaced by the strip.
 
 ### Page
 
-- The Nirvana wordmark sits top left, 42 px from the left and 39 px from the top, matching the
-  caption's inset (20 and 24 px on phones). It is `src/nirvana-logo.svg`, cleaned from Wikimedia
-  Commons' `NirvanaLogo.svg` (public domain as a simple text logo, taken from the 2002 compilation
-  cover; possibly trademarked): background removed, cropped to the letters, filled with
-  `currentColor`. It fades in with the caption.
-- The caption no longer names the band (the page is about one band): year and kind, then title.
-  When the album changes it fades out and down slightly, swaps, and fades back in (0.22 s each
-  way); several quick moves keep it hidden until they settle.
+- The Nirvana wordmark sits top centre, 39 px from the top (24 px on phones). It is `public/bands/nirvana/logo.svg`, cleaned
+  from Wikimedia Commons' `NirvanaLogo.svg` (public domain as a simple text logo, taken from the
+  2002 compilation cover; possibly trademarked): background removed, cropped to the letters. The
+  page draws the band's logo as a CSS mask filled with the theme's ink colour, so any one-colour
+  logo file works (no inline SVG from config). It fades in with the caption.
+- Band config (`band.json`): the page loads it before rendering, applies the theme as CSS
+  variables (muted text tones are `color-mix`es of ink and background), sets the fog to the
+  background, and sets the title and browser bar colour. A missing band shows an error. Tested
+  with a throwaway second band reusing the Nirvana assets through `../nirvana/` paths.
+- The caption no longer names the band (the page is about one band): year and kind, then title,
+  centred under the front case. When the album changes it fades out, swaps, and
+  fades back in (0.22 s each way); several quick moves keep it hidden until they settle.
+- No visible prev/next buttons or counter (they distracted); the buttons stay for screen readers.
+- Bubble cursor (prototype, mouse only): a dark circle that sits on the pointer (a lagging follow
+  was tried and rejected) and says what a click does: Open on the front case, Prev or Next on side cases, Drag while
+  dragging, and a small dot otherwise, including over an open case (a "Close" label there was
+  rejected). An open case closes with a Back button top left (42 px / 39 px, like the caption's
+  inset), Escape, Space or a click beside it; a click on the open case itself does nothing yet,
+  leaving it for the disc and booklet in phase 2. Over the Back button the bubble becomes a 40 px black dot, and
+  a white copy of the button, clipped to the dot's circle, shows the text white
+  inside it.
+- Album title in Instrument Serif (Google Fonts) at 40 px (32 px on phones). Its condensed, high-contrast letters echo the Onyx-style logo; Georgia read as generic.
+  Compared against Bodoni Moda, Gloock, Fraunces, Young Serif, Libre Caslon Display, Playfair
+  Display SC, Anton and Oswald. Year and kind are in the same family, italic, sentence case, 18 px (15 px on phones), with a
+  slash and 5 px either side (no word spaces). Tried for them and rejected: DM Mono caps (wide
+  spaces around the slash), Instrument Sans caps (didn't sit well with the title); also compared
+  Geist Mono, IBM Plex Mono, Inter Tight, Hanken, Schibsted and Space Grotesk. The Back button uses
+  the same italic. The scene
+  reports what the pointer is over through `onPointer({ hovered, active, opened, dragging })`.
+- When a case opens the neighbours move fully off screen (`openSpread` 5, `openRecede` 1.6).
 
 ### Possible follow-ups
 
@@ -351,5 +382,5 @@ spines and back (both phase 1).
 ## Later ideas (from the original README)
 
 - Artist search: search MusicBrainz for an artist, list album release groups, resolve artwork through
-  the Cover Art Archive, normalise to the `data.js` shape and call `scene.setAlbums()`. Needs
+  the Cover Art Archive, normalise to the `band.json` album shape and call `scene.setAlbums()`. Needs
   debouncing, rate limiting, caching and handling of missing artwork.

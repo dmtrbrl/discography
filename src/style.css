@@ -1,50 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap');
 
-:root { font-family: 'DM Sans', Arial, sans-serif; color: #252521; background: #ebe3d4; font-synthesis: none; }
+/* The band's theme (band.json) sets these; the values here only show before it loads. */
+:root { --bg: #ebe3d4; --bg-center: #f6f0e5; --bg-edge: #e1d7c5; --ink: #252521; font-family: 'DM Sans', Arial, sans-serif; color: var(--ink); background: var(--bg); font-synthesis: none; }
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; width: 100%; min-height: 100%; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.app-shell { position: relative; min-height: 100svh; overflow: hidden; background: radial-gradient(circle at 48% 38%, #f6f0e5 0, #ebe3d4 68%, #e1d7c5 100%); }
+.app-shell { position: relative; min-height: 100svh; overflow: hidden; background: radial-gradient(circle at 48% 38%, var(--bg-center) 0, var(--bg) 68%, var(--bg-edge) 100%); }
+.load-error { margin: 0; padding: 42px; font: 500 12px 'DM Mono', monospace; }
 .grain { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .24; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.83' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E"); }
 .stage { position: absolute; inset: 0; cursor: grab; touch-action: none; }
 .stage canvas { display: block; width: 100%; height: 100%; }
 .stage { transition: opacity .7s ease; }
 .stage.is-hidden { opacity: 0; }
-.bottom-bar { position: absolute; left: 42px; right: 42px; bottom: 39px; z-index: 3; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; pointer-events: none; }
-.album-caption { max-width: min(560px, 62vw); transition: opacity .22s ease, transform .22s ease; }
-.album-caption.is-switching { opacity: 0; transform: translateY(6px); }
-.logo { position: absolute; left: 42px; top: 39px; z-index: 3; width: 120px; color: #252521; pointer-events: none; transition: opacity .6s ease .3s; }
-.logo svg { display: block; width: 100%; height: auto; }
+.bottom-bar { position: absolute; left: 42px; right: 42px; bottom: 39px; z-index: 3; display: flex; justify-content: center; pointer-events: none; text-align: center; }
+.album-caption { max-width: min(760px, 86vw); transition: opacity .22s ease; }
+.album-caption.is-switching { opacity: 0; }
+.stage.has-bubble, .stage.has-bubble * { cursor: none !important; }
+.bubble { position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none; will-change: transform; }
+.bubble-body { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: var(--ink); color: var(--bg-center); opacity: 0; transform: scale(0); transition: transform .35s cubic-bezier(.32,.72,0,1), opacity .2s ease, background-color .25s ease; }
+.bubble-body.is-shown { opacity: 1; transform: scale(.14); }
+.bubble-body.is-shown.has-label { transform: scale(1); }
+.bubble-body.is-shown.has-label.is-pressed { transform: scale(.9); }
+.bubble-body.is-shown.is-back { transform: scale(.526); }
+.back-button.has-bubble { cursor: none; }
+.back-button.back-copy { z-index: 6; color: #fff; pointer-events: none; clip-path: circle(0 at 0 0); }
+.bubble-label { font: 500 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .12em; opacity: 0; transition: opacity .2s ease; }
+.has-label .bubble-label { opacity: 1; transition-delay: .08s; }
+.logo { position: absolute; left: 50%; top: 39px; z-index: 3; width: 120px; translate: -50% 0; background: var(--ink); mask: var(--logo) center / contain no-repeat; pointer-events: none; transition: opacity .6s ease .3s; }
 .logo.is-hidden { opacity: 0; }
-.eyebrow { font: 500 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .12em; color: #5f5e58; }
-.eyebrow-separator { padding: 0 9px; color: #aaa8a0; }
-h1 { margin: 12px 0 0; font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: clamp(32px, 4.2vw, 65px); letter-spacing: -.055em; line-height: .95; }
-.controls { display: flex; align-items: center; gap: 22px; pointer-events: auto; padding-bottom: 2px; user-select: none; }
-.nav-button { display: grid; place-items: center; border: 1px solid #797870; border-radius: 50%; width: 50px; height: 50px; color: #252521; background: rgba(250,245,236,.4); font-size: 26px; line-height: 1; transition: background .18s, transform .18s, opacity .18s; }
-.nav-button:hover:not(:disabled) { background: #252521; color: white; transform: scale(1.04); }
-.nav-button:disabled { opacity: .32; cursor: default; }
-.counter { display: flex; align-items: center; gap: 11px; font: 400 12px 'DM Mono', monospace; color: #77766f; }
-.counter strong { color: #252521; font-weight: 500; }
-.counter-rule { display: inline-block; width: 33px; height: 1px; background: #88877e; }
+.back-button { position: absolute; left: 42px; top: 39px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 8px 0; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; opacity: 0; visibility: hidden; translate: -8px 0; transition: opacity .3s ease, translate .3s ease, visibility .3s; }
+.back-button span { font: normal 400 18px/1 'DM Sans', sans-serif; }
+.back-button.is-shown { opacity: 1; visibility: visible; translate: 0 0; transition-delay: .5s, .5s, 0s; }
+.eyebrow { font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); }
+.eyebrow-separator { padding: 0 5px; color: color-mix(in srgb, var(--ink) 35%, var(--bg)); }
+h1 { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 40px; letter-spacing: -.005em; line-height: 1.05; }
 .bottom-bar { transition: opacity .6s ease .3s, visibility .6s ease .3s; }
 .bottom-bar.is-hidden { opacity: 0; visibility: hidden; }
 .preloader { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; transition: opacity .5s ease, visibility .5s ease; }
 .preloader.is-done { opacity: 0; visibility: hidden; }
-.preloader-label { font: 500 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .12em; color: #77766f; }
-.preloader-label strong { color: #252521; font-weight: 500; }
-.preloader-track { width: 120px; height: 1px; background: #cfcdc5; overflow: hidden; }
-.preloader-fill { display: block; height: 100%; background: #252521; transform-origin: left; transition: transform .3s ease; }
+.preloader-label { font: 500 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .12em; color: color-mix(in srgb, var(--ink) 60%, var(--bg)); }
+.preloader-label strong { color: var(--ink); font-weight: 500; }
+.preloader-track { width: 120px; height: 1px; background: color-mix(in srgb, var(--ink) 15%, var(--bg)); overflow: hidden; }
+.preloader-fill { display: block; height: 100%; background: var(--ink); transform-origin: left; transition: transform .3s ease; }
 @media (max-width: 650px) {
-  .bottom-bar { left: 20px; right: 20px; bottom: 24px; align-items: flex-end; }
-  .logo { left: 20px; top: 24px; width: 92px; }
-  .album-caption { max-width: 60vw; }
-  h1 { font-size: clamp(30px, 8vw, 46px); }
-  .eyebrow { font-size: 9px; line-height: 1.5; }
-  .controls { gap: 9px; }
-  .nav-button { width: 38px; height: 38px; font-size: 21px; }
-  .counter { gap: 5px; font-size: 10px; }
-  .counter-rule { width: 12px; }
+  .bottom-bar { left: 20px; right: 20px; bottom: 24px; }
+  .logo { top: 24px; width: 92px; }
+  .back-button { left: 20px; top: 24px; }
+  .album-caption { max-width: 90vw; }
+  h1 { font-size: 32px; }
+  .eyebrow { font-size: 15px; }
 }
-@media (prefers-reduced-motion: reduce) { .nav-button, .stage, .logo, .bottom-bar, .album-caption, .preloader, .preloader-fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .stage, .logo, .back-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .preloader, .preloader-fill { transition: none; } }

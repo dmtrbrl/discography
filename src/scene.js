@@ -36,12 +36,16 @@ const C = {
   // Opening: the case turns square to the camera and tips back by openTilt degrees, like a book
   // lying open on a table seen from the front (no sideways angle). It comes forward and settles at
   // openScale, the neighbours move aside and back (on screen), then the lid swings open.
-  openDuration: 1.3, lidOpenAngle: 180, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 2.6, openRecede: 1.2,
+  openDuration: 1.3, lidOpenAngle: 180, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
   galleryScale: 1.08, hGap: 2.8, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
   cameraDistance: 4.4, cameraFOV: 40, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
   keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
+  // A drag on the front case turns it over to its back when released past halfway, or when faster
+  // than flipFlickVelocity (radians per frame). It stays there until the gallery moves. An open case doesn't turn; it only
+  // tilts toward the cursor at openHoverTilt of the usual hover tilt.
+  flipFlickVelocity: 0.07, flipDuration: 0.9, openHoverTilt: 0.4,
   flowLean: 0.055, flowLeanMax: 0.3, flowBank: 0.32, flowDip: 0.014, flowDipMax: 0.09,
   followTight: 15, followBase: 11, followFalloff: 1.15, followMin: 6.5, snapFreq: 9.5, snapDamping: 12,
   wipePush: 0.012, wipePushMax: 0.5, wipeSpin: 0.009, wipeSpinMax: 0.4, wipeMinSpeed: 9, pushDamping: 4.5, pushReturn: 3.4, pressDepth: 0.55, pressTilt: 1.5,
@@ -922,7 +926,7 @@ function makeFallbackArt(album, index) {
   ctx.fillStyle = 'rgba(255,255,255,.88)';
   ctx.font = '500 22px Arial, sans-serif';
   ctx.letterSpacing = '8px';
-  ctx.fillText((album.artist || 'NIRVANA').toUpperCase(), 105, 120);
+  ctx.fillText((album.artist || '').toUpperCase(), 105, 120);
   ctx.letterSpacing = '0px';
   fitText(ctx, album.title.toUpperCase(), 720, 88);
   const words = album.title.toUpperCase().split(' ');
@@ -977,7 +981,7 @@ function makeBookletBackCanvas(album) {
   ctx.font = '500 20px Arial, sans-serif';
   ctx.letterSpacing = '8px';
   ctx.textAlign = 'center';
-  ctx.fillText((album.artist || 'NIRVANA').toUpperCase(), size / 2, size - 90);
+  ctx.fillText((album.artist || '').toUpperCase(), size / 2, size - 90);
   return canvas;
 }
 
@@ -999,7 +1003,7 @@ function makeInsertCanvas(album, image) {
     ctx.drawImage(image, 0, 0, width, height);
     return canvas;
   }
-  const artist = (album.artist || 'NIRVANA').toUpperCase();
+  const artist = (album.artist || '').toUpperCase();
   const accent = album.accent || '#dcc5a2';
   ctx.fillStyle = album.color || '#3b3a36';
   ctx.fillRect(0, 0, width, height);
@@ -1117,7 +1121,7 @@ function makeCase(shared, album, seed) {
   group.add(pick);
   return {
     group, spin, body, lid, pick, disc, prints, plastic, disposed: false,
-    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, resetTween: null, placed: false,
+    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
 }
@@ -1125,11 +1129,15 @@ function makeCase(shared, album, seed) {
 export class GalleryScene {
   // onProgress(loaded, total) reports artwork loading; onReady fires once everything is loaded and
   // compiled. The gallery then stays hidden until reveal(), so the page can clear its loading screen first.
-  constructor(element, albums, onIndexChange, { onProgress, onReady } = {}) {
+  // onPointer({ hovered, active, opened, dragging }) reports what the pointer is over, for a custom cursor.
+  // fogColor should match the page background, so distant cases fade into it.
+  constructor(element, albums, onIndexChange, { onProgress, onReady, onPointer, fogColor = C.fogColor } = {}) {
     this.element = element;
     this.onIndexChange = onIndexChange;
     this.onProgress = onProgress;
     this.onReady = onReady;
+    this.onPointer = onPointer;
+    this.pointerState = '';
     this.ready = false;
     this.albums = [];
     this.cases = [];
@@ -1178,7 +1186,7 @@ export class GalleryScene {
     element.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(C.fogColor, 7, 14);
+    this.scene.fog = new THREE.Fog(fogColor, 7, 14);
     this.camera = new THREE.PerspectiveCamera(C.cameraFOV, 1, 0.1, 100);
     this.camera.position.set(0, 0, C.cameraDistance);
     this.camera.lookAt(0, 0, 0);
@@ -1412,8 +1420,9 @@ export class GalleryScene {
     if (!this.ready || !this.cases.length) return;
     const target = clamp(Math.round(index), 0, this.lastIndex);
     const motion = motionFor(source, Math.abs(target - this.position));
-    // Moving to another case closes the open one on the way.
+    // Moving to another case closes the open one on the way, and turns the front case back to its front.
     if (target !== this.opened) this.close();
+    if (target !== this.activeIndex()) this.resetSpin(this.activeIndex());
     this.target = target;
     this.inertia = 0;
     this.settle = 0;
@@ -1452,12 +1461,14 @@ export class GalleryScene {
     this.opened = index;
     this.resetSpin(index);
     this.animateOpen(index, 1);
+    this.updateCursor();
   }
 
   close() {
     if (this.opened < 0) return;
     this.animateOpen(this.opened, 0);
     this.opened = -1;
+    this.updateCursor();
   }
 
   // Tweens a case's open amount; a reversal part way through takes only the remaining time.
@@ -1470,13 +1481,28 @@ export class GalleryScene {
     });
   }
 
+  // Turns a case back to its front.
   resetSpin(index) {
+    this.settleSpin(index, 0);
+  }
+
+  // Eases a case to rest at a turn of `rest` (0 is the front, ±π the back), then wraps the angle
+  // into one turn so later flips start from there.
+  settleSpin(index, rest, duration = C.resetDuration) {
     const item = this.cases[index];
-    if (!item || (Math.abs(item.spinX) < 0.001 && Math.abs(item.spinY) < 0.001)) return;
-    this.killTween(item.resetTween);
-    item.resetTween = this.tween(item, { spinX: 0, spinY: 0 }, this.reducedMotion ? 0.15 : C.resetDuration, ease.power3Out, () => {
+    if (!item) return;
+    const settled = () => {
       item.resetTween = null;
-    });
+      item.spinRest = rest - Math.PI * 2 * Math.round(rest / (Math.PI * 2));
+      item.spinY += item.spinRest - rest;
+    };
+    this.killTween(item.resetTween);
+    item.resetTween = null;
+    if (Math.abs(item.spinX) < 0.001 && Math.abs(item.spinY - rest) < 0.001) {
+      settled();
+      return;
+    }
+    item.resetTween = this.tween(item, { spinX: 0, spinY: rest }, this.reducedMotion ? 0.15 : duration, ease.power3Out, settled);
   }
 
   // A fast mouse pass over a case nudges and twists it.
@@ -1524,6 +1550,11 @@ export class GalleryScene {
 
   updateCursor() {
     if (!this.press) this.element.style.cursor = this.hovered >= 0 ? 'pointer' : 'grab';
+    const state = { hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging };
+    const key = Object.values(state).join();
+    if (key === this.pointerState) return;
+    this.pointerState = key;
+    this.onPointer?.(state);
   }
 
   onPointerMove(event) {
@@ -1557,13 +1588,16 @@ export class GalleryScene {
     if (!this.ready || event.button !== 0 || !event.isPrimary || !this.cases.length) return;
     const point = this.updatePointer(event);
     const hit = this.pick();
+    // A drag on the open case does nothing: it neither turns nor scrubs the row.
+    const locked = hit >= 0 && hit === this.opened;
     this.press = {
       id: event.pointerId,
       touch: event.pointerType !== 'mouse',
       startX: point.x, startY: point.y,
       lastX: point.x, lastY: point.y, lastTime: performance.now(),
+      locked, spinVelocity: 0,
       // Only the case in front can be grabbed and turned.
-      grabbed: hit >= 0 && Math.abs(hit - this.position) < 0.6 ? hit : -1,
+      grabbed: !locked && hit >= 0 && Math.abs(hit - this.position) < 0.6 ? hit : -1,
     };
     this.hovered = hit;
     window.addEventListener('pointermove', this.onPointerDrag, { passive: false });
@@ -1581,10 +1615,14 @@ export class GalleryScene {
     this.inertia = 0;
     this.settle = 0;
     this.spinning = this.press.grabbed;
-    // Scrubbing the row closes an open case; turning it keeps it open.
-    if (this.spinning < 0) this.close();
+    // Scrubbing the row closes an open case and turns the front case back to its front.
+    if (this.spinning < 0 && !this.press.locked) {
+      this.close();
+      this.resetSpin(this.activeIndex());
+    }
     this.element.style.cursor = 'grabbing';
     this.element.style.userSelect = 'none';
+    this.updateCursor();
     const item = this.cases[this.spinning];
     if (item) {
       this.killTween(item.resetTween);
@@ -1614,12 +1652,15 @@ export class GalleryScene {
     press.lastY = point.y;
     press.lastTime = now;
     this.request();
+    if (press.locked) return;
 
     const item = this.cases[this.spinning];
     if (item) {
       const sensitivity = C.dragSensitivity * 0.0045;
-      item.spinY = softSpin(item.spinY, dx * sensitivity);
+      // The soft limit counts from where the case rests, front or back.
+      item.spinY = item.spinRest + softSpin(item.spinY - item.spinRest, dx * sensitivity);
       item.spinX = softSpin(item.spinX, dy * sensitivity);
+      press.spinVelocity += ((16.667 / elapsed) * dx * sensitivity - press.spinVelocity) * 0.5;
       return;
     }
     const span = press.touch ? C.touchDragSpan : 6 * C.dragSensitivity;
@@ -1656,8 +1697,19 @@ export class GalleryScene {
     this.request();
     if (!wasDragging) return;
     this.suppressClickUntil = performance.now() + 140;
+    if (press.locked) {
+      this.inertia = 0;
+      return;
+    }
     if (spinning >= 0) {
-      this.resetSpin(spinning);
+      // Turned past halfway, or flicked, the case turns over; otherwise it eases back to where it
+      // rested. A pause before letting go counts as no flick.
+      const item = this.cases[spinning];
+      const turned = item.spinY - item.spinRest;
+      const flick = performance.now() - press.lastTime < 80 && Math.abs(press.spinVelocity) > C.flipFlickVelocity;
+      if (Math.abs(turned) > Math.PI / 2) this.settleSpin(spinning, item.spinRest + Math.sign(turned) * Math.PI, C.flipDuration);
+      else if (flick) this.settleSpin(spinning, item.spinRest + Math.sign(press.spinVelocity) * Math.PI, C.flipDuration);
+      else this.settleSpin(spinning, item.spinRest);
       this.inertia = 0;
       return;
     }
@@ -1696,7 +1748,9 @@ export class GalleryScene {
       this.goTo(hit, 'click');
       return;
     }
-    this.toggle(hit);
+    // A click opens the front case; an open case closes from the page's Back button, Escape,
+    // Space or a click beside it, so clicks inside it stay free for the disc and booklet.
+    if (hit !== this.opened) this.open(hit);
   }
 
   resetWheel() {
@@ -1871,6 +1925,7 @@ export class GalleryScene {
     if (this.cases.length && active !== this.active) {
       this.active = active;
       this.onIndexChange(active);
+      this.updateCursor();
     }
 
     const residual = this.layout(dt);
@@ -1952,12 +2007,13 @@ export class GalleryScene {
       item.pick.scale.x = 1 + swing;
       item.disc.group.visible = swing > 0;
 
-      // The hovered case tilts toward the cursor; an open case only tilts vertically.
+      // The hovered case tilts toward the cursor; an open case only follows it a little.
       const hoverTarget = this.hovered === index && this.spinning < 0 ? 1 : 0;
       item.hover += (hoverTarget - item.hover) * Math.min(1, dt * 10);
       if (item.hover > 0.001) {
-        rotX += item.hover * C.hoverTiltStrength * this.pointer.y;
-        rotY += item.hover * C.hoverTiltStrength * this.pointer.x * (1 - face);
+        const tilt = item.hover * C.hoverTiltStrength * (1 - face * (1 - C.openHoverTilt));
+        rotX += tilt * this.pointer.y;
+        rotY += tilt * this.pointer.x;
       }
 
       const pushTotal = Math.abs(item.pushX) + Math.abs(item.pushY) + Math.abs(item.pushZ) + Math.abs(item.pushVX) + Math.abs(item.pushVY)
@@ -1998,7 +2054,7 @@ export class GalleryScene {
         rotation.z += (rotZ - rotation.z) * amount;
       }
 
-      // Tilt from a drag relaxes on its own; the turn (spinY) eases back when the drag ends.
+      // Tilt from a drag relaxes on its own; the turn (spinY) settles when the drag ends.
       if (this.spinning !== index && !item.resetTween) {
         item.spinX += (0 - item.spinX) * Math.min(1, dt * 2.5);
         if (Math.abs(item.spinX) < 1e-4) item.spinX = 0;

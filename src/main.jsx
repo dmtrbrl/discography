@@ -1,11 +1,22 @@
 import { render } from 'solid-js/web';
 import { createEffect, createSignal, on, onCleanup, onMount } from 'solid-js';
 import { GalleryScene } from './scene.js';
-import { albums, artist } from './data.js';
-import logo from './nirvana-logo.svg?raw';
+import { loadBand } from './band.js';
 import './style.css';
 
-function App() {
+// Applies a band's theme: page colours as CSS variables, the browser bar colour and the title.
+function applyBand(band) {
+  const root = document.documentElement.style;
+  root.setProperty('--bg', band.theme.background);
+  root.setProperty('--bg-center', band.theme.backgroundCenter);
+  root.setProperty('--bg-edge', band.theme.backgroundEdge);
+  root.setProperty('--ink', band.theme.ink);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', band.theme.background);
+  document.title = `${band.name} discography`;
+}
+
+function App(props) {
+  const { albums, name: artist, theme } = props.band;
   let stage;
   let scene;
   const [active, setActive] = createSignal(0);
@@ -14,11 +25,57 @@ function App() {
   const [revealed, setRevealed] = createSignal(false);
   // The caption shows its own index, so it can fade out on the old album before switching.
   const [shown, setShown] = createSignal(0);
+  // The logo is drawn as a mask in the ink colour, so it needs its proportions from the image.
+  const [logoRatio, setLogoRatio] = createSignal('');
   const [captionHidden, setCaptionHidden] = createSignal(false);
   const selected = () => albums[shown()];
   const pad = (value) => String(value).padStart(2, '0');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let captionTimer = 0;
+
+  // Bubble cursor: sits on the pointer (no lag) and says what a click will do. Over the Back
+  // button it becomes a larger translucent dot, and a white copy of the button, clipped to the
+  // dot, shows the text white inside it.
+  let bubble;
+  let backCopy;
+  const [overBack, setOverBack] = createSignal(false);
+  const canBubble = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const [pointer, setPointer] = createSignal({ hovered: -1, active: 0, opened: -1, dragging: false });
+  const [bubbleShown, setBubbleShown] = createSignal(false);
+  const [pressed, setPressed] = createSignal(false);
+  const bubbleLabel = () => {
+    const { hovered, active: front, opened, dragging } = pointer();
+    // An open case is closed with the Back button, so the bubble stays a plain dot over it.
+    if (opened >= 0) return '';
+    if (dragging) return 'Drag';
+    if (hovered < 0) return '';
+    if (hovered === front) return 'Open';
+    return hovered < front ? 'Prev' : 'Next';
+  };
+  const backDot = 20;
+  const mouse = { x: 0, y: 0, bx: 0, by: 0, clip: 0, raf: 0 };
+  function followMouse() {
+    mouse.bx = mouse.x;
+    mouse.by = mouse.y;
+    bubble.style.transform = `translate3d(${mouse.bx}px, ${mouse.by}px, 0)`;
+    const clipTarget = overBack() ? backDot : 0;
+    mouse.clip += (clipTarget - mouse.clip) * (reducedMotion ? 1 : 0.25);
+    if (Math.abs(clipTarget - mouse.clip) < 0.1) mouse.clip = clipTarget;
+    const rect = backCopy.getBoundingClientRect();
+    backCopy.style.clipPath = `circle(${mouse.clip}px at ${mouse.bx - rect.left}px ${mouse.by - rect.top}px)`;
+    mouse.raf = mouse.clip !== clipTarget ? requestAnimationFrame(followMouse) : 0;
+  }
+  function onStageMove(event) {
+    if (!canBubble || event.pointerType !== 'mouse') return;
+    mouse.x = event.clientX;
+    mouse.y = event.clientY;
+    if (!bubbleShown()) {
+      mouse.bx = mouse.x;
+      mouse.by = mouse.y;
+      setBubbleShown(true);
+    }
+    if (!mouse.raf) mouse.raf = requestAnimationFrame(followMouse);
+  }
 
   // Fades the caption out, swaps in the new album, and fades it back in. Moves through several
   // albums in a row keep it hidden until they settle.
@@ -58,8 +115,13 @@ function App() {
   }
 
   onMount(() => {
+    const logo = new Image();
+    logo.onload = () => setLogoRatio(`${logo.naturalWidth} / ${logo.naturalHeight}`);
+    logo.src = props.band.logo;
     scene = new GalleryScene(stage, albums, (index) => setActive(index), {
+      fogColor: theme.background,
       onProgress: (loaded, total) => setLoading({ loaded, total }),
+      onPointer: setPointer,
       onReady: () => {
         setReady(true);
         // Without the fade there is no transitionend to wait for.
@@ -70,6 +132,7 @@ function App() {
   });
   onCleanup(() => {
     clearTimeout(captionTimer);
+    cancelAnimationFrame(mouse.raf);
     window.removeEventListener('keydown', onKeyDown);
     scene?.destroy();
   });
@@ -77,26 +140,47 @@ function App() {
   return (
     <main class="app-shell">
       <div class="grain" aria-hidden="true" />
-      <div class="stage" classList={{ 'is-hidden': !revealed() }} ref={stage} role="region" aria-label={`Interactive ${artist} album slider`} />
-      <header class="logo" classList={{ 'is-hidden': !revealed() }} role="img" aria-label={artist} innerHTML={logo} />
+      <div class="stage" classList={{ 'is-hidden': !revealed(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label={`Interactive ${artist} album slider`}
+        onPointerMove={onStageMove} onPointerLeave={() => setBubbleShown(false)} onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} />
+      <div class="bubble" ref={bubble} aria-hidden="true">
+        <span class="bubble-body" classList={{ 'is-shown': bubbleShown() && revealed(), 'has-label': Boolean(bubbleLabel()) && !overBack(), 'is-back': overBack(), 'is-pressed': pressed() }}>
+          <span class="bubble-label">{bubbleLabel()}</span>
+        </span>
+      </div>
+      <header class="logo" classList={{ 'is-hidden': !revealed() || !logoRatio() }} role="img" aria-label={artist}
+        style={{ '--logo': `url("${props.band.logo}")`, 'aspect-ratio': logoRatio() }} />
+      <button class="back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" onClick={() => scene?.close()} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0}
+        onPointerMove={onStageMove} onPointerEnter={(event) => event.pointerType === 'mouse' && setOverBack(true)}
+        onPointerLeave={() => { setOverBack(false); setBubbleShown(false); if (!mouse.raf) mouse.raf = requestAnimationFrame(followMouse); }}>
+        <span aria-hidden="true">←</span> Back
+      </button>
+      <div class="back-button back-copy" classList={{ 'is-shown': pointer().opened >= 0 }} ref={backCopy} aria-hidden="true"><span>←</span> Back</div>
       <div class="preloader" classList={{ 'is-done': ready() }} role="status" aria-hidden={ready()} onTransitionEnd={onPreloaderFaded}>
         <span class="preloader-label">Loading <strong>{pad(loading().loaded)}</strong> / {pad(loading().total)}</span>
         <span class="preloader-track"><span class="preloader-fill" style={{ transform: `scaleX(${loading().total ? loading().loaded / loading().total : 1})` }} /></span>
       </div>
       <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() }}>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
-          <div class="eyebrow">{selected().year} <span class="eyebrow-separator">/</span> {selected().kind}</div>
+          <div class="eyebrow">{selected().year}<span class="eyebrow-separator">/</span>{selected().kind}</div>
           <h1>{selected().title}</h1>
         </div>
-        <div class="controls" aria-label="Slider controls">
-          <button class="nav-button" type="button" onClick={() => scene?.step(-1)} disabled={active() === 0} aria-label="Previous album">←</button>
-          <span class="counter"><strong>{pad(active() + 1)}</strong><span class="counter-rule" />{pad(albums.length)}</span>
-          <button class="nav-button" type="button" onClick={() => scene?.step(1)} disabled={active() === albums.length - 1} aria-label="Next album">→</button>
+        {/* Visible navigation is the bubble cursor, the keys and the wheel; these stay for screen readers. */}
+        <div class="sr-only">
+          <button type="button" onClick={() => scene?.step(-1)} disabled={active() === 0}>Previous album</button>
+          <button type="button" onClick={() => scene?.step(1)} disabled={active() === albums.length - 1}>Next album</button>
         </div>
       </footer>
     </main>
   );
 }
 
-const dispose = render(() => <App />, document.getElementById('root'));
-if (import.meta.hot) import.meta.hot.dispose(dispose);
+const root = document.getElementById('root');
+let dispose;
+loadBand().then((band) => {
+  applyBand(band);
+  dispose = render(() => <App band={band} />, root);
+}).catch((error) => {
+  root.innerHTML = '<p class="load-error"></p>';
+  root.firstChild.textContent = error.message;
+});
+if (import.meta.hot) import.meta.hot.dispose(() => dispose?.());

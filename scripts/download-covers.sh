@@ -1,19 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Downloads each album's front cover and, when archived, scans of the printed CD and the back
-# insert, plus the booklet's back page where one is listed below. Sources: MusicBrainz release data
-# and the Cover Art Archive. Requires curl and jq.
+# Downloads a band's artwork into public/bands/<band>/: each album's front cover and, when
+# archived, scans of the printed CD and the back insert, plus the booklet's back page where
+# band.json lists one. Albums and their MusicBrainz release groups come from band.json, and the
+# paths of the files found are written back into it. Sources: MusicBrainz release data and the
+# Cover Art Archive. Requires curl and jq.
 #
-# Usage: scripts/download-covers.sh [slug ...]   (no slugs: every album)
+# Usage: scripts/download-covers.sh <band> [album id ...]   (no ids: every album)
 
 USER_AGENT="discography-demo/0.1 (local demo)"
 
-mkdir -p public/covers public/discs public/backs public/booklets
+if (($# < 1)); then
+  echo "Usage: $0 <band> [album id ...]" >&2
+  exit 1
+fi
+dir="public/bands/$1"
+config="$dir/band.json"
+shift
+if [[ ! -f $config ]]; then
+  echo "No $config" >&2
+  exit 1
+fi
+mkdir -p "$dir/covers" "$dir/discs" "$dir/backs" "$dir/booklets"
+
+# Records an album's file in band.json (field relative to the band folder), if the file exists.
+set_path() {
+  local slug=$1 field=$2 file=$3 updated
+  [[ -f "$dir/$file" ]] || return 0
+  updated=$(jq --arg id "$slug" --arg field "$field" --arg file "$file" \
+    '(.albums[] | select(.id == $id))[$field] = $file' "$config")
+  printf '%s\n' "$updated" >"$config"
+}
 
 fetch() {
   # MusicBrainz answers 503 when it is rate limiting, so retry with a pause.
   curl --silent --show-error --location --fail --retry 4 --retry-delay 5 --max-time 60 --user-agent "$USER_AGENT" "$@"
+}
+
+# Downloads to a temporary file and only then replaces the target, so a failed request (the
+# Cover Art Archive answers 500 now and then) keeps the existing file and the run goes on.
+save() {
+  local url=$1 file=$2
+  if fetch "$url" --output "$file.part"; then
+    mv "$file.part" "$file"
+  else
+    rm -f "$file.part"
+    echo "  could not download $url; kept any existing file"
+    return 1
+  fi
 }
 
 # Scans are sometimes only archived at full scanner resolution; 1200 px is plenty for a texture.
@@ -51,16 +86,17 @@ find_scans() {
   echo "${back/#http:/https:}"
 }
 
-# Saves the booklet's back page. No tag marks it reliably, so it is listed per album as
-# release/image ID, with @left or @right to take one half of a two-page spread.
+# Saves the booklet's back page. No tag marks it reliably, so band.json lists it per album
+# (musicbrainz.bookletBack) as release/image ID, with @left or @right to take one half of a
+# two-page spread.
 fetch_booklet_back() {
   local slug=$1 source=$2 half='' file width height
   if [[ $source == *@* ]]; then
     half=${source#*@}
     source=${source%@*}
   fi
-  file="public/booklets/$slug-back.jpg"
-  fetch "https://coverartarchive.org/release/${source%/*}/${source#*/}-1200.jpg" --output "$file"
+  file="$dir/booklets/$slug-back.jpg"
+  save "https://coverartarchive.org/release/${source%/*}/${source#*/}-1200.jpg" "$file" || return 0
   if [[ -n $half ]] && command -v sips >/dev/null; then
     width=$(sips -g pixelWidth "$file" | awk '/pixelWidth/ { print $2 }')
     height=$(sips -g pixelHeight "$file" | awk '/pixelHeight/ { print $2 }')
@@ -73,26 +109,22 @@ fetch_booklet_back() {
   echo "  booklet back: $source${half:+ ($half half)}"
 }
 
-while read -r slug group booklet_back; do
+while IFS=$'\t' read -r slug group booklet_back; do
   if (($#)) && [[ " $* " != *" $slug "* ]]; then continue; fi
   echo "Downloading $slug"
-  fetch "https://coverartarchive.org/release-group/$group/front-1200" --output "public/covers/$slug.jpg" 2>/dev/null \
-    || fetch "https://coverartarchive.org/release-group/$group/front-500" --output "public/covers/$slug.jpg"
+  save "https://coverartarchive.org/release-group/$group/front-1200" "$dir/covers/$slug.jpg" >/dev/null 2>&1 \
+    || save "https://coverartarchive.org/release-group/$group/front-500" "$dir/covers/$slug.jpg" || true
   if ! scans=$(find_scans "$group"); then
     echo "  could not reach MusicBrainz; kept any existing scans"
   else
     { read -r disc; read -r back; } <<<"$scans"
     if [[ -n $disc ]]; then
-      fetch "$disc" --output "public/discs/$slug.jpg"
-      shrink "public/discs/$slug.jpg"
-      echo "  disc scan: $disc"
+      save "$disc" "$dir/discs/$slug.jpg" && shrink "$dir/discs/$slug.jpg" && echo "  disc scan: $disc"
     else
       echo "  no disc scan archived; the disc uses the cover"
     fi
     if [[ -n $back ]]; then
-      fetch "$back" --output "public/backs/$slug.jpg"
-      shrink "public/backs/$slug.jpg"
-      echo "  back insert: $back"
+      save "$back" "$dir/backs/$slug.jpg" && shrink "$dir/backs/$slug.jpg" && echo "  back insert: $back"
     else
       echo "  no back insert archived; the case uses a generated one"
     fi
@@ -100,12 +132,8 @@ while read -r slug group booklet_back; do
   if [[ -n ${booklet_back:-} ]]; then
     fetch_booklet_back "$slug" "$booklet_back"
   fi
-done <<'ALBUMS'
-bleach f1afec0b-26dd-3db5-9aa1-c91229a74a24 02b23593-ad18-4c8c-b30a-5c96b4796289/45223444350
-nevermind 1b022e01-4da6-387b-8658-8678046e4cef 350a8190-2c4b-4010-9bd2-437857325ac5/27145200195@left
-incesticide 01cf1391-141b-3c87-8650-45ade6e59070 756577ba-cdef-4924-9069-ebe1e1ada168/27144906539@left
-in-utero 2a0981fb-9593-3019-864b-ce934d97a16e b9f84ee2-3690-4a76-a53e-ee0cbccf2639/39564868348
-mtv-unplugged fb3770f6-83fb-32b7-85c4-1f522a92287e 2ff3be28-f74f-40c9-bdde-c19b6e4384ee/46180379880
-muddy-banks 249e7835-5c39-3a10-b15b-e2d3470fb40c 6213251a-9e62-3d27-a772-de423115dccc/40724467330
-nirvana 5ab32af4-c62e-3cbf-aa8c-c761581d3b94 15df9d9e-cd02-447d-99b6-c25abfce1b81/39573619956
-ALBUMS
+  set_path "$slug" cover "covers/$slug.jpg"
+  set_path "$slug" disc "discs/$slug.jpg"
+  set_path "$slug" back "backs/$slug.jpg"
+  set_path "$slug" bookletBack "booklets/$slug-back.jpg"
+done < <(jq -r '.albums[] | [.id, .musicbrainz.releaseGroup, (.musicbrainz.bookletBack // "")] | @tsv' "$config")
