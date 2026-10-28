@@ -1,0 +1,96 @@
+{
+  "name": "The Prodigy",
+  "logo": "logo.svg",
+  "albums": [
+    {
+      "id": "experience",
+      "title": "Experience",
+      "year": "1992",
+      "kind": "Studio album",
+      "cover": "covers/experience.jpg",
+      "color": "#e6dcb8",
+      "accent": "#2a2a26",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "a3f046a8-8edd-3b8c-bb51-112950b0839c"
+      },
+      "disc": "discs/experience.jpg",
+      "back": "backs/experience.jpg"
+    },
+    {
+      "id": "music-for-the-jilted-generation",
+      "title": "Music for the Jilted Generation",
+      "year": "1994",
+      "kind": "Studio album",
+      "cover": "covers/music-for-the-jilted-generation.jpg",
+      "color": "#3d3d3b",
+      "accent": "#c9c7c0",
+      "motif": "lines",
+      "musicbrainz": {
+        "releaseGroup": "f9fa083f-db00-3048-99e7-5b186672bb09"
+      },
+      "disc": "discs/music-for-the-jilted-generation.jpg",
+      "back": "backs/music-for-the-jilted-generation.jpg"
+    },
+    {
+      "id": "the-fat-of-the-land",
+      "title": "The Fat of the Land",
+      "year": "1997",
+      "kind": "Studio album",
+      "cover": "covers/the-fat-of-the-land.jpg",
+      "color": "#3a3226",
+      "accent": "#d9b25a",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "ac9138ce-6331-3f8d-86d7-69f13e4ab4f4"
+      },
+      "disc": "discs/the-fat-of-the-land.jpg",
+      "back": "backs/the-fat-of-the-land.jpg"
+    },
+    {
+      "id": "always-outnumbered",
+      "title": "Always Outnumbered, Never Outgunned",
+      "year": "2004",
+      "kind": "Studio album",
+      "cover": "covers/always-outnumbered.jpg",
+      "color": "#efe9d2",
+      "accent": "#d0356f",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "50da1a12-ca69-3287-b89f-33775e396870"
+      },
+      "disc": "discs/always-outnumbered.jpg",
+      "back": "backs/always-outnumbered.jpg"
+    },
+    {
+      "id": "their-law",
+      "title": "Their Law: The Singles 1990–2005",
+      "year": "2005",
+      "kind": "Compilation",
+      "cover": "covers/their-law.jpg",
+      "color": "#2c2722",
+      "accent": "#b9a888",
+      "motif": "sun",
+      "musicbrainz": {
+        "releaseGroup": "c5cd51d7-1a2d-361c-b3b0-3a9e3e534ddb"
+      },
+      "disc": "discs/their-law.jpg",
+      "back": "backs/their-law.jpg"
+    },
+    {
+      "id": "invaders-must-die",
+      "title": "Invaders Must Die",
+      "year": "2009",
+      "kind": "Studio album",
+      "cover": "covers/invaders-must-die.jpg",
+      "color": "#232323",
+      "accent": "#e07a24",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "dafbb45b-e06f-3a2b-b4fd-981d3d99a3a4"
+      },
+      "disc": "discs/invaders-must-die.jpg",
+      "back": "backs/invaders-must-die.jpg"
+    }
+  ]
+}

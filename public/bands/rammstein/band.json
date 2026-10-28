@@ -1,0 +1,114 @@
+{
+  "name": "Rammstein",
+  "logo": "logo.svg",
+  "albums": [
+    {
+      "id": "herzeleid",
+      "title": "Herzeleid",
+      "year": "1995",
+      "kind": "Studio album",
+      "cover": "covers/herzeleid.jpg",
+      "color": "#e8662a",
+      "accent": "#2a2522",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "806eb9e1-06c6-385e-bf04-f3c5e2b4a6be"
+      },
+      "disc": "discs/herzeleid.jpg",
+      "back": "backs/herzeleid.jpg"
+    },
+    {
+      "id": "sehnsucht",
+      "title": "Sehnsucht",
+      "year": "1997",
+      "kind": "Studio album",
+      "cover": "covers/sehnsucht.jpg",
+      "color": "#1d1c1a",
+      "accent": "#c9c3b6",
+      "motif": "lines",
+      "musicbrainz": {
+        "releaseGroup": "2a323740-b615-35bc-9f58-1d2e6a5d9289"
+      },
+      "disc": "discs/sehnsucht.jpg",
+      "back": "backs/sehnsucht.jpg"
+    },
+    {
+      "id": "live-aus-berlin",
+      "title": "Live aus Berlin",
+      "year": "1999",
+      "kind": "Live album",
+      "cover": "covers/live-aus-berlin.jpg",
+      "color": "#26262a",
+      "accent": "#b8312a",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "d066f24b-e129-3ebf-be6c-0c789aabc5ee"
+      },
+      "disc": "discs/live-aus-berlin.jpg",
+      "back": "backs/live-aus-berlin.jpg"
+    },
+    {
+      "id": "mutter",
+      "title": "Mutter",
+      "year": "2001",
+      "kind": "Studio album",
+      "cover": "covers/mutter.jpg",
+      "color": "#6f655c",
+      "accent": "#e2d9cc",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07"
+      },
+      "back": "backs/mutter.jpg",
+      "disc": "discs/mutter.jpg"
+    },
+    {
+      "id": "reise-reise",
+      "title": "Reise, Reise",
+      "year": "2004",
+      "kind": "Studio album",
+      "cover": "covers/reise-reise.jpg",
+      "color": "#e8692b",
+      "accent": "#f4efe6",
+      "motif": "sun",
+      "musicbrainz": {
+        "releaseGroup": "ea9bf147-abbd-39df-b927-46fc945a5140"
+      },
+      "disc": "discs/reise-reise.jpg",
+      "back": "backs/reise-reise.jpg"
+    },
+    {
+      "id": "rosenrot",
+      "title": "Rosenrot",
+      "year": "2005",
+      "kind": "Studio album",
+      "cover": "covers/rosenrot.jpg",
+      "color": "#2f4f5d",
+      "accent": "#d6e2e4",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "15e65e08-85d1-3145-85b2-e18b9fbd4cba",
+        "release": "bf7c54d3-3e83-3d7c-ac14-31a4317e863d",
+        "backHalf": "left"
+      },
+      "disc": "discs/rosenrot.jpg",
+      "back": "backs/rosenrot.jpg"
+    },
+    {
+      "id": "liebe-ist-fur-alle-da",
+      "title": "Liebe ist für alle da",
+      "year": "2009",
+      "kind": "Studio album",
+      "cover": "covers/liebe-ist-fur-alle-da.jpg",
+      "color": "#2a2219",
+      "accent": "#c79a52",
+      "motif": "lines",
+      "musicbrainz": {
+        "releaseGroup": "da9fcca3-7dfc-45ee-b94e-54d898fe5bf3",
+        "release": "3798a530-9729-4855-9995-7f8977e0cece"
+      },
+      "disc": "discs/liebe-ist-fur-alle-da.jpg",
+      "back": "backs/liebe-ist-fur-alle-da.jpg"
+    }
+  ]
+}

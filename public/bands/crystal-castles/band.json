@@ -1,0 +1,65 @@
+{
+  "name": "Crystal Castles",
+  "logo": "logo.png",
+  "albums": [
+    {
+      "id": "crystal-castles",
+      "title": "Crystal Castles",
+      "year": "2008",
+      "kind": "Studio album",
+      "cover": "covers/crystal-castles.jpg",
+      "color": "#1f1f1f",
+      "accent": "#d9d9d9",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "3fd716f5-2f67-3890-95ec-20c4032511c8"
+      },
+      "disc": "discs/crystal-castles.jpg",
+      "back": "backs/crystal-castles.jpg"
+    },
+    {
+      "id": "crystal-castles-ii",
+      "title": "Crystal Castles (II)",
+      "year": "2010",
+      "kind": "Studio album",
+      "cover": "covers/crystal-castles-ii.jpg",
+      "color": "#2b2a28",
+      "accent": "#cfcac0",
+      "motif": "lines",
+      "musicbrainz": {
+        "releaseGroup": "9477d99c-1df7-4ae7-b08d-a2484c8e80f4",
+        "release": "15310e2d-9402-4b24-b46f-7aa197e6cfc7"
+      },
+      "disc": "discs/crystal-castles-ii.jpg",
+      "back": "backs/crystal-castles-ii.jpg"
+    },
+    {
+      "id": "iii",
+      "title": "(III)",
+      "year": "2012",
+      "kind": "Studio album",
+      "cover": "covers/iii.jpg",
+      "color": "#23252b",
+      "accent": "#d4d6dc",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "5f5f106a-e5d1-4cee-bc6c-8c001ed96724"
+      },
+      "disc": "discs/iii.jpg",
+      "back": "backs/iii.jpg"
+    },
+    {
+      "id": "amnesty",
+      "title": "Amnesty (I)",
+      "year": "2016",
+      "kind": "Studio album",
+      "cover": "covers/amnesty.jpg",
+      "color": "#3d3f36",
+      "accent": "#d8d6c8",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "445b2a40-7426-4607-b96a-5d6180e334a2"
+      }
+    }
+  ]
+}

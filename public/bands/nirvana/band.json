@@ -1,12 +1,6 @@
 {
   "name": "Nirvana",
   "logo": "logo.svg",
-  "theme": {
-    "background": "#ebe3d4",
-    "backgroundCenter": "#f6f0e5",
-    "backgroundEdge": "#e1d7c5",
-    "ink": "#252521"
-  },
   "albums": [
     {
       "id": "bleach",

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-// Tuning ported from the reference gallery (a24.raviklaassens.com). The disc radius is 1 unit.
+// All visual and motion tuning. The disc radius is 1 unit.
 const C = {
   discThickness: 0.01, edgeBleed: 0.005, edgeBevel: 1, seamOverlap: 0.008,
   // Radii as a fraction of the disc: centre hole, clear clamping zone, then the mirror band up to the print.
@@ -1652,8 +1652,9 @@ export class GalleryScene {
     if (!this.ready || event.button !== 0 || !event.isPrimary || !this.cases.length) return;
     const point = this.updatePointer(event);
     const hit = this.pick();
-    // A drag on the open case does nothing: it neither turns nor scrubs the row.
-    const locked = hit >= 0 && hit === this.opened;
+    // While a case is open a drag does nothing, on the case or beside it: it neither turns a case
+    // nor scrubs the row. A click beside the case still closes it.
+    const locked = this.opened >= 0;
     this.press = {
       id: event.pointerId,
       touch: event.pointerType !== 'mouse',
@@ -2153,6 +2154,9 @@ export class GalleryScene {
     [...Object.values(textures), ...Object.values(geometries), ...Object.values(materials)].forEach((resource) => resource.dispose());
     this.environment.dispose();
     this.renderer.dispose();
+    // Switching artists makes a new scene; free the context now rather than at garbage collection,
+    // since browsers only keep a few alive.
+    this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 }

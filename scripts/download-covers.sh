@@ -58,15 +58,28 @@ shrink() {
   fi
 }
 
+# Keeps the left or right half of a two-page scan. sips reads a crop offset of 0 as "centred", so
+# the left half is cut as the right half of a mirrored copy.
+take_half() {
+  local file=$1 half=$2 width height
+  command -v sips >/dev/null || return 0
+  width=$(sips -g pixelWidth "$file" | awk '/pixelWidth/ { print $2 }')
+  height=$(sips -g pixelHeight "$file" | awk '/pixelHeight/ { print $2 }')
+  [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
+  sips --cropToHeightWidth "$height" $((width / 2)) --cropOffset 0 $((width - width / 2)) "$file" >/dev/null
+  [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
+}
+
 # Prints two lines: the URL of a disc scan (a "Medium" image) and of a back insert ("Back"). Both
 # come from the earliest CD release that has both, so they show the same edition; failing that,
-# each comes from the earliest release that has it. A line is empty if nothing is archived. Fails
-# if MusicBrainz could not be reached.
+# each comes from the earliest release that has it. band.json can pin the edition instead
+# (musicbrainz.release). A line is empty if nothing is archived. Fails if MusicBrainz could not be
+# reached.
 find_scans() {
-  local group=$1 releases release images disc='' back='' found_disc found_back
+  local group=$1 releases=${2:-} release images disc='' back='' found_disc found_back
   # MusicBrainz allows about one request per second.
   sleep 1
-  releases=$(fetch "https://musicbrainz.org/ws/2/release?release-group=$group&inc=media&limit=100&fmt=json" 2>/dev/null \
+  [[ -n $releases ]] || releases=$(fetch "https://musicbrainz.org/ws/2/release?release-group=$group&inc=media&limit=100&fmt=json" 2>/dev/null \
     | jq -r '[.releases[]
         | select(any(.media[]?; .format == "CD") and .["cover-art-archive"].count > 0)]
         | sort_by([(if (.date // "") == "" then "9999" else .date end), .id])
@@ -90,41 +103,41 @@ find_scans() {
 # (musicbrainz.bookletBack) as release/image ID, with @left or @right to take one half of a
 # two-page spread.
 fetch_booklet_back() {
-  local slug=$1 source=$2 half='' file width height
+  local slug=$1 source=$2 half='' file
   if [[ $source == *@* ]]; then
     half=${source#*@}
     source=${source%@*}
   fi
   file="$dir/booklets/$slug-back.jpg"
   save "https://coverartarchive.org/release/${source%/*}/${source#*/}-1200.jpg" "$file" || return 0
-  if [[ -n $half ]] && command -v sips >/dev/null; then
-    width=$(sips -g pixelWidth "$file" | awk '/pixelWidth/ { print $2 }')
-    height=$(sips -g pixelHeight "$file" | awk '/pixelHeight/ { print $2 }')
-    # sips reads a crop offset of 0 as "centred", so the left half is cut as the right half of a
-    # mirrored copy.
-    [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
-    sips --cropToHeightWidth "$height" $((width / 2)) --cropOffset 0 $((width - width / 2)) "$file" >/dev/null
-    [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
-  fi
+  [[ -n $half ]] && take_half "$file" "$half"
   echo "  booklet back: $source${half:+ ($half half)}"
 }
 
-while IFS=$'\t' read -r slug group booklet_back; do
+# musicbrainz.coverRelease takes the front cover from that release instead of the release group's
+# chosen image (when that one is small). musicbrainz.backHalf takes one half of a back scan that shows a whole spread (some editions only
+# have the digipak's outside archived).
+# Fields are split on the unit separator: tabs count as whitespace, so empty fields would collapse.
+while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_release; do
   if (($#)) && [[ " $* " != *" $slug "* ]]; then continue; fi
   echo "Downloading $slug"
-  save "https://coverartarchive.org/release-group/$group/front-1200" "$dir/covers/$slug.jpg" >/dev/null 2>&1 \
-    || save "https://coverartarchive.org/release-group/$group/front-500" "$dir/covers/$slug.jpg" || true
-  if ! scans=$(find_scans "$group"); then
+  cover="release-group/$group"
+  [[ -n $cover_release ]] && cover="release/$cover_release"
+  save "https://coverartarchive.org/$cover/front-1200" "$dir/covers/$slug.jpg" >/dev/null 2>&1 \
+    || save "https://coverartarchive.org/$cover/front-500" "$dir/covers/$slug.jpg" || true
+  if ! scans=$(find_scans "$group" "$release"); then
     echo "  could not reach MusicBrainz; kept any existing scans"
   else
-    { read -r disc; read -r back; } <<<"$scans"
+    # With neither scan archived the output is empty, and the second read fails at end of input.
+    { read -r disc; read -r back; } <<<"$scans" || true
     if [[ -n $disc ]]; then
       save "$disc" "$dir/discs/$slug.jpg" && shrink "$dir/discs/$slug.jpg" && echo "  disc scan: $disc"
     else
       echo "  no disc scan archived; the disc uses the cover"
     fi
     if [[ -n $back ]]; then
-      save "$back" "$dir/backs/$slug.jpg" && shrink "$dir/backs/$slug.jpg" && echo "  back insert: $back"
+      save "$back" "$dir/backs/$slug.jpg" && { [[ -z $back_half ]] || take_half "$dir/backs/$slug.jpg" "$back_half"; } \
+        && shrink "$dir/backs/$slug.jpg" && echo "  back insert: $back${back_half:+ ($back_half half)}"
     else
       echo "  no back insert archived; the case uses a generated one"
     fi
@@ -136,4 +149,4 @@ while IFS=$'\t' read -r slug group booklet_back; do
   set_path "$slug" disc "discs/$slug.jpg"
   set_path "$slug" back "backs/$slug.jpg"
   set_path "$slug" bookletBack "booklets/$slug-back.jpg"
-done < <(jq -r '.albums[] | [.id, .musicbrainz.releaseGroup, (.musicbrainz.bookletBack // "")] | @tsv' "$config")
+done < <(jq -r '.albums[] | [.id, .musicbrainz.releaseGroup, (.musicbrainz.bookletBack // ""), (.musicbrainz.release // ""), (.musicbrainz.backHalf // ""), (.musicbrainz.coverRelease // "")] | join("\u001f")' "$config")

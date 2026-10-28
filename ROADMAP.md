@@ -1,9 +1,8 @@
 # Discography: roadmap and project state
 
-A visual experiment for browsing an artist's discography in 3D, built with Solid and three.js. The
-first version shows each album as a CD in a gallery modelled on the
-[A24 films disc gallery](https://a24.raviklaassens.com/). The next phases replace the discs with CD
-jewel cases that open to show a playable disc and a booklet you can leaf through.
+A visual experiment for browsing an artist's discography in 3D, built with Solid and three.js. Each
+album is a CD jewel case that turns over and opens to show the disc and the booklet; the next phases
+make the booklet leafable and the disc playable. A title screen lists the artists.
 
 This file is the hand-off document between sessions. It records what exists, why it is built that
 way, what was tried and rejected, and what comes next. Keep it up to date when a phase lands or a
@@ -15,6 +14,7 @@ decision changes.
 | --- | --- | --- |
 | 0 | CD gallery: motion, CD look, real disc scans, loading screen, performance | Done (initial commit `bb3b070`) |
 | 1 | Jewel cases instead of discs, opening the front case | Done |
+| Pre-2 | Title screen, artist selection and menu, four more artists | Done |
 | 2a | Booklet as a flip book with LeafThrough | Planned |
 | 2b | Disc to CD player animation, tracklist, 30-second previews | Planned |
 
@@ -27,7 +27,8 @@ npm run build      # production build into dist/
 npm run preview    # serve the build
 bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
-# Open /?band=<folder> to show another band from public/bands/ (default: nirvana).
+bash scripts/download-covers.sh the-prodigy   # the same for any band folder
+# / is the title screen; /?band=<folder> opens a band from public/bands/ directly.
 ```
 
 ## Phase 0: what is implemented
@@ -38,8 +39,8 @@ bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed al
 | --- | --- |
 | `src/scene.js` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
 | `src/main.jsx` | Solid app: loading screen, logo, caption, bubble cursor, screen-reader prev/next buttons, keyboard shortcuts. Talks to the scene through its public methods. |
-| `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, `logo`, `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script. Paths are relative to the JSON file. |
-| `src/band.js` | Loads the band picked by `?band=` (default `nirvana`), resolves its paths and adds the band name to each album. Documents the JSON shape. |
+| `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. `public/bands/index.json` lists the bands in order. |
+| `src/band.js` | Loads a band (cached, so the title screen and menu fetch each once), resolves its paths and adds the band name to each album; `loadBands()` loads the list. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
 | `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
 | `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
@@ -52,10 +53,9 @@ bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed al
 `destroy()`. The scene owns the position and reports the front case through `onIndexChange`.
 Phase 0 had `flip(index?)` instead of the open methods.
 
-### Motion (ported from the reference)
+### Motion
 
-The reference site's bundle keeps readable config names, so its constants were read directly from
-its source rather than guessed. They live in `C` with the same names.
+The motion constants live in `C`, named after what they do.
 
 - Layout: discs sit on a shallow arc (`angle = offset × 0.35`, `x = sin(angle) × hGap × 2.4`,
   `z = 2.4 × (1 − cos(angle))`) inside a group rotated −30° on X and Y (−22° since phase 1). Camera: 40° field of view at
@@ -250,16 +250,18 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
   Open, the lid lies flat on the left showing the booklet's back page, and the disc sits in the
   tray on the right. Phases 2a and 2b start from this state.
 - **Interactions:** click or Space opens the front case and closes it again. A click beside the
-  cases, Escape, moving to another album (keys, wheel, buttons, clicking a side case) or scrubbing
+  cases, Escape, moving to another album (wheel, buttons, clicking a side case; arrows, Home and End
+  until the pre-phase, which made them do nothing while a case is open) or scrubbing
   the row closes it. Dragging the closed front case turns it with the phase 0 soft limit, counted
   from where it rests. On release it turns over to its back (over `flipDuration`) if it was turned
   past halfway or flicked fast (`flipFlickVelocity`; mouse only, since horizontal touch drags
   browse); otherwise it eases back. A turned-over case stays there until the gallery moves: any navigation or scrub turns the front case back to its
-  front. The open case doesn't turn or scrub when dragged; it only follows the cursor a little
+  front. While a case is open no drag turns or scrubs anything, on the case or beside it (since
+  the pre-phase; before, a drag beside it closed it and scrubbed); the open case only follows the cursor a little
   (`openHoverTilt` of the hover tilt, both axes). Hover tilt, wipe nudges, trailing, lean, wheel
   and keyboard behaviour are otherwise unchanged.
 - **Layout retune:** `caseScale` 0.78 and `hGap` 2.8 (was 2.3) leave more room between cases than
-  between the discs. The gallery tilt is −22° on X and Y (was −30°, the reference's value): at −30°
+  between the discs. The gallery tilt is −22° on X and Y (was −30° in phase 0): at −30°
   the square cases looked oddly skewed, so they now turn more toward the viewer.
 - **Loading sequence:** the scene compiles its shaders when everything has loaded (`prepare`), then
   reports `onReady`. The page fades the loading screen out, and on its `transitionend` calls
@@ -316,7 +318,7 @@ black tray floor; that was replaced by the strip.
 - Masthead, top centre: "Discography" in Instrument Serif italic, a thin drawn ×, then the band's
   logo from `band.json`, like a collaboration logo. Compared with an upright and a spaced-caps
   wordmark. Below, the history of the band logo itself:
-- The Nirvana wordmark sits top centre, 39 px from the top (24 px on phones). It is `public/bands/nirvana/logo.svg`, cleaned
+- The Nirvana wordmark sits top centre, 39 px from the top (24 px on phones). (Since the pre-phase every band's logo is drawn at its height; see there.) It is `public/bands/nirvana/logo.svg`, cleaned
   from Wikimedia Commons' `NirvanaLogo.svg` (public domain as a simple text logo, taken from the
   2002 compilation cover; possibly trademarked): background removed, cropped to the letters. The
   page draws the band's logo as a CSS mask filled with the theme's ink colour, so any one-colour
@@ -360,6 +362,128 @@ black tray floor; that was replaced by the strip.
 - Clear trays (needs `Tray` scans or a generated inside of the insert).
 - A narrower open pose on phones (it fits at 390 px wide, with little margin).
 - Fetch `tracks` from MusicBrainz in the download script if albums without back scans are added.
+
+## Pre-phase before phase 2: title screen and artists
+
+Goal: a front page for the project, and more artists than Nirvana. The artists come from
+`ARTIST_BOOKLET_HANDOFF.md` (a source list for booklet scans, written for phase 2a): The Prodigy,
+The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a work.
+
+### What is implemented
+
+- **Routing** (`Root` in `src/main.jsx`): `/` is the title screen, `/?band=<folder>` a band's
+  gallery. Choosing an artist keeps the page: it pushes the URL, applies the band's theme and mounts
+  a fresh gallery, keyed by band, so the old scene is destroyed (`destroy()` now also calls
+  `forceContextLoss()`, since browsers keep only a few WebGL contexts). The browser's back button
+  works through `popstate`. A late response for an earlier choice is ignored.
+- **Fades between views**: the current view fades out (0.4 s), the next is swapped in while the page
+  is blank, and it fades in with its own animation (0.5 s). The swap waits for the fade-out's
+  `transitionend`, not a timer: leaving a gallery, the scene can hold up the main thread, and a
+  timed swap then reversed a half-finished fade, which Chrome shortens, so the title screen popped
+  in. No fade with reduced motion.
+- **Title screen** (`Home`): the Discography wordmark (Instrument Serif italic, 56 px; 44 px on
+  phones; 112 px was too big), a one-sentence description, the artist list, and a small, faint
+  footer (14 px, 40% ink) "Made by Dmytro Barylo" linking to dmytrobarylo.com in a new tab (address
+  taken from the user's GitHub profile). It fades in once every logo has its size.
+- **Artist list** (`ArtistList`, shared by the title screen and the menu): each band's logo
+  (`BandMark`, as in the masthead: 30 px tall, at most 190 px wide; 22 and 130 px on phones) on the
+  centre axis, the years to its left and the album count to its right, both faint (42% ink). The
+  list is one grid and the rows use `subgrid`, so the years and counts line up in columns, and
+  every row is the same height whatever the logo. Hovering one dims the others; in the menu the
+  current artist is dimmed. They are real links (`?band=…`), so a modifier click opens a new tab.
+  Earlier version, replaced: names set in 40 px type with years and count together beside them.
+- **`BandMark`**: draws a logo as a mask in the ink colour, or the name in capitals, measuring the
+  logo's proportions or the name's width in em. The name must be measured in Instrument Serif, and
+  `document.fonts.ready` (or `fonts.load`) resolves at once while the Google Fonts stylesheet,
+  imported from CSS, hasn't registered the face yet; the name then came out too small on the title
+  screen. `serifLoaded` retries `fonts.load` until it returns a face (up to 5 s).
+- **Menu**: a "Menu" button top right, in the Back button's italic, opens an overlay over the
+  blurred gallery with the artist list (logos, as on the title screen) and a Home link; the
+  button becomes "Close". Escape closes
+  it, focus moves to the current artist and back to the button, and keys don't reach the scene
+  while it is open.
+- **Masthead**: the "Discography" wordmark links to the title screen. Every band's logo is drawn at
+  Nirvana's height (28.75 px, 20 px on phones), its width following the logo's proportions, but no
+  wider than the wordmark (4.45 em of its font size, about 151 px on desktop); a wider logo shrinks
+  to fit, keeping its proportions. Bands without a logo show their name in Instrument Serif capitals
+  of the same height, made smaller the same way if needed (the page measures the name's width in em
+  once the fonts load). Sizing logos to equal area was tried and rejected (logos should line up
+  with the wordmark at heading size), and so was letting wide logos run to their full width at that
+  height (Rammstein was 340 px and looked out of proportion). On phones the Back and Menu buttons
+  sit below the masthead (56 px from the top).
+- **Bubble cursor everywhere** (`createBubble`, shared by the gallery, the menu and the title
+  screen): the same dot, growth over anything clickable and label after 5 s of rest (Close beside
+  the menu's list). Over text buttons and links (Back, Menu/Close, the masthead wordmark, the
+  menu's Home, the credit link) and over each artist row it becomes the 40 px dot with the element
+  white inside (logo, years and count for an artist; a "View" label there was replaced by this).
+  The white version is a clone of the hovered element, placed over it in one layer above the bubble
+  (`.bubble-copy`). The earlier hand-made copy per button couldn't work in the menu: its blur makes
+  a stacking context that keeps any copy inside it beneath the bubble. Getting the clone exact
+  took three fixes, each measured with Range rects (now 0 px off everywhere): the clone is shifted
+  by the difference between its content and the original's; an inline original (the credit link)
+  is cloned as a block, since inline boxes ignore `translate` and an inline-block sat on the
+  layer's baseline 2 to 4 px low; an artist row (a subgrid) gets the list's resolved columns and
+  gap, and the logo size variables, which it loses outside the list.
+- **Type**: the loading counter is Instrument Serif italic like the caption's eyebrow (was DM Mono
+  caps). The credit is upright, 12 px. The description no longer says "the way it used to sit on a
+  shelf": the gallery isn't a shelf view.
+- **One background for every page**: the Nirvana beige, now just the default theme. Per-band
+  backgrounds were tried (cool greys and lilacs) and rejected. `theme` still works in `band.json`.
+  The gradient is on `html` and the grain on `body::before`, not on each view: when the views
+  each had their own, a switch faded them out too and showed the flat page colour underneath, a
+  pale flash. Checked by sampling page pixels every 50 ms through switches.
+- **Drag and keys while open**: no drag does anything while a case is open, and neither do the
+  arrow keys, Home or End (see phase 1 interactions). The wheel still moves on and closes it.
+
+### Artists and artwork
+
+Album choice follows the project's earlier scope: studio albums plus a major live album or
+compilation, mostly 1990s to 2000s.
+
+| Band | Albums | Logo |
+| --- | --- | --- |
+| The Prodigy | Experience, Jilted Generation, Fat of the Land, Always Outnumbered, Their Law, Invaders Must Die | Wikimedia Commons `The Prodigy logo 2009.svg` (the FOTL version has white fills, which a mask loses) |
+| The Knife | The Knife, Deep Cuts, Hannah med H, Silent Shout, Tomorrow in a Year, Shaking the Habitual | No fixed logo exists (the lettering changes per album, and none is on Commons or Wikipedia). `logo.svg` is traced from the logo image the user chose on TheAudioDB (`r2.theaudiodb.com/images/media/artist/logo/knife-the-505af40099c0c.png`, 400 × 155, white letters with a drop shadow; community-uploaded, licence unknown). Traced in Chrome, since no tracing tool is installed: alpha from the white letters (whiteness × alpha, which drops the shadow), upsampled 6× with smoothing, outlines followed along the pixel grid, simplified (Ramer-Douglas-Peucker, 5.5 px at 6×; a smaller tolerance kept the pixel staircase on the slanted strokes), straightened (edges within 9° of horizontal or of the 5.9° slant snapped to it, corners rebuilt where neighbours meet) and sharpened (edges under 2.5 source px collapsed). 8 outlines, 99 points. Rejected on the way: the debut cover's "THE KN|FE" with a knife as the I (looked off), the Deep Cuts disc label's lettering traced the same way (a different, lighter typeface; "still not ok"), and the Shaking the Habitual serif "THE KNIΦE" (read as a generic font). |
+| Rammstein | Herzeleid, Sehnsucht, Live aus Berlin, Mutter, Reise Reise, Rosenrot, Liebe ist für alle da | Wikimedia Commons `Rammstein logo.svg` |
+| Crystal Castles | (I), (II), (III), Amnesty (I) | Wikimedia Commons `Crystal Castels (Logo).png` (sic; public domain), the doubled wordmark on the debut CD, cropped to its letters. |
+
+Logos were cropped to their letters as Nirvana's was. Setting The Knife and Crystal Castles in
+Instrument Serif capitals was tried and rejected: it read as a generic font, not the band. The
+typeset fallback stays in `BandMark` for future bands without a logo. Every album has a disc scan and back insert
+except Tomorrow, in a Year and Amnesty (I), which have none archived (cover on the disc, generated
+insert). No new album has a `bookletBack` yet, so their open lids show a plain page in the album
+colour; `color` and `accent` were picked from each cover. Fixes after a visual check:
+
+- Crystal Castles (II): the default pick was a wide photo of the disc beside its tray; pinned to the
+  2010 US CD (`15310e2d`, also the handoff's booklet source).
+- Liebe ist für alle da: the default back was a 2.2:1 spread; pinned to `3798a530` (1.29:1 back,
+  plus 12 booklet scans for phase 2a).
+- Rosenrot: every archived back is a digipak's whole outside; pinned to `bf7c54d3` and the left
+  half kept, which is the back panel (spines are generated).
+- Silent Shout: the release group's front is 350 px; the 500 px front of the 2006 US CD is used. A
+  1426 px Australian scan was tried and rejected: a different, much darker print that read as a
+  black square.
+
+### Download script changes
+
+- `musicbrainz.release` pins the edition for the disc and back; `coverRelease` takes the front from
+  a release; `backHalf` (`left` or `right`) keeps half of a back scan; `take_half` is shared with
+  the booklet back page.
+- Bug fixes: with neither scan archived, the second `read` hit end of input and `set -e` ended the
+  whole run silently (it skipped the rest of The Knife); fields are now split on the unit separator,
+  since tab is whitespace to `read` and empty fields collapsed. Rerunning Nevermind gave
+  byte-identical files.
+
+### Verification
+
+Headless Chrome (as in phase 1): title screen at 1440 × 900 and 390 × 844; every new album closed
+and open; mastheads of all five bands on desktop and phone with measured boxes; scripted checks
+the bubble's state over every kind of target on the title screen, the gallery and the menu (with
+crops around the pointer), that the view fades fully out and in for every kind of switch (opacity sampled every 100 ms),
+that the title screen and menu draw every logo at the same size, that drags beside and on an open
+case change nothing, a click beside still closes it, a drag on a
+closed row still scrubs, the wordmark and menu Home reach the title screen with the canvas removed,
+the browser back button returns, and Escape closes the menu and restores focus.
 
 ## Phase 2a: booklet as a flip book
 

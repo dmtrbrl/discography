@@ -1,0 +1,95 @@
+{
+  "name": "The Knife",
+  "logo": "logo.svg",
+  "albums": [
+    {
+      "id": "the-knife",
+      "title": "The Knife",
+      "year": "2001",
+      "kind": "Studio album",
+      "cover": "covers/the-knife.jpg",
+      "color": "#1f8fd0",
+      "accent": "#f4d21c",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "f6a6b266-a28c-360e-aac4-44ed2c82ad14"
+      },
+      "disc": "discs/the-knife.jpg",
+      "back": "backs/the-knife.jpg"
+    },
+    {
+      "id": "deep-cuts",
+      "title": "Deep Cuts",
+      "year": "2003",
+      "kind": "Studio album",
+      "cover": "covers/deep-cuts.jpg",
+      "color": "#1d6fb3",
+      "accent": "#f0e04a",
+      "motif": "lines",
+      "musicbrainz": {
+        "releaseGroup": "e35a847b-d4cb-3dfe-b2ea-047f8fe0d95b"
+      },
+      "disc": "discs/deep-cuts.jpg",
+      "back": "backs/deep-cuts.jpg"
+    },
+    {
+      "id": "hannah-med-h",
+      "title": "Hannah med H",
+      "year": "2003",
+      "kind": "Soundtrack",
+      "cover": "covers/hannah-med-h.jpg",
+      "color": "#c8261d",
+      "accent": "#f3d23a",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "04ad4c2c-f4bc-361b-8007-da78dd5ff4f0"
+      },
+      "disc": "discs/hannah-med-h.jpg",
+      "back": "backs/hannah-med-h.jpg"
+    },
+    {
+      "id": "silent-shout",
+      "title": "Silent Shout",
+      "year": "2006",
+      "kind": "Studio album",
+      "cover": "covers/silent-shout.jpg",
+      "color": "#14122a",
+      "accent": "#4b3fae",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "02c05025-e031-30a0-afee-d92cea9d79dd",
+        "coverRelease": "d8956dde-c200-35b5-9788-102ab6e33492"
+      },
+      "disc": "discs/silent-shout.jpg",
+      "back": "backs/silent-shout.jpg"
+    },
+    {
+      "id": "tomorrow-in-a-year",
+      "title": "Tomorrow, in a Year",
+      "year": "2010",
+      "kind": "Studio album",
+      "cover": "covers/tomorrow-in-a-year.jpg",
+      "color": "#f2f0ea",
+      "accent": "#222222",
+      "motif": "sun",
+      "musicbrainz": {
+        "releaseGroup": "302ca9df-7fe4-4e91-b0d1-cd48975e0fba"
+      }
+    },
+    {
+      "id": "shaking-the-habitual",
+      "title": "Shaking the Habitual",
+      "year": "2013",
+      "kind": "Studio album",
+      "cover": "covers/shaking-the-habitual.jpg",
+      "color": "#f0288f",
+      "accent": "#2bc0a0",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "06448e12-18d8-4d52-a51f-d4c83d07ec09"
+      },
+      "disc": "discs/shaking-the-habitual.jpg",
+      "back": "backs/shaking-the-habitual.jpg"
+    }
+  ]
+}
