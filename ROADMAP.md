@@ -337,8 +337,8 @@ black tray floor; that was replaced by the strip.
   under the pointer every frame, not only when the mouse moves: before, after a click the gallery
   glided under a still pointer and the label went stale (it said "Open" over the next case).
   Tested with scripted clicks, comparing the label with a fresh 1 px nudge. The actions: Open on the front case, Prev or Next on side cases, Drag while
-  dragging, and a small dot otherwise, including over an open case (a "Close" label there was
-  rejected). An open case closes with a Back button top left (42 px / 39 px, like the caption's
+  dragging, Close beside an open case (a click there closes it), and a small dot otherwise,
+  including over the open case itself (a "Close" label there was rejected). An open case closes with a Back button top left (42 px / 39 px, like the caption's
   inset), Escape, Space or a click beside it; a click on the open case itself does nothing yet,
   leaving it for the disc and booklet in phase 2. Over the Back button the bubble becomes a 40 px black dot, and
   a white copy of the button, clipped to the dot's circle, shows the text white

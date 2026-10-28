@@ -48,8 +48,9 @@ function App(props) {
   const [pressed, setPressed] = createSignal(false);
   const bubbleLabel = () => {
     const { hovered, active: front, opened, dragging } = pointer();
-    // An open case is closed with the Back button, so the bubble stays a plain dot over it.
-    if (opened >= 0) return '';
+    // While a case is open, a click beside it closes it; over the case itself the bubble stays a
+    // plain dot, keeping those clicks for the disc and booklet.
+    if (opened >= 0) return hovered === opened ? '' : 'Close';
     if (dragging) return 'Drag';
     if (hovered < 0) return '';
     if (hovered === front) return 'Open';
