@@ -47,7 +47,7 @@ const C = {
   openDuration: 1.3, lidOpenAngle: 180, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
   galleryScale: 1.08, hGap: 2.8, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
   cameraDistance: 4.4, cameraFOV: 40, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
-  keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
+  ambientIntensity: 0.25, keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
   // A drag on the front case turns it over to its back when released past halfway, or when faster
@@ -62,16 +62,28 @@ const C = {
   wheelNoiseFloor: 0.3, wheelStepThreshold: 6, wheelEventCap: 24, wheelEnvelopeTau: 550, wheelRiseFactor: 1.2, wheelTickGap: 34, wheelTickRatio: 1,
   wheelPauseGap: 130, wheelIdleReset: 150, wheelMinStepTick: 90, wheelMinStepFlick: 190, wheelSustainDelay: 480, wheelSustainRatio: 0.8,
   renderRadius: 5, loadTimeout: 12000, artResolution: 1024, mapResolution: 1024, maxPixels: 8e6, slowFrame: 0.022, verySlowFrame: 0.04,
-  // CD player, in millimetres: a square, lidless top-loader in graphite. The disc drops into the
-  // well onto the spindle and rests playerDiscDrop below the top. The front (+z) is a brushed metal
-  // panel with the wordmark, six buttons and the display; the right side (+x) has two ports.
-  playerSize: 210, playerHeight: 42, playerCorner: 12, playerBevel: 2, wellRadius: 63, wellDepth: 14, wellZ: -6, playerDiscDrop: 5,
-  playerColor: '#232427', playerRough: 0.5, playerFront: '#c4c7cc', playerFrontRough: 0.4, playerFrontMetal: 0.65, playerLabel: '#1d1e21', playerTop: '#34353a', playerTopRough: 0.34, playerTopClearcoat: 0.5, playerTopSheen: 0.1, playerButton: '#2c2d31',
-  // Fixed pose, like the open case: square to the camera, front facing it, top tipped playerTilt
-  // degrees toward it so it lies on a surface seen from above, at playerScale of the scene's size. On
-  // wide screens it sits playerShift of the half-width left of centre, leaving the right for the
-  // tracklist; on narrow ones it sits above the list, playerRaise of the half-height up.
-  playerTilt: 56, playerScale: 0.5, playerShift: 0.45, playerRaise: 0.42,
+  // CD player, in millimetres: a slim, lidless top-loader in glossy graphite with silver trim, only a
+  // little larger than the disc. A glossy top pane sits playerFrame inside the edge, cut round a
+  // metal ring (playerRing wide) that slopes down into the well; the disc drops onto the turntable
+  // and rests playerDiscDrop below the top. No controls: the front is one screen across the face
+  // (playerScreenMargin in from its edges) showing the track, and the left side a band of speaker
+  // holes (playerGrilleRows rows, playerGrillePitch apart).
+  playerSize: 146, playerHeight: 18, playerCorner: 7, playerBevel: 1, playerFrame: 1.4, playerRing: 2.2, wellRadius: 62, wellDepth: 10, wellZ: 0, playerDiscDrop: 4,
+  playerEnvLift: 1.4, playerAmbient: 0.9, playerColor: '#3a3c41', playerRough: 0.38, playerTop: '#2c2e32', playerTopBack: '#5a5d64', playerTopSheen: 0.12,
+  playerChrome: '#e2e4e8', playerTrim: '#cfd2d7', playerRingColor: '#c6c9ce', playerWell: '#2e3034', playerHoles: '#101113',
+  // The screen: margin (mm), colour, canvas pixels a millimetre, and how fast a long title scrolls.
+  playerScreenMargin: 3, playerScreenColor: '#ff9d45', playerScreenResolution: 14, playerScreenScroll: 9,
+  playerGrilleRows: 4, playerGrillePitch: 2.4, playerGrilleHole: 0.7,
+  // The player stands level, turned playerYaw degrees on its stand so a corner faces the camera (as
+  // in the product photo), at playerScale of the scene's size. On wide screens it sits
+  // playerShift of the half-width left of centre, leaving the right for the tracklist; on narrow
+  // ones it sits above the list, playerRaise of the half-height up. It is shot like a product photo
+  // with a shift lens (setLens): the camera moves in front of it and rises until it sees the top from
+  // playerView degrees above, still aimed straight ahead, so verticals stay vertical and the front
+  // is a true rectangle; the lens shift keeps everything framed where it was. The lens is longer
+  // than the gallery's (playerFOV degrees; the camera backs off to keep the framing). A soft shadow
+  // (playerShadow opacity) grounds it.
+  playerYaw: 45, playerView: 26, playerScale: 0.5, playerFOV: 18, playerShadow: 0.3, playerShift: 0.38, playerRaise: 0.42,
   // Inserting: the disc lifts insertLift out of the tray toward the camera, the row slides up out of
   // view by insertPan while the player rises into its place, then the disc glides over the well,
   // insertHover above the spindle, and drops onto it. Ejecting plays it backwards.
@@ -233,6 +245,10 @@ const CASE = (() => {
     bookletX: C.caseWidth / 2 - C.bookletInset - C.bookletSize / 2,
   };
 })();
+
+// How far the camera sits for a field of view of `fov` degrees, framing the z = 0 plane as the
+// gallery's camera does.
+const lensDistance = (fov: number) => (C.cameraDistance * Math.tan(THREE.MathUtils.degToRad(C.cameraFOV / 2))) / Math.tan(THREE.MathUtils.degToRad(fov / 2));
 
 // Reused by updatePlayer every frame.
 const PLAYER_SCRATCH = {
@@ -579,7 +595,9 @@ outgoingLight -= reflectedLight.directSpecular * (1.0 - material.clearcoat * Fcc
 outgoingLight -= reflectedLight.directSpecular;
 #endif
 vec3 softPlane = normalize((viewMatrix * vec4(${plane.toArray().map(glsl).join(', ')}, 0.0)).xyz);
-float softBand = exp(-pow(asin(clamp(dot(reflect(-geometryViewDir, normal), softPlane), -1.0, 1.0)) / ${glsl(C.caseSheenWidth)}, 2.0));`;
+float softBand = exp(-pow(asin(clamp(dot(reflect(-geometryViewDir, normal), softPlane), -1.0, 1.0)) / ${glsl(C.caseSheenWidth)}, 2.0));
+// Taking the direct highlight out can go below zero at grazing angles, which showed as black specks.
+outgoingLight = max(outgoingLight, vec3(0.0));`;
 }
 
 // Adds the soft reflection (softReflection) to an otherwise plain physical material at the given
@@ -1384,10 +1402,12 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
   };
 }
 
-// The CD player (makePlayer). Built in millimetres like the case: y up, the front face +z, the
-// button face +x, centred on the body. Its detail is mostly painted, since it is only ever seen from
-// one side: the top plate's engraved panel lines and rings, the grille and ports on the front, the
-// well floor with the pickup slot. The body, well, spindle, buttons and display are geometry.
+// The CD player (makePlayer). Built in millimetres like the case: y up, centred on the body, the
+// button face +z and the port face -x; turned on its stand so the corner between them faces the
+// camera. Modelled rather than painted: a white body with a glossy top pane edged in chrome, a
+// chrome ring down into the well, the pickup slot and sled, a turntable with clamp balls, square
+// buttons, a display with segment digits, a speaker grille and two ports, and its shadow on the
+// surface it stands on.
 const PLAYER = (() => {
   const half = C.playerSize / 2;
   const top = C.playerHeight / 2;
@@ -1411,42 +1431,74 @@ function roundedRect(width: number, height: number, radius: number) {
   return shape;
 }
 
-// The body: a rounded square slab with softened edges, the well cut through it. Extruded upward,
-// so the shape's y runs to the back (-z). Its caps (material 0) keep the shape's coordinates in
-// millimetres as UVs; makePlayerTopCanvas paints in those.
+// The well as a hole in the top's plane (x right, y to the back), grown by `grow` millimetres.
+function wellHole(grow = 0) {
+  const path = new THREE.Path();
+  path.absarc(0, -C.wellZ, C.wellRadius + grow, 0, Math.PI * 2, true);
+  return path;
+}
+
+// The body: a slim rounded square slab with softened edges, the well cut through it. Extruded
+// upward, so the shape's y runs to the back (-z).
 function makePlayerBodyGeometry() {
   const bevel = C.playerBevel;
   const shape = roundedRect(C.playerSize - bevel * 2, C.playerSize - bevel * 2, C.playerCorner - bevel);
-  const well = new THREE.Path();
-  well.absarc(0, -C.wellZ, C.wellRadius + bevel, 0, Math.PI * 2, true);
-  shape.holes.push(well);
+  shape.holes.push(wellHole(bevel));
   const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: C.playerHeight - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 24,
+    depth: C.playerHeight - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 20,
   });
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, -PLAYER.top + bevel, 0);
   return geometry;
 }
 
-// The spindle: a platform the disc rests on and the centring pin through its hole, as a lathe.
+// The top pane: a glossy white sheet just proud of the body, a hair inside its edge, cut round the
+// chrome ring. Its edges (material 1) are satin silver, the fine bright line round the top in the
+// photos. Seen from the front and above, a glossy pane mirrors the bright room toward its back and
+// the floor toward its front, so its vertex colours shade it from back to front.
+function makePlayerTopGeometry() {
+  const inset = C.playerFrame;
+  const shape = roundedRect(C.playerSize - inset * 2, C.playerSize - inset * 2, Math.max(1, C.playerCorner - inset));
+  shape.holes.push(wellHole(C.playerRing));
+  // Square edges: a rounded edge showed at the back, seen almost edge on, as a dotted sub-pixel line.
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: 1.15, bevelEnabled: false, curveSegments: 20 });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, PLAYER.top - 0.4, 0);
+  const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  const back = new THREE.Color(C.playerTopBack), near = new THREE.Color(C.playerTop), color = new THREE.Color();
+  for (let n = 0; n < position.count; n++) {
+    const t = clamp((position.getZ(n) + PLAYER.half) / C.playerSize, 0, 1);
+    color.copy(back).lerp(near, t * t * (3 - 2 * t)).toArray(colors, n * 3);
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geometry;
+}
+
+// The chrome ring round the well: from the top pane's edge it rounds over and slopes down into
+// the well, as a lathe (top outside to bottom inside, so its normals face up and in).
+function makeWellRingGeometry() {
+  const r = C.wellRadius, top = PLAYER.top, w = C.playerRing;
+  // The lip lies on the pane (whose surface is 0.75 mm above the body's top) and covers its cut edge.
+  const profile: Point[] = [[r + w + 0.8, top + 0.76], [r + w, top + 1.05], [r + w - 1, top + 0.95], [r + 0.9, top - 0.4], [r + 0.2, top - 2.2], [r, top - 3.2]];
+  return new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 128);
+}
+
+// The turntable: a platform the disc rests on, its rim stepped down, and the centring pin through
+// the disc's hole, as a lathe.
 function makeSpindleGeometry() {
   const seat = PLAYER.seat - (C.discThickness / MM) / 2;
   const pin = C.holeSize * 60 - 0.2;
   // From the floor up, so the lathe's normals face outward.
   const profile: Point[] = [
-    [19, PLAYER.floor], [19, PLAYER.floor + 0.6], [15.6, PLAYER.floor + 2], [15.6, seat - 0.6], [15, seat],
-    [pin, seat], [pin, seat + 1.8], [pin * 0.85, seat + 2.8], [pin * 0.5, seat + 3.6], [0, seat + 4],
+    [8, PLAYER.floor], [8, seat - 2.4], [16, seat - 2.2], [16.4, seat - 1.6], [16.4, seat - 0.4], [16, seat],
+    [pin + 1.2, seat], [pin, seat + 0.2], [pin, seat + 1.4], [pin * 0.8, seat + 2.4], [pin * 0.4, seat + 2.9], [0, seat + 3],
   ];
-  return new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 48);
+  return new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 64);
 }
 
-// A button: a rounded square cap facing +z. Its face (material 0) has UVs in millimetres, ±5 across.
-function makeButtonGeometry() {
-  return new THREE.ExtrudeGeometry(roundedRect(9, 9, 1.6), { depth: 0.9, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 2, curveSegments: 6 });
-}
-
-// Canvas helpers: a canvas `size` millimetres across at `scale` pixels a millimetre, origin in the
-// middle, y up (as in the geometry's UVs).
+// Canvas helper for the contact shadow: a canvas `width` × `height` millimetres at `scale` pixels a
+// millimetre, origin in the middle, y up.
 function mmCanvas(width: number, height: number, scale: number) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width * scale);
@@ -1456,185 +1508,14 @@ function mmCanvas(width: number, height: number, scale: number) {
   return { canvas, ctx };
 }
 
-// The top plate: graphite with a fine satin grain, engraved panel lines framing the well, a set of
-// rings in the back left corner and a few pairs of small dots, after the reference photos.
-function makePlayerTopCanvas() {
-  const size = C.playerSize;
-  const { canvas, ctx } = mmCanvas(size, size, 5);
-  const h = PLAYER.half;
-  ctx.fillStyle = C.playerTop;
-  ctx.fillRect(-h, -h, size, size);
-  for (let n = 0; n < 9000; n++) {
-    ctx.fillStyle = `rgba(255,255,255,${0.01 + Math.random() * 0.02})`;
-    ctx.fillRect((Math.random() - 0.5) * size, (Math.random() - 0.5) * size, 0.3 + Math.random() * 0.6, 0.2);
-  }
-  const engrave = (draw: () => void, strength = 1) => {
-    // An engraved line: a dark groove with a faint light lip below it.
-    ctx.lineWidth = 0.4;
-    ctx.strokeStyle = `rgba(0,0,0,${0.4 * strength})`;
-    ctx.beginPath(); draw(); ctx.stroke();
-    ctx.save();
-    ctx.translate(0, -0.35);
-    ctx.strokeStyle = `rgba(255,255,255,${0.16 * strength})`;
-    ctx.beginPath(); draw(); ctx.stroke();
-    ctx.restore();
-  };
-  const front = -78, side = 80;
-  engrave(() => { ctx.moveTo(-h, front); ctx.lineTo(h, front); });
-  engrave(() => { ctx.moveTo(-side, front); ctx.lineTo(-side, h); });
-  engrave(() => { ctx.moveTo(side, front); ctx.lineTo(side, h); });
-  engrave(() => { ctx.moveTo(-side, 30); ctx.lineTo(-h, 30); });
-  engrave(() => { ctx.moveTo(side, -10); ctx.lineTo(h, -10); });
-  for (const x of [-40, 0, 40]) engrave(() => { ctx.moveTo(x, front); ctx.lineTo(x, -h); });
-  for (let r = 4; r <= 16; r += 2) engrave(() => ctx.arc(-84, 76, r, 0, Math.PI * 2), 1.6);
-  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-  ctx.lineWidth = 0.35;
-  for (const [x, y] of [[-60, -90], [20, -90], [92, -20], [-92, 18], [60, -90]]) {
-    for (const dx of [-1.6, 1.6]) {
-      ctx.beginPath(); ctx.arc(x + dx, y, 1, 0, Math.PI * 2); ctx.stroke();
-    }
-  }
-  return canvas;
-}
-
-// The front panel between the rounded corners: brushed aluminium, horizontal grain, with the
-// Discography wordmark printed at the left end in the page's heading font. The buttons and display
-// beside it are geometry. Returns the colour map and a roughness map with the same grain.
-function makePlayerFrontCanvases(width: number, height: number) {
-  const scale = 8;
-  const color = mmCanvas(width, height, scale);
-  const rough = mmCanvas(width, height, scale);
-  color.ctx.fillStyle = C.playerFront;
-  color.ctx.fillRect(-width / 2, -height / 2, width, height);
-  rough.ctx.fillStyle = '#fff';
-  rough.ctx.fillRect(-width / 2, -height / 2, width, height);
-  // Brushing: many thin horizontal streaks of varied length, lighter and darker, and the same in the
-  // roughness map, so the grain catches the light unevenly.
-  for (let n = 0; n < 2600; n++) {
-    const y = (Math.random() - 0.5) * height;
-    const x = (Math.random() - 0.5) * width * 1.2;
-    const length = 8 + Math.random() * 60;
-    const light = Math.random() < 0.5;
-    color.ctx.fillStyle = light ? `rgba(255,255,255,${0.03 + Math.random() * 0.06})` : `rgba(0,0,0,${0.03 + Math.random() * 0.06})`;
-    color.ctx.fillRect(x - length / 2, y, length, 0.08 + Math.random() * 0.08);
-    const level = Math.round(150 + Math.random() * 105);
-    rough.ctx.fillStyle = `rgba(${level},${level},${level},0.5)`;
-    rough.ctx.fillRect(x - length / 2, y, length, 0.1);
-  }
-  const ctx = color.ctx;
-  ctx.save();
-  ctx.scale(1, -1);
-  ctx.fillStyle = C.playerLabel;
-  ctx.font = 'italic 400 9px "Instrument Serif", Georgia, serif';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('Discography', -width / 2 + 7, 0.4);
-  ctx.restore();
-  return { color: color.canvas, rough: rough.canvas };
-}
-
-// The right side (seen from outside, front on the left): a USB-C port and a headphone jack near the
-// front, with small labels.
-function makePlayerSideCanvas(width: number, height: number) {
-  const { canvas, ctx } = mmCanvas(width, height, 8);
-  const left = -width / 2;
-  const usb = left + 18, jack = left + 34;
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.beginPath(); ctx.roundRect(usb - 4.45, 0.45, 8.9, 3.1, 1.3); ctx.fill();
-  ctx.fillStyle = '#08080a';
-  ctx.beginPath(); ctx.roundRect(usb - 4.2, 0.7, 8.4, 2.6, 1.3); ctx.fill();
-  ctx.fillStyle = '#1c1d20';
-  ctx.fillRect(usb - 3, 1.7, 6, 0.6);
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  ctx.beginPath(); ctx.arc(jack, 2, 3.2, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#141417';
-  ctx.beginPath(); ctx.arc(jack, 2, 2.9, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#050506';
-  ctx.beginPath(); ctx.arc(jack, 2, 1.7, 0, Math.PI * 2); ctx.fill();
-  ctx.save();
-  ctx.scale(1, -1);
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.font = '500 1.9px "DM Mono", monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('USB IN', usb, 8);
-  ctx.fillText('PHONES', jack, 8);
-  ctx.restore();
-  return canvas;
-}
-
-// The well floor: matte black, the pickup sled's slot running from the spindle to the back right,
-// the lens in it, and a laser warning printed beside it.
-function makeWellFloorCanvas() {
-  const radius = C.wellRadius;
-  const { canvas, ctx } = mmCanvas(radius * 2, radius * 2, 6);
-  const gradient = ctx.createRadialGradient(0, 0, 10, 0, 0, radius);
-  gradient.addColorStop(0, '#1b1c1f');
-  gradient.addColorStop(1, '#121315');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-  ctx.save();
-  ctx.rotate(Math.PI / 4);
-  ctx.fillStyle = '#060607';
-  ctx.beginPath(); ctx.roundRect(-11, 14, 22, 44, 2); ctx.fill();
-  ctx.fillStyle = '#2a2b2f';
-  ctx.fillRect(-10, 16, 1.2, 40);
-  ctx.fillRect(8.8, 16, 1.2, 40);
-  ctx.fillStyle = '#25262a';
-  ctx.beginPath(); ctx.roundRect(-7, 26, 14, 12, 1.5); ctx.fill();
-  const lens = ctx.createRadialGradient(-0.6, 32.6, 0.2, 0, 32, 2.6);
-  lens.addColorStop(0, '#b9b2ff');
-  lens.addColorStop(0.35, '#3b3570');
-  lens.addColorStop(1, '#0c0c12');
-  ctx.fillStyle = lens;
-  ctx.beginPath(); ctx.arc(0, 32, 2.6, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-  ctx.save();
-  ctx.translate(-24, 30);
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 0.4;
-  ctx.beginPath(); ctx.moveTo(-3, -2.4); ctx.lineTo(3, -2.4); ctx.lineTo(0, 2.8); ctx.closePath(); ctx.stroke();
-  ctx.restore();
-  return canvas;
-}
-
-type ButtonIcon = 'stop' | 'prev' | 'play' | 'next' | 'minus' | 'plus';
-
-// A button's printed icon, light grey on the button colour.
-function makeButtonCanvas(icon: ButtonIcon) {
-  const { canvas, ctx } = mmCanvas(10, 10, 16);
-  ctx.fillStyle = C.playerButton;
-  ctx.fillRect(-5, -5, 10, 10);
-  ctx.fillStyle = 'rgba(225,226,230,0.7)';
-  ctx.strokeStyle = 'rgba(225,226,230,0.7)';
-  ctx.lineWidth = 0.35;
-  const triangle = (x: number, direction: number) => {
-    ctx.beginPath(); ctx.moveTo(x - direction * 1.1, 1.2); ctx.lineTo(x + direction * 1.1, 0); ctx.lineTo(x - direction * 1.1, -1.2); ctx.closePath(); ctx.fill();
-  };
-  if (icon === 'stop') ctx.fillRect(-1.1, -1.1, 2.2, 2.2);
-  if (icon === 'play') {
-    triangle(-0.9, 1);
-    ctx.fillRect(0.8, -1.2, 0.4, 2.4);
-    ctx.fillRect(1.6, -1.2, 0.4, 2.4);
-  }
-  if (icon === 'prev' || icon === 'next') {
-    const direction = icon === 'next' ? 1 : -1;
-    triangle(-0.6 * direction, direction);
-    triangle(0.9 * direction, direction);
-    ctx.fillRect(direction > 0 ? 2 : -2.4, -1.2, 0.4, 2.4);
-  }
-  if (icon === 'minus' || icon === 'plus') {
-    ctx.fillRect(-1.2, -0.18, 2.4, 0.36);
-    if (icon === 'plus') ctx.fillRect(-0.18, -1.2, 0.36, 2.4);
-  }
-  return canvas;
-}
-
 interface Player {
   group: THREE.Group;
   // The disc's place on the spindle, label up, in the player's space.
   seat: THREE.Matrix4;
-  display: { ctx: CanvasRenderingContext2D; texture: THREE.CanvasTexture };
-  // Redraws the front and side labels, once their fonts have loaded.
-  repaint: () => void;
+  // The turntable and its clamp balls, which turn with the disc.
+  spindle: THREE.Group;
+  // The screen's canvas and texture (drawPlayerScreen), and whether its title is scrolling.
+  screen: { ctx: CanvasRenderingContext2D; texture: THREE.CanvasTexture; scrolls: boolean };
   resources: { dispose(): void }[];
 }
 
@@ -1644,76 +1525,125 @@ function makePlayer(anisotropy: number): Player {
     resources.push(resource);
     return resource;
   };
-  const texture = (canvas: HTMLCanvasElement) => {
-    const map = keep(new THREE.CanvasTexture(canvas));
-    map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = anisotropy;
-    return map;
-  };
   const group = new THREE.Group();
-  const body = keep(new THREE.MeshPhysicalMaterial({ color: C.playerColor, roughness: C.playerRough, metalness: 0.1, clearcoat: 0.15, clearcoatRoughness: 0.5 }));
-  // The caps' UVs are millimetres; the map is offset and scaled so 0 to 1 spans the top.
-  const topMap = texture(makePlayerTopCanvas());
-  topMap.repeat.set(1 / C.playerSize, 1 / C.playerSize);
-  topMap.offset.set(0.5, 0.5);
-  // The top plate reflects the same soft strip light as the case lid, as a broad sheen.
-  const top = keep(withSoftReflection(new THREE.MeshPhysicalMaterial({ map: topMap, roughness: C.playerTopRough, metalness: 0.15, clearcoat: C.playerTopClearcoat, clearcoatRoughness: 0.22 }), 'player-top', C.playerTopSheen));
-  group.add(new THREE.Mesh(keep(makePlayerBodyGeometry()), [top, body]));
+  // Glossy graphite plastic, silver trim. The scene's lights are tuned for discs and cases; the
+  // player takes a little more of the room's light (playerEnvLift) so its finish reads.
+  const body = keep(new THREE.MeshPhysicalMaterial({ color: C.playerColor, roughness: C.playerRough, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: C.playerEnvLift }));
+  const chrome = keep(new THREE.MeshPhysicalMaterial({ color: C.playerChrome, roughness: 0.12, metalness: 1, side: THREE.DoubleSide }));
+  group.add(new THREE.Mesh(keep(makePlayerBodyGeometry()), body));
+  const top = keep(withSoftReflection(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: C.playerEnvLift }), 'player-top', C.playerTopSheen));
+  // The pane's edge: glossy light silver, the fine line round the top.
+  const trim = keep(new THREE.MeshPhysicalMaterial({ color: C.playerTrim, roughness: 0.1, metalness: 0.9, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.5 }));
+  group.add(new THREE.Mesh(keep(makePlayerTopGeometry()), [top, trim]));
+  // The ring round the well: thin polished light silver.
+  const ringMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerRingColor, roughness: 0.06, metalness: 1, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.6, side: THREE.DoubleSide }));
+  group.add(new THREE.Mesh(keep(makeWellRingGeometry()), ringMetal));
 
-  // The well's floor and spindle, and a thin satin ring round its lip.
-  const floor = new THREE.Mesh(keep(new THREE.CircleGeometry(C.wellRadius + C.playerBevel, 64)), keep(new THREE.MeshStandardMaterial({ map: texture(makeWellFloorCanvas()), roughness: 0.8 })));
+  // The well: its floor with the pickup slot cut in it toward the back, the slot's cavity with two
+  // rails and the sled carrying the lens, and the turntable.
+  const [slotWidth, slotFrom, slotTo] = [18, 18, 54];
+  const floorShape = new THREE.Shape();
+  floorShape.absarc(0, -C.wellZ, C.wellRadius + C.playerBevel, 0, Math.PI * 2, false);
+  const slot = new THREE.Path();
+  slot.moveTo(-slotWidth / 2, slotFrom - C.wellZ);
+  slot.lineTo(-slotWidth / 2, slotTo - C.wellZ);
+  slot.lineTo(slotWidth / 2, slotTo - C.wellZ);
+  slot.lineTo(slotWidth / 2, slotFrom - C.wellZ);
+  slot.closePath();
+  floorShape.holes.push(slot);
+  const satin = keep(new THREE.MeshStandardMaterial({ color: C.playerWell, roughness: 0.6, envMapIntensity: C.playerEnvLift }));
+  const floor = new THREE.Mesh(keep(new THREE.ShapeGeometry(floorShape, 48)), satin);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, PLAYER.floor, C.wellZ);
-  const spindle = new THREE.Mesh(keep(makeSpindleGeometry()), keep(new THREE.MeshStandardMaterial({ color: '#2e2f33', roughness: 0.35, metalness: 0.6 })));
-  spindle.position.z = C.wellZ;
-  const lip = new THREE.Mesh(keep(new THREE.RingGeometry(C.wellRadius + C.playerBevel - 0.2, C.wellRadius + C.playerBevel + 1.1, 96)), keep(new THREE.MeshStandardMaterial({ color: '#55575c', roughness: 0.32, metalness: 0.85 })));
-  lip.rotation.x = -Math.PI / 2;
-  lip.position.set(0, PLAYER.top + 0.05, C.wellZ);
-  group.add(floor, spindle, lip);
-
-  // Front face, left to right: the brushed metal panel with the wordmark, six buttons and the
-  // display. The ports are painted on the right side, on a transparent sheet just off it.
-  const faceHeight = C.playerHeight - C.playerBevel * 2;
-  const faceSize: Point = [PLAYER.flat * 2, faceHeight];
-  const panelCanvases = makePlayerFrontCanvases(...faceSize);
-  const panelMap = texture(panelCanvases.color);
-  const panelRough = keep(new THREE.CanvasTexture(panelCanvases.rough));
-  const front = new THREE.Mesh(keep(new THREE.PlaneGeometry(...faceSize)), keep(new THREE.MeshPhysicalMaterial({
-    map: panelMap, roughness: C.playerFrontRough, roughnessMap: panelRough, metalness: C.playerFrontMetal, clearcoat: 0.1, clearcoatRoughness: 0.4,
-  })));
-  front.position.set(0, 0, PLAYER.half + 0.15);
-  const sideMap = texture(makePlayerSideCanvas(...faceSize));
-  const side = new THREE.Mesh(keep(new THREE.PlaneGeometry(...faceSize)), keep(new THREE.MeshStandardMaterial({ map: sideMap, transparent: true, roughness: 0.6, depthWrite: false })));
-  side.rotation.y = Math.PI / 2;
-  side.position.set(PLAYER.half + 0.15, 0, 0);
-  group.add(front, side);
-  // The labels are set in Instrument Serif and DM Mono, which the page may not have loaded yet.
-  const repaint = () => {
-    const canvases = makePlayerFrontCanvases(...faceSize);
-    panelMap.image = canvases.color;
-    panelRough.image = canvases.rough;
-    sideMap.image = makePlayerSideCanvas(...faceSize);
-    panelMap.needsUpdate = panelRough.needsUpdate = sideMap.needsUpdate = true;
-  };
-
-  const buttonGeometry = keep(makeButtonGeometry());
-  const buttonSide = keep(new THREE.MeshPhysicalMaterial({ color: C.playerButton, roughness: 0.42, metalness: 0.1, clearcoat: 0.3 }));
-  const icons: ButtonIcon[] = ['stop', 'prev', 'play', 'next', 'minus', 'plus'];
-  icons.forEach((icon, n) => {
-    const map = texture(makeButtonCanvas(icon));
-    map.repeat.set(0.1, 0.1);
-    map.offset.set(0.5, 0.5);
-    const button = new THREE.Mesh(buttonGeometry, [keep(new THREE.MeshPhysicalMaterial({ map, roughness: 0.42, metalness: 0.1, clearcoat: 0.3 })), buttonSide]);
-    button.position.set(-36 + n * 12.5, -1, PLAYER.half - 0.3);
-    group.add(button);
+  floor.position.y = PLAYER.floor;
+  // The cavity is a box seen from inside (back faces), so its walls and bottom show through the slot.
+  const slotLength = slotTo - slotFrom;
+  const slotZ = C.wellZ - (slotFrom + slotTo) / 2;
+  const cavity = new THREE.Mesh(keep(new THREE.BoxGeometry(slotWidth, 4, slotLength)), keep(new THREE.MeshStandardMaterial({ color: '#3c3e43', roughness: 0.8, side: THREE.BackSide })));
+  cavity.position.set(0, PLAYER.floor - 2, slotZ);
+  const railGeometry = keep(new THREE.CylinderGeometry(0.5, 0.5, slotLength, 12).rotateX(Math.PI / 2));
+  const rails = [-6.5, 6.5].map((x) => {
+    const rail = new THREE.Mesh(railGeometry, chrome);
+    rail.position.set(x, PLAYER.floor - 1.6, slotZ);
+    return rail;
   });
-  const { canvas: displayCanvas, ctx } = mmCanvas(54, 18, 12);
-  const displayMap = texture(displayCanvas);
-  const display = new THREE.Mesh(keep(new THREE.PlaneGeometry(54, 18)), keep(new THREE.MeshPhysicalMaterial({
-    color: '#040405', roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, emissive: '#ffffff', emissiveMap: displayMap,
-  })));
-  display.position.set(PLAYER.flat - 31, 0, PLAYER.half + 0.2);
-  group.add(display);
+  const sledZ = C.wellZ - 32;
+  const sled = new THREE.Mesh(keep(new THREE.BoxGeometry(14, 2, 9)), keep(new THREE.MeshStandardMaterial({ color: '#2b2c30', roughness: 0.4, metalness: 0.5 })));
+  sled.position.set(0, PLAYER.floor - 1.2, sledZ);
+  // The objective lens: a small glossy dome with the violet sheen of its coating, in a ring.
+  const lensRing = new THREE.Mesh(keep(new THREE.TorusGeometry(2, 0.35, 8, 32).rotateX(Math.PI / 2)), chrome);
+  lensRing.position.set(0, PLAYER.floor - 0.1, sledZ);
+  const lens = new THREE.Mesh(keep(new THREE.SphereGeometry(1.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.5, 1)),
+    keep(new THREE.MeshPhysicalMaterial({ color: '#191530', roughness: 0.05, clearcoat: 1, iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [250, 500] })));
+  lens.position.set(0, PLAYER.floor - 0.2, sledZ);
+  // The turntable, graphite like the body, with three steel spring balls round the pin that hold the
+  // disc, turning with it.
+  const spindle = new THREE.Group();
+  spindle.position.z = C.wellZ;
+  spindle.add(new THREE.Mesh(keep(makeSpindleGeometry()), body));
+  const ballGeometry = keep(new THREE.SphereGeometry(0.8, 16, 8));
+  const pin = C.holeSize * 60 - 0.2;
+  for (let n = 0; n < 3; n++) {
+    const ball = new THREE.Mesh(ballGeometry, chrome);
+    const angle = (n / 3) * Math.PI * 2;
+    ball.position.set(Math.cos(angle) * (pin - 0.3), PLAYER.seat + 1.1, Math.sin(angle) * (pin - 0.3));
+    spindle.add(ball);
+  }
+  group.add(floor, cavity, ...rails, sled, lensRing, lens, spindle);
+
+  // Under it, its shadow on the surface it stands on (a blurred canvas, the one texture; it is light,
+  // not shape): a dark, tight band where the base meets the surface, inside a wide soft falloff.
+  const shadowSize = C.playerSize * 1.8;
+  const { canvas: shadowCanvas, ctx: shadowCtx } = mmCanvas(shadowSize, shadowSize, 3);
+  const footprint = (grow: number, blur: number, alpha: number) => {
+    shadowCtx.filter = `blur(${blur * 3}px)`;
+    shadowCtx.globalAlpha = alpha;
+    shadowCtx.fillStyle = '#000';
+    shadowCtx.beginPath();
+    shadowCtx.roundRect(-C.playerSize / 2 - grow, -C.playerSize / 2 - grow, C.playerSize + grow * 2, C.playerSize + grow * 2, C.playerCorner + grow);
+    shadowCtx.fill();
+  };
+  footprint(C.playerSize * 0.06, C.playerSize * 0.09, 0.55);
+  footprint(0, C.playerSize * 0.015, 1);
+  const shadowMap = keep(new THREE.CanvasTexture(shadowCanvas));
+  shadowMap.anisotropy = anisotropy;
+  const shadow = new THREE.Mesh(keep(new THREE.PlaneGeometry(shadowSize, shadowSize)),
+    keep(new THREE.MeshBasicMaterial({ map: shadowMap, transparent: true, opacity: C.playerShadow, depthWrite: false, fog: false })));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = -C.playerHeight / 2 - 0.3;
+  shadow.renderOrder = -1;
+  group.add(shadow);
+
+  // The front (+z): one screen across the whole face, a glossy black pane with a fine bevel, just
+  // proud of the face. What it shows is drawn into a canvas (drawPlayerScreen), since track names
+  // need a real font; it lights the pane through its emissive map.
+  const front = PLAYER.half;
+  const [screenWidth, screenHeight] = playerScreenSize();
+  const screenCanvas = document.createElement('canvas');
+  screenCanvas.width = Math.round(screenWidth * C.playerScreenResolution);
+  screenCanvas.height = Math.round(screenHeight * C.playerScreenResolution);
+  const screenMap = keep(new THREE.CanvasTexture(screenCanvas));
+  screenMap.colorSpace = THREE.SRGBColorSpace;
+  screenMap.anisotropy = anisotropy;
+  const pane = new THREE.Mesh(keep(new THREE.ExtrudeGeometry(roundedRect(screenWidth, screenHeight, 1.2), { depth: 0.2, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.15, bevelSegments: 2, curveSegments: 6 })),
+    keep(new THREE.MeshPhysicalMaterial({ color: '#050506', roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02 })));
+  pane.position.set(0, 0, front);
+  const screen = new THREE.Mesh(keep(new THREE.PlaneGeometry(screenWidth - 1.2, screenHeight - 1.2)), keep(new THREE.MeshBasicMaterial({ map: screenMap, transparent: true, toneMapped: false, depthWrite: false })));
+  screen.position.set(0, 0, front + 0.4);
+  group.add(pane, screen);
+
+  // The left side (-x): a band of speaker holes across the face, all one dark grey, lifted a little
+  // off the face with a polygon offset so none loses the depth test against it.
+  const holes = keep(new THREE.MeshStandardMaterial({ color: C.playerHoles, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const [columns, rows] = [Math.floor((PLAYER.flat * 2 - 8) / C.playerGrillePitch) + 1, C.playerGrilleRows];
+  const grille = new THREE.InstancedMesh(keep(new THREE.CircleGeometry(C.playerGrilleHole, 16)), holes, columns * rows);
+  const placement = new THREE.Matrix4().makeRotationY(-Math.PI / 2);
+  const spot = new THREE.Matrix4();
+  for (let n = 0; n < columns * rows; n++) {
+    const along = ((n % columns) - (columns - 1) / 2) * C.playerGrillePitch;
+    const up = (Math.floor(n / columns) - (rows - 1) / 2) * C.playerGrillePitch;
+    grille.setMatrixAt(n, spot.makeTranslation(-PLAYER.half - 0.2, up, along).multiply(placement));
+  }
+  group.add(grille);
 
   // The player's space is millimetres, so the disc on the seat is scaled up to its 60 mm radius.
   const seat = new THREE.Matrix4().compose(
@@ -1721,30 +1651,97 @@ function makePlayer(anisotropy: number): Player {
     new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2),
     new THREE.Vector3(1, 1, 1).multiplyScalar(1 / MM),
   );
-  const player = { group, seat, display: { ctx, texture: displayMap }, repaint, resources };
-  drawPlayerDisplay(player, null, 0, 0);
-  return player;
+  group.rotation.y = THREE.MathUtils.degToRad(C.playerYaw);
+  const ctx = screenCanvas.getContext('2d')!;
+  return { group, seat, spindle, screen: { ctx, texture: screenMap, scrolls: false }, resources };
 }
 
-// The display: the track and time while playing, otherwise the number of tracks, in pale blue.
-function drawPlayerDisplay(player: Player, track: number | null, seconds: number, tracks: number) {
-  const { ctx, texture } = player.display;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(-27, -9, 54, 18);
-  ctx.save();
-  ctx.scale(1, -1);
-  ctx.fillStyle = '#a9c8ff';
+// The screen's size in millimetres: the face between the rounded corners, less a margin, and most
+// of its height.
+function playerScreenSize(): Point {
+  return [PLAYER.flat * 2 - C.playerScreenMargin * 2, C.playerHeight - C.playerBevel * 2 - C.playerScreenMargin * 2];
+}
+
+// What the screen shows. Stopped: the album and the number of tracks. Playing or paused: the play
+// or pause mark, the track number, its title and the elapsed time. A title too long to fit scrolls,
+// driven by `now` (seconds); `scrolls` tells the scene to keep redrawing it.
+interface ScreenState { album?: Album; track: number | null; seconds: number; playing: boolean }
+
+function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
+  const { ctx, texture } = player.screen;
+  const { width, height } = ctx.canvas;
+  const unit = height / 10;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = C.playerScreenColor;
   ctx.textBaseline = 'middle';
-  ctx.font = '500 8px "DM Mono", monospace';
-  const time = `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-  ctx.textAlign = 'left';
-  ctx.fillText(track === null ? String(tracks || '--').padStart(2, '0') : String(track).padStart(2, '0'), -22, 0.6);
+  const middle = height * 0.52;
+  const mono = `500 ${unit * 4.2}px "DM Mono", monospace`;
+  const sans = `500 ${unit * 4.6}px "DM Sans", sans-serif`;
+  const pad = unit * 4;
+  const tracks = state.album?.tracks ?? [];
+  let left: string, title: string, right: string;
+  if (state.track === null) {
+    left = '';
+    title = state.album ? `${state.album.title}  ·  ${state.album.artist}` : '';
+    right = tracks.length ? `${tracks.length} TRACKS` : '';
+  } else {
+    left = String(state.track).padStart(2, '0');
+    title = tracks[state.track - 1]?.title ?? '';
+    right = `${Math.floor(state.seconds / 60)}:${String(Math.floor(state.seconds % 60)).padStart(2, '0')}`;
+  }
+  let x = pad;
+  if (state.track !== null) {
+    // The play mark (a triangle) or the pause mark (two bars).
+    const size = unit * 3.2;
+    ctx.beginPath();
+    if (state.playing) {
+      ctx.moveTo(x, middle - size / 2);
+      ctx.lineTo(x + size * 0.85, middle);
+      ctx.lineTo(x, middle + size / 2);
+      ctx.closePath();
+    } else {
+      ctx.rect(x, middle - size / 2, size * 0.28, size);
+      ctx.rect(x + size * 0.55, middle - size / 2, size * 0.28, size);
+    }
+    ctx.fill();
+    x += size + unit * 2.4;
+    ctx.font = mono;
+    ctx.fillText(left, x, middle);
+    x += ctx.measureText('00').width + unit * 4;
+  }
+  ctx.font = mono;
+  const rightWidth = ctx.measureText(right).width;
   ctx.textAlign = 'right';
-  ctx.fillText(track === null ? '--:--' : time, 22, 0.6);
-  ctx.font = '500 2.4px "DM Mono", monospace';
+  ctx.fillText(right, width - pad, middle);
   ctx.textAlign = 'left';
-  ctx.globalAlpha = 0.6;
-  ctx.fillText(track === null ? 'TRACKS' : 'TRACK', -22, -5.6);
+  // The title fits between, or scrolls there, faded at its ends.
+  const room = width - pad - rightWidth - unit * 5 - x;
+  ctx.font = sans;
+  const titleWidth = ctx.measureText(title).width;
+  player.screen.scrolls = titleWidth > room;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, 0, room, height);
+  ctx.clip();
+  if (player.screen.scrolls) {
+    const gap = unit * 14;
+    const offset = ((now * C.playerScreenScroll * unit) % (titleWidth + gap));
+    ctx.fillText(title, x - offset, middle);
+    ctx.fillText(title, x - offset + titleWidth + gap, middle);
+    const fade = (from: number, to: number) => {
+      const gradient = ctx.createLinearGradient(from, 0, to, 0);
+      gradient.addColorStop(0, 'rgba(0,0,0,1)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = gradient;
+      ctx.fillRect(Math.min(from, to), 0, Math.abs(to - from), height);
+      ctx.globalCompositeOperation = 'source-over';
+    };
+    fade(x, x + unit * 3);
+    fade(x + room, x + room - unit * 3);
+  } else {
+    ctx.fillText(title, x, middle);
+  }
   ctx.restore();
   texture.needsUpdate = true;
 }
@@ -1823,7 +1820,15 @@ export class GalleryScene {
   private playing: boolean;
   private spinRate: number;
   private overDisc: boolean;
-  private tracksShown: number;
+  // What the player's screen shows (drawPlayerScreen).
+  private screenState: ScreenState;
+  // How far the camera has gone from the gallery's to the player view's (see setLens).
+  private lens: number;
+  // The blue rim light behind the gallery; it fades in the player view, where the camera looks down
+  // on surfaces it would tint.
+  private rimLight!: THREE.DirectionalLight;
+  // The ambient light, raised in the player view so the player and the disc in it read bright.
+  private ambientLight!: THREE.AmbientLight;
 
   // onProgress(loaded, total) reports artwork loading; onReady fires once everything is loaded and
   // compiled. The gallery then stays hidden until reveal(), so the page can clear its loading screen first.
@@ -1842,7 +1847,8 @@ export class GalleryScene {
     this.playing = false;
     this.spinRate = 0;
     this.overDisc = false;
-    this.tracksShown = 0;
+    this.screenState = { track: null, seconds: 0, playing: false };
+    this.lens = 0;
     this.onIndexChange = onIndexChange;
     this.onProgress = onProgress;
     this.onReady = onReady;
@@ -1962,12 +1968,9 @@ export class GalleryScene {
     this.gallery.visible = this.player.group.visible = true;
     this.renderer.compile(this.scene, this.camera);
     this.gallery.visible = this.player.group.visible = false;
-    // The player's labels use the page's fonts, which may not have loaded when they were drawn.
-    Promise.all([document.fonts?.load('500 10px "DM Mono"'), document.fonts?.load('italic 400 10px "Instrument Serif"')]).then(() => {
-      if (this.destroyed) return;
-      this.player.repaint();
-      drawPlayerDisplay(this.player, null, 0, this.tracksShown);
-      this.request();
+    // The screen's fonts come from the page, which may not have loaded them when it was first drawn.
+    Promise.all([document.fonts?.load('500 10px "DM Mono"'), document.fonts?.load('500 10px "DM Sans"')]).then(() => {
+      if (!this.destroyed) this.drawScreen();
     }).catch(() => {});
     this.onReady?.();
   }
@@ -1983,12 +1986,14 @@ export class GalleryScene {
 
   private addLights() {
     RectAreaLightUniformsLib.init();
-    this.scene.add(new THREE.AmbientLight('#ffffff', 0.25));
+    this.ambientLight = new THREE.AmbientLight('#ffffff', C.ambientIntensity);
+    this.scene.add(this.ambientLight);
     const key = new THREE.DirectionalLight(C.keyColor, C.keyIntensity);
     key.position.set(C.keyX, C.keyY, 6);
     const fill = new THREE.DirectionalLight('#ffffff', C.fillIntensity);
     fill.position.set(-5, -2, 4);
     const rim = new THREE.DirectionalLight(C.rimColor, C.rimIntensity);
+    this.rimLight = rim;
     rim.position.set(0, 3, -6);
     const strip = new THREE.RectAreaLight('#ffffff', C.topStripIntensity, 6, 0.4);
     strip.position.set(0, 3.2, 3);
@@ -2257,8 +2262,8 @@ export class GalleryScene {
       this.scene.add(item.disc.group);
       item.disc.group.renderOrder = 1000;
     }
-    this.tracksShown = this.albums[this.listening]?.tracks?.length ?? 0;
-    drawPlayerDisplay(this.player, null, 0, this.tracksShown);
+    this.screenState = { album: this.albums[this.listening], track: null, seconds: 0, playing: false };
+    this.drawScreen();
     this.hovered = -1;
     this.overDisc = false;
     this.animateListen(1, atOnce);
@@ -2277,13 +2282,19 @@ export class GalleryScene {
   // The disc spins while a track plays and coasts to a stop when it pauses.
   setPlaying(playing: boolean) {
     this.playing = playing && this.inPlayer;
-    this.request();
+    this.screenState.playing = this.playing;
+    this.drawScreen();
   }
 
-  // What the player's display shows: the track number and elapsed seconds, or null for the
-  // number of tracks.
+  // What the player's screen shows: the track number (from 1) and elapsed seconds, or null for
+  // the album and its number of tracks.
   setDisplay(track: number | null, seconds = 0) {
-    drawPlayerDisplay(this.player, track, seconds, this.tracksShown);
+    Object.assign(this.screenState, { track, seconds });
+    this.drawScreen();
+  }
+
+  private drawScreen() {
+    drawPlayerScreen(this.player, this.screenState, performance.now() / 1000);
     this.request();
   }
 
@@ -2688,7 +2699,7 @@ export class GalleryScene {
     const halfWidth = halfHeight * aspect;
     const wide = aspect >= 1.1;
     this.playerRest.set(wide ? -halfWidth * C.playerShift : 0, wide ? -0.05 : halfHeight * C.playerRaise, 0);
-    this.player.group.rotation.set(THREE.MathUtils.degToRad(C.playerTilt), 0, 0);
+    this.setLens(this.lens);
     this.player.group.scale.setScalar(MM * C.playerScale * (wide ? clamp(aspect / 1.5, 0.75, 1) : clamp(halfWidth / 1.25, 0.4, 1)));
     const stats = this.frameStats;
     const dpr = window.devicePixelRatio || 1;
@@ -2815,6 +2826,7 @@ export class GalleryScene {
     const pan = ease.power3InOut(clamp((t - 0.2) / 0.5, 0, 1));
     this.gallery.position.y = pan * C.insertPan;
     if (this.ready) this.gallery.visible = pan < 0.999;
+    this.setLens(pan);
     const player = this.player.group;
     player.visible = pan > 0.001;
     player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan, this.playerRest.z);
@@ -2826,6 +2838,11 @@ export class GalleryScene {
     if (!item) return;
     // Clockwise seen from the label, as a disc turns, blurred over the arc it turns in spinBlur.
     item.disc.spin.rotation.z -= this.spinRate * dt;
+    this.player.spindle.rotation.y -= this.spinRate * dt;
+    if (this.player.screen.scrolls && this.inPlayer) {
+      drawPlayerScreen(this.player, this.screenState, performance.now() / 1000);
+      this.forceFrames = Math.max(this.forceFrames, 2);
+    }
     item.disc.blur.value = this.spinRate * C.spinBlur;
 
     const { trayPosition, trayQuaternion, trayScale, seatPosition, seatQuaternion, seatScale, matrix, axis } = PLAYER_SCRATCH;
@@ -2844,6 +2861,37 @@ export class GalleryScene {
     disc.position.lerpVectors(trayPosition, seatPosition, carry);
     disc.quaternion.slerpQuaternions(trayQuaternion, seatQuaternion, carry);
     disc.scale.setScalar(trayScale.x + (seatScale.x - trayScale.x) * carry);
+  }
+
+  // The camera, from the gallery's (0) to the player view's (1). The field of view narrows to
+  // playerFOV while the camera backs off, and it moves in front of the player and up until it sees
+  // it from playerView degrees above. It stays aimed straight ahead; a lens shift (view offset) moves
+  // the image back by as much as the camera moved, so the z = 0 plane stays framed the same and only
+  // the viewpoint changes. The fog moves back with it.
+  private setLens(amount: number) {
+    this.lens = amount;
+    const fov = C.cameraFOV + (C.playerFOV - C.cameraFOV) * amount;
+    const distance = lensDistance(fov);
+    const reach = distance * Math.tan(THREE.MathUtils.degToRad(fov / 2));
+    const x = this.playerRest.x * amount;
+    const y = (this.playerRest.y + distance * Math.tan(THREE.MathUtils.degToRad(C.playerView))) * amount;
+    this.camera.fov = fov;
+    this.camera.position.set(x, y, distance);
+    // setViewOffset also sets the aspect to fullWidth / fullHeight, so the full size is the aspect by
+    // 1, and the offsets are fractions of the height.
+    const aspect = Math.max(1, this.element.clientWidth) / Math.max(1, this.element.clientHeight);
+    if (amount > 0) this.camera.setViewOffset(aspect, 1, -x / (2 * reach), y / (2 * reach), aspect, 1);
+    else {
+      this.camera.clearViewOffset();
+      this.camera.aspect = aspect;
+    }
+    this.camera.updateProjectionMatrix();
+    // Gone by the time the player is well in view.
+    this.rimLight.intensity = C.rimIntensity * clamp(1 - amount * 2.5, 0, 1);
+    this.ambientLight.intensity = C.ambientIntensity + C.playerAmbient * amount;
+    const fog = this.scene.fog as THREE.Fog;
+    fog.near = 7 + distance - C.cameraDistance;
+    fog.far = 14 + distance - C.cameraDistance;
   }
 
   // Places every case on a shallow arc, then eases each one toward its slot. Cases further

@@ -754,14 +754,25 @@ lidless top-loading CD player (body about 210 × 210 × 45 mm, in black and in w
 ### Decisions
 
 - **Player:** a top-loader with an open circular well, so the disc stays visible while it plays.
-  Graphite. Fixed pose, no hover tilt, in the same perspective scene and camera, so the disc's
-  flight into it matches. After review it is posed like the open case: square to the camera with the
-  front and its controls facing the viewer, tipped back much further (56°) so it lies on a surface
-  seen from above. A first version turned 45° like the product photos (isometric), with its turn
-  corrected for sitting off centre; it looked odd beside the flat page and was dropped.
-  Minimal but realistic, as the user asked: no full set of controls. Model the look, not the
-  product: no maker's logo or text, our own labels, and textures painted in code rather than cut from
-  the photos (they are someone else's product shots, and angled photos distort on a model).
+  Glossy graphite with thin light silver trim (the user's final call, after white and black
+  versions), posed after a white product photo the user gave. Fixed pose, no hover tilt, in the same perspective scene and camera, so the disc's
+  flight into it matches. Shot like that product photo: the player stands level, turned 45° on its
+  stand so a corner faces the camera, and the camera is raised to see its top from 26°, still aimed
+  straight ahead, so verticals stay vertical (`setLens`; see below). It stands on the page with a soft
+  contact shadow; a floor reflection was tried and dropped by the user. Rejected on the way: tilting the player itself (30° and 56°) or turning it 45° like the
+  top-loader photos (isometric), which made it read as tipped or warped; and plain perspective from
+  the centre, which saw it from the right side since it sits left of centre.
+  Slim (18 mm) and only a little larger than the disc (146 mm square round the 120 mm disc). No
+  controls, since none work: the left side is a band of speaker holes and the front one screen
+  across the face that shows the album, then the track playing. Modelled, not painted (the user's call): no textures on the player except its contact
+  shadow. Minimal but realistic: no full set of controls, no maker's logo or text.
+  Rejected on the way: a brushed aluminium front panel with a "Discography" wordmark (Instrument
+  Serif); a speaker grille, side ports and engraved panel lines on the top; a 140 × 40 mm plain box
+  with six square buttons and a blue display, not elegant enough; a black anodised version with a
+  smoked glass top, a finger notch, round buttons and a knurled knob, after a second reference;
+  a glossy white version with the photo's eight buttons, a seven-segment display, a slide switch,
+  ports and printed labels (drawn in a small stroke font as shapes), which the user simplified to
+  the screen and the grille. Darker, thicker trim and ring were too heavy.
 - **Flow:** a click on the disc in the open case (or the caption, or Enter) switches to the player
   view. The disc does not flip, since a top-loader takes it label up: it lifts out of the tray, the
   row with the case slides up out of view while the player rises into its place, and the disc drops
@@ -787,25 +798,47 @@ lidless top-loading CD player (body about 210 × 210 × 45 mm, in black and in w
 ### What is implemented
 
 - **Model** (`makePlayer` and the `makePlayer*` functions in `src/scene.ts`, tuning in `C.player*`),
-  in millimetres, y up, the front face +z. Geometry: an extruded rounded square slab with softened
-  edges and the well cut through it, the well floor, a lathed spindle (platform and centring pin), a
-  thin satin ring round the well's lip, and on the front six rounded buttons and a display panel.
-  The front between the rounded corners is a brushed aluminium panel (`makePlayerFrontCanvases`:
-  colour and roughness maps with the same horizontal grain; `playerFront*`) with a "Discography"
-  wordmark in the page's heading font (Instrument Serif italic) at its left end, as asked in review.
-  It replaced a painted speaker grille there. A darker, more metallic panel (`#8f9298`, metalness
-  0.9) reflected the dark lower half of the room and read as graphite, hiding the wordmark.
-  Painted (canvas textures): the top plate's satin grain, engraved panel lines, a set of rings and
-  pairs of dots (the body's caps keep millimetre UVs for this); two ports with small labels on the right side, which perspective shows a little; the floor's pickup
-  slot, lens and laser mark; the button icons. The top plate takes the soft strip reflection
-  (`withSoftReflection`, `playerTopSheen`). The labels and display use DM Mono, so they are
-  repainted once the font has loaded (`prepare`).
-- **Display:** the number of tracks while stopped, the track number and elapsed time while playing
-  (`setDisplay`, `drawPlayerDisplay`), lit pale blue through the emissive map.
+  in millimetres, y up, the screen face +z and the grille face -x, turned `playerYaw` (45°) so the
+  corner between them faces the camera. Body: an extruded rounded square in glossy graphite with
+  softened edges, the well cut through it. Top: a glossy graphite pane just proud of the body
+  (`makePlayerTopGeometry`), with square edges in light silver, the fine line round the top (a
+  rounded edge showed at the back, seen almost edge on, as a dotted sub-pixel line); it is shaded
+  lighter toward the back in its vertex colours (`playerTopBack`, `playerTop`), as a glossy pane
+  mirrors the room. A thin polished light silver ring (`makeWellRingGeometry`, a lathe,
+  `playerRing`) lies on the pane and slopes down into the well. The well's floor has the pickup
+  slot cut in it, over a cavity drawn from inside (a back-faced box) with two chrome rails, the sled
+  and the lens (a glossy dome with an iridescent coating, in a ring). The turntable
+  (`makeSpindleGeometry`) has three steel clamp balls round the pin and turns with the disc. Front:
+  one screen across the face (`playerScreenMargin` in from its edges), a glossy black pane with its
+  content drawn into a canvas (`drawPlayerScreen`; track names need a real font, the one texture
+  besides the shadow), lit through an unlit material in `playerScreenColor` amber. Left side: a band
+  of speaker holes (an instanced mesh, `playerGrille*`), lifted 0.2 mm off the face with a polygon
+  offset so none loses the depth test. Under it, the contact shadow (`playerShadow`): a blurred
+  canvas with a tight dark band at the base inside a wide soft falloff.
+  The player takes a little more of the room's light (`playerEnvLift`), and the ambient light rises
+  by `playerAmbient` in the player view (setLens), which also brightens the disc in the player.
+  Black specks on glossy surfaces came from `softReflection`: taking out the direct highlight went
+  below zero at grazing angles; it is now clamped at zero (found by hiding the player's parts in
+  turn and counting dark pixels).
+  Earlier versions painted most of the detail (top plate lines, grille, ports, floor, icons, a
+  canvas display in DM Mono); review asked for real shapes.
+- **Screen** (`setDisplay`, `setPlaying`, `drawPlayerScreen`): stopped, the album and artist and
+  the number of tracks; playing or paused, the play or pause mark, the track number, its title and
+  the elapsed time. A title too long for the screen scrolls, faded at both ends, redrawn every frame
+  while it does; the screen is redrawn once DM Mono and DM Sans have loaded.
 - **Pose and layout** (`resize`): on wide screens (aspect 1.1 and up) the player sits `playerShift`
   of the half-width left of centre with the tracklist on the right; on narrow ones it sits above the
-  list (`playerRaise`) and shrinks to fit. It is tipped by `playerTilt` only; being off centre, plain
-  perspective shows a little of its right side.
+  list (`playerRaise`) and shrinks to fit. It is never rotated.
+- **Camera** (`setLens`, driven by the same pan as the transfer): the field of view narrows from the
+  gallery's 40° to `playerFOV` (18°) while the camera backs off to keep the z = 0 plane framed (at 40°
+  the box was visibly distorted); the camera moves in front of the player and up until it sees it
+  from `playerView` (25°) above, still aimed straight ahead; and a lens shift (`setViewOffset`)
+  moves the image back by as much as the camera moved, so everything stays framed where it was and
+  only the viewpoint changes. `setViewOffset` also sets the aspect to full width over full height,
+  so the full size passed is the aspect by 1 (1 by 1 squeezed the image). The fog moves back with
+  the camera, and the blue rim light, which tinted the surfaces the raised camera looks down on,
+  fades out in the first 40% of the move, before the player is well in view, while the ambient light
+  rises (see the model above). Ejecting returns the camera exactly (checked against the open case before and after).
 - **Transfer** (`insert`, `eject`, `updatePlayer`): one `listen` value, tweened over
   `insertDuration` (`ejectDuration` back), drives everything. 0 to 0.3: the disc lifts `insertLift`
   off the tray toward the camera. 0.2 to 0.7: the gallery group moves up by `insertPan` and the
