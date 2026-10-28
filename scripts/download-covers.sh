@@ -74,7 +74,8 @@ take_half() {
 # Prints two lines: the URL of a disc scan (a "Medium" image) and of a back insert ("Back"). Both
 # come from the earliest single-CD release that has both, so they show the same edition; failing
 # that, each comes from the earliest release that has it. The demo only shows single-disc cases, so
-# editions with a second CD or a DVD are skipped. band.json can pin the edition instead
+# editions with a second CD or a DVD are skipped, and so are promotional and bootleg releases (only
+# "Official" counts). band.json can pin the edition instead
 # (musicbrainz.release), and pick its back image (musicbrainz.backImage) when the first one tagged
 # Back is the wrong side. A line is empty if nothing is archived. Fails if MusicBrainz could not be
 # reached.
@@ -84,7 +85,7 @@ find_scans() {
   sleep 1
   [[ -n $releases ]] || releases=$(fetch "https://musicbrainz.org/ws/2/release?release-group=$group&inc=media&limit=100&fmt=json" 2>/dev/null \
     | jq -r '[.releases[]
-        | select((.media | length) == 1 and .media[0].format == "CD" and .["cover-art-archive"].count > 0)]
+        | select(.status == "Official" and (.media | length) == 1 and .media[0].format == "CD" and .["cover-art-archive"].count > 0)]
         | sort_by([(if (.date // "") == "" then "9999" else .date end), .id])
         | .[].id') || return 1
   for release in $releases; do

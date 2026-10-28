@@ -57,7 +57,8 @@
       "accent": "#e2d9cc",
       "motif": "arches",
       "musicbrainz": {
-        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07"
+        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07",
+        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c"
       },
       "back": "backs/mutter.jpg",
       "disc": "discs/mutter.jpg"

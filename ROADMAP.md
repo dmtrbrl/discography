@@ -500,6 +500,10 @@ colour; `color` and `accent` were picked from each cover. Fixes after a visual c
   plus 12 booklet scans for phase 2a).
 - Rosenrot: every archived back is a digipak's whole outside; pinned to `bf7c54d3` and the left
   half kept, which is the back panel (spines are generated).
+- Mutter: the scans came from a promotional pressing (`dbc3dfab`, "FOR PROMOTION ONLY" on the
+  disc) after the first download hit a Cover Art Archive error and the retry fell through to it.
+  Pinned to the Finnish launch-day jewel case CD (`eed328a1`, 2 April 2001: disc, back with spines,
+  8 booklet scans). The script now also skips anything MusicBrainz doesn't mark Official.
 - Silent Shout: the release group's front is 350 px; the 500 px front of the 2006 US CD is used. A
   1426 px Australian scan was tried and rejected: a different, much darker print that read as a
   black square.
@@ -543,9 +547,6 @@ Possible latent issues the types exposed, left as they were:
 - `endPress` reads `this.cases[spinning]` without a guard; `setAlbums` with fewer albums during a
   drag would throw. (Nothing calls `setAlbums` after construction today.)
 - `destroy()` calls `setAlbums([])`, which reports `onProgress(0, 0)`.
-- Mutter's disc scan is a promotional pressing ("FOR PROMOTION ONLY", release `dbc3dfab`): the
-  first download hit a Cover Art Archive error and the retry fell through to it. Pin a retail
-  single-CD release to replace it.
 - `removeEventListener(…, { passive: false })`: `passive` is ignored there (harmless).
 - The last branch of `makeFallbackArt` only runs for a motif outside the `Motif` type.
 
