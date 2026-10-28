@@ -52,26 +52,60 @@ save() {
 }
 
 # Scans are sometimes only archived at full scanner resolution; 1200 px is plenty for a texture.
+# Some originals are PNG (without a 1200 px thumbnail), so those are re-encoded to match the name.
 shrink() {
   if command -v sips >/dev/null; then
-    sips --resampleHeightWidthMax 1200 "$1" >/dev/null
+    sips --resampleHeightWidthMax 1200 "$1" >/dev/null 2>&1
+    if [[ $(sips -g format "$1" | awk '/format/ { print $2 }') != jpeg ]]; then
+      sips -s format jpeg "$1" --out "$1.part" >/dev/null 2>&1 && mv "$1.part" "$1"
+    fi
   fi
 }
 
-# Keeps the left or right half of a two-page scan. sips reads a crop offset of 0 as "centred", so
-# the left half is cut as the right half of a mirrored copy.
-take_half() {
-  local file=$1 half=$2 width height
+# Keeps one panel of a scan that shows several: left or right for a two-page spread, n/m for the
+# nth of m equal panels side by side (a foldout), or n/m,r/s for the panel in column n of m and
+# row r of s (a poster folded in four).
+take_part() {
+  local file=$1 part=$2 column row
   command -v sips >/dev/null || return 0
-  width=$(sips -g pixelWidth "$file" | awk '/pixelWidth/ { print $2 }')
-  height=$(sips -g pixelHeight "$file" | awk '/pixelHeight/ { print $2 }')
-  [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
-  sips --cropToHeightWidth "$height" $((width / 2)) --cropOffset 0 $((width - width / 2)) "$file" >/dev/null
-  [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
+  case $part in
+    left) column=1/2 ;;
+    right) column=2/2 ;;
+    */*,*/*) column=${part%,*} row=${part#*,} ;;
+    */*) column=$part ;;
+    *) echo "  unknown part $part; kept the whole scan"; return 0 ;;
+  esac
+  crop_column "$file" "$column"
+  if [[ -n ${row:-} ]]; then
+    # sips silently refuses a crop that ends on the bottom edge (one ending on the right edge
+    # works), so a row is cut as a column of the scan turned a quarter: row r of s from the top is
+    # then column s - r + 1 from the left.
+    sips --rotate 90 "$file" >/dev/null
+    crop_column "$file" "$((${row#*/} - ${row%/*} + 1))/${row#*/}"
+    sips --rotate 270 "$file" >/dev/null
+  fi
   return 0
 }
 
-# Prints two lines: the URL of a disc scan (a "Medium" image) and of a back insert ("Back"). Both
+# Crops a file to the nth of m equal columns. sips reads a crop offset of 0 as "centred", so the
+# first column is cut as the last column of a mirrored copy. The crop is written to a copy, since
+# in place sips sometimes leaves the file uncropped without an error.
+crop_column() {
+  local file=$1 n=${2%/*} m=${2#*/} width height size offset
+  width=$(sips -g pixelWidth "$file" | awk '/pixelWidth/ { print $2 }')
+  height=$(sips -g pixelHeight "$file" | awk '/pixelHeight/ { print $2 }')
+  size=$((width / m))
+  offset=$(((n - 1) * width / m))
+  ((n == 1 || n == m)) && offset=$((width - size))
+  ((n == 1)) && sips --flip horizontal "$file" >/dev/null
+  sips --cropToHeightWidth "$height" "$size" --cropOffset 0 "$offset" "$file" --out "${file%.*}.crop.jpg" >/dev/null
+  mv "${file%.*}.crop.jpg" "$file"
+  ((n == 1)) && sips --flip horizontal "$file" >/dev/null
+  return 0
+}
+
+# Prints two lines: the URL of a disc scan (a "Medium" image, preferring the printed side over one
+# also tagged Matrix/Runout, which is usually the silver data side) and of a back insert ("Back"). Both
 # come from the earliest single-CD release that has both, so they show the same edition; failing
 # that, each comes from the earliest release that has it. The demo only shows single-disc cases, so
 # editions with a second CD or a DVD are skipped, and so are promotional and bootleg releases (only
@@ -90,7 +124,8 @@ find_scans() {
         | .[].id') || return 1
   for release in $releases; do
     images=$(fetch "https://coverartarchive.org/release/$release" 2>/dev/null) || continue
-    found_disc=$(jq -r 'first(.images[] | select(.types | index("Medium")) | .thumbnails["1200"] // .image) // empty' <<<"$images")
+    found_disc=$(jq -r '[.images[] | select(.types | index("Medium"))] | sort_by(.types | index("Matrix/Runout") != null)
+      | first(.[] | .thumbnails["1200"] // .image) // empty' <<<"$images")
     found_back=$(jq -r --arg id "$back_image" 'first(.images[] | select(if $id == "" then .types | index("Back") else (.id | tostring) == $id end) | .thumbnails["1200"] // .image) // empty' <<<"$images")
     if [[ -n $found_disc && -n $found_back ]]; then
       disc=$found_disc back=$found_back
@@ -105,7 +140,8 @@ find_scans() {
 
 # Saves the booklet's back page. No tag marks it reliably, so band.json lists it per album
 # (musicbrainz.bookletBack) as release/image ID, with @left or @right to take one half of a
-# two-page spread.
+# two-page spread, @n/m for the nth of m panels of a foldout, or @n/m,r/s for one panel of a poster
+# folded in four (column, then row).
 fetch_booklet_back() {
   local slug=$1 source=$2 half='' file
   if [[ $source == *@* ]]; then
@@ -114,13 +150,14 @@ fetch_booklet_back() {
   fi
   file="$dir/booklets/$slug-back.jpg"
   save "https://coverartarchive.org/release/${source%/*}/${source#*/}-1200.jpg" "$file" || return 0
-  [[ -n $half ]] && take_half "$file" "$half"
-  echo "  booklet back: $source${half:+ ($half half)}"
+  [[ -n $half ]] && take_part "$file" "$half"
+  echo "  booklet back: $source${half:+ ($half)}"
 }
 
 # musicbrainz.coverRelease takes the front cover from that release instead of the release group's
 # chosen image (when that one is small). musicbrainz.backHalf takes one half of a back scan that
-# shows a whole spread (some editions only have the digipak's outside archived).
+# shows a whole spread (some editions only have the digipak's outside archived); like the booklet
+# back page, it also takes n/m and n/m,r/s.
 # Fields are split on the unit separator: tabs count as whitespace, so empty fields would collapse.
 while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_release back_image; do
   if (($#)) && [[ " $* " != *" $slug "* ]]; then continue; fi
@@ -140,8 +177,8 @@ while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_releas
       echo "  no disc scan archived; the disc uses the cover"
     fi
     if [[ -n $back ]]; then
-      save "$back" "$dir/backs/$slug.jpg" && { [[ -z $back_half ]] || take_half "$dir/backs/$slug.jpg" "$back_half"; } \
-        && shrink "$dir/backs/$slug.jpg" && echo "  back insert: $back${back_half:+ ($back_half half)}"
+      save "$back" "$dir/backs/$slug.jpg" && { [[ -z $back_half ]] || take_part "$dir/backs/$slug.jpg" "$back_half"; } \
+        && shrink "$dir/backs/$slug.jpg" && echo "  back insert: $back${back_half:+ ($back_half)}"
     else
       echo "  no back insert archived; the case uses a generated one"
     fi

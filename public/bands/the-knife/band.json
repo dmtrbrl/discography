@@ -13,10 +13,12 @@
       "accent": "#f4d21c",
       "motif": "rings",
       "musicbrainz": {
-        "releaseGroup": "f6a6b266-a28c-360e-aac4-44ed2c82ad14"
+        "releaseGroup": "f6a6b266-a28c-360e-aac4-44ed2c82ad14",
+        "bookletBack": "365bf4dc-61df-490d-8f58-f61873a5d36b/28486015348"
       },
       "disc": "discs/the-knife.jpg",
-      "back": "backs/the-knife.jpg"
+      "back": "backs/the-knife.jpg",
+      "bookletBack": "booklets/the-knife-back.jpg"
     },
     {
       "id": "deep-cuts",
@@ -28,25 +30,12 @@
       "accent": "#f0e04a",
       "motif": "lines",
       "musicbrainz": {
-        "releaseGroup": "e35a847b-d4cb-3dfe-b2ea-047f8fe0d95b"
+        "releaseGroup": "e35a847b-d4cb-3dfe-b2ea-047f8fe0d95b",
+        "bookletBack": "d314ad58-bb34-4639-9ab3-c9f2f806a69f/28493498229"
       },
       "disc": "discs/deep-cuts.jpg",
-      "back": "backs/deep-cuts.jpg"
-    },
-    {
-      "id": "hannah-med-h",
-      "title": "Hannah med H",
-      "year": "2003",
-      "kind": "Soundtrack",
-      "cover": "covers/hannah-med-h.jpg",
-      "color": "#c8261d",
-      "accent": "#f3d23a",
-      "motif": "waves",
-      "musicbrainz": {
-        "releaseGroup": "04ad4c2c-f4bc-361b-8007-da78dd5ff4f0"
-      },
-      "disc": "discs/hannah-med-h.jpg",
-      "back": "backs/hannah-med-h.jpg"
+      "back": "backs/deep-cuts.jpg",
+      "bookletBack": "booklets/deep-cuts-back.jpg"
     },
     {
       "id": "silent-shout",
@@ -59,10 +48,12 @@
       "motif": "arches",
       "musicbrainz": {
         "releaseGroup": "02c05025-e031-30a0-afee-d92cea9d79dd",
-        "coverRelease": "d8956dde-c200-35b5-9788-102ab6e33492"
+        "coverRelease": "d8956dde-c200-35b5-9788-102ab6e33492",
+        "bookletBack": "099094f6-2e34-4e65-aa31-6df3789357a4/23129607098@left"
       },
       "disc": "discs/silent-shout.jpg",
-      "back": "backs/silent-shout.jpg"
+      "back": "backs/silent-shout.jpg",
+      "bookletBack": "booklets/silent-shout-back.jpg"
     }
   ]
 }

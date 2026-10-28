@@ -7,14 +7,14 @@ The title screen lists the artists. Pick one to see their albums as a row of cas
 | Artist | Albums | Years |
 | --- | --- | --- |
 | Nirvana | *Bleach*, *Nevermind*, *Incesticide*, *In Utero*, *MTV Unplugged in New York*, *From the Muddy Banks of the Wishkah*, *Nirvana* | 1989 to 2002 |
-| The Prodigy | *Experience*, *Music for the Jilted Generation*, *The Fat of the Land*, *Always Outnumbered, Never Outgunned*, *Their Law: The Singles 1990–2005*, *Invaders Must Die* | 1992 to 2009 |
-| The Knife | *The Knife*, *Deep Cuts*, *Hannah med H*, *Silent Shout* | 2001 to 2006 |
-| Rammstein | *Herzeleid*, *Sehnsucht*, *Live aus Berlin*, *Mutter*, *Reise, Reise*, *Rosenrot*, *Liebe ist für alle da* | 1995 to 2009 |
+| The Prodigy | *Experience*, *Music for the Jilted Generation*, *The Fat of the Land*, *Always Outnumbered, Never Outgunned*, *Their Law: The Singles 1990–2005*, *Invaders Must Die*, *The Day Is My Enemy*, *No Tourists* | 1992 to 2018 |
+| The Knife | *The Knife*, *Deep Cuts*, *Silent Shout* | 2001 to 2006 |
+| Rammstein | *Herzeleid*, *Sehnsucht*, *Live aus Berlin*, *Mutter*, *Reise, Reise*, *Rosenrot*, *Liebe ist für alle da*, *Made in Germany 1995–2011*, *Rammstein*, *Zeit* | 1995 to 2022 |
 | Crystal Castles | *Crystal Castles*, *Crystal Castles (II)*, *(III)*, *Amnesty (I)* | 2008 to 2016 |
 
 ### Scope: single-disc albums only
 
-This is a deliberate choice: the demo shows only albums that come as one CD in one jewel case. Double albums and multi-disc releases are left out (for The Knife, *Tomorrow, in a Year* and *Shaking the Habitual*), and where an album also came out as a special edition with a second CD or a DVD, the artwork comes from a single-CD edition.
+This is a deliberate choice: the demo shows only albums that come as one CD in one jewel case. Double albums and multi-disc releases are left out (for The Knife, *Tomorrow, in a Year* and *Shaking the Habitual*), and so are soundtracks (The Knife's *Hannah med H*), and where an album also came out as a special edition with a second CD or a DVD, the artwork comes from a single-CD edition.
 
 ## Run it
 

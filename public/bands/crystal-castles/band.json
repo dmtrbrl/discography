@@ -12,10 +12,12 @@
       "accent": "#d9d9d9",
       "motif": "rings",
       "musicbrainz": {
-        "releaseGroup": "3fd716f5-2f67-3890-95ec-20c4032511c8"
+        "releaseGroup": "3fd716f5-2f67-3890-95ec-20c4032511c8",
+        "bookletBack": "f5dde22a-23de-3881-9a1b-962c5e52b4ad/42703574279@left"
       },
       "disc": "discs/crystal-castles.jpg",
-      "back": "backs/crystal-castles.jpg"
+      "back": "backs/crystal-castles.jpg",
+      "bookletBack": "booklets/crystal-castles-back.jpg"
     },
     {
       "id": "crystal-castles-ii",
@@ -28,10 +30,12 @@
       "motif": "lines",
       "musicbrainz": {
         "releaseGroup": "9477d99c-1df7-4ae7-b08d-a2484c8e80f4",
-        "release": "15310e2d-9402-4b24-b46f-7aa197e6cfc7"
+        "release": "15310e2d-9402-4b24-b46f-7aa197e6cfc7",
+        "bookletBack": "15310e2d-9402-4b24-b46f-7aa197e6cfc7/34914987623@1/2,2/2"
       },
       "disc": "discs/crystal-castles-ii.jpg",
-      "back": "backs/crystal-castles-ii.jpg"
+      "back": "backs/crystal-castles-ii.jpg",
+      "bookletBack": "booklets/crystal-castles-ii-back.jpg"
     },
     {
       "id": "iii",

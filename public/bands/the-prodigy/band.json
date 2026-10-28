@@ -13,10 +13,12 @@
       "accent": "#2a2a26",
       "motif": "rings",
       "musicbrainz": {
-        "releaseGroup": "a3f046a8-8edd-3b8c-bb51-112950b0839c"
+        "releaseGroup": "a3f046a8-8edd-3b8c-bb51-112950b0839c",
+        "bookletBack": "5143cebd-2a47-46da-88c9-a966d41518fc/31705841412"
       },
       "disc": "discs/experience.jpg",
-      "back": "backs/experience.jpg"
+      "back": "backs/experience.jpg",
+      "bookletBack": "booklets/experience-back.jpg"
     },
     {
       "id": "music-for-the-jilted-generation",
@@ -28,10 +30,12 @@
       "accent": "#c9c7c0",
       "motif": "lines",
       "musicbrainz": {
-        "releaseGroup": "f9fa083f-db00-3048-99e7-5b186672bb09"
+        "releaseGroup": "f9fa083f-db00-3048-99e7-5b186672bb09",
+        "bookletBack": "2579bfbb-3872-4599-97d2-b665b4df3e0d/34013918252"
       },
       "disc": "discs/music-for-the-jilted-generation.jpg",
-      "back": "backs/music-for-the-jilted-generation.jpg"
+      "back": "backs/music-for-the-jilted-generation.jpg",
+      "bookletBack": "booklets/music-for-the-jilted-generation-back.jpg"
     },
     {
       "id": "the-fat-of-the-land",
@@ -43,10 +47,12 @@
       "accent": "#d9b25a",
       "motif": "waves",
       "musicbrainz": {
-        "releaseGroup": "ac9138ce-6331-3f8d-86d7-69f13e4ab4f4"
+        "releaseGroup": "ac9138ce-6331-3f8d-86d7-69f13e4ab4f4",
+        "bookletBack": "8417d94a-88cf-4094-8a75-c33d16300c06/27141657376@left"
       },
       "disc": "discs/the-fat-of-the-land.jpg",
-      "back": "backs/the-fat-of-the-land.jpg"
+      "back": "backs/the-fat-of-the-land.jpg",
+      "bookletBack": "booklets/the-fat-of-the-land-back.jpg"
     },
     {
       "id": "always-outnumbered",
@@ -58,10 +64,12 @@
       "accent": "#d0356f",
       "motif": "arches",
       "musicbrainz": {
-        "releaseGroup": "50da1a12-ca69-3287-b89f-33775e396870"
+        "releaseGroup": "50da1a12-ca69-3287-b89f-33775e396870",
+        "bookletBack": "00bc3621-2184-354a-9d9c-cae28337d59b/3508432304"
       },
       "disc": "discs/always-outnumbered.jpg",
-      "back": "backs/always-outnumbered.jpg"
+      "back": "backs/always-outnumbered.jpg",
+      "bookletBack": "booklets/always-outnumbered-back.jpg"
     },
     {
       "id": "their-law",
@@ -73,10 +81,12 @@
       "accent": "#b9a888",
       "motif": "sun",
       "musicbrainz": {
-        "releaseGroup": "c5cd51d7-1a2d-361c-b3b0-3a9e3e534ddb"
+        "releaseGroup": "c5cd51d7-1a2d-361c-b3b0-3a9e3e534ddb",
+        "bookletBack": "ad53c255-06a4-448e-b78b-f8ae80ef2336/3507834441"
       },
       "disc": "discs/their-law.jpg",
-      "back": "backs/their-law.jpg"
+      "back": "backs/their-law.jpg",
+      "bookletBack": "booklets/their-law-back.jpg"
     },
     {
       "id": "invaders-must-die",
@@ -89,10 +99,41 @@
       "motif": "rings",
       "musicbrainz": {
         "releaseGroup": "dafbb45b-e06f-3a2b-b4fd-981d3d99a3a4",
-        "release": "6a75994d-3286-44e2-b6f7-bc89cf507858"
+        "release": "6a75994d-3286-44e2-b6f7-bc89cf507858",
+        "bookletBack": "6a75994d-3286-44e2-b6f7-bc89cf507858/32087538740@1/4"
       },
       "disc": "discs/invaders-must-die.jpg",
-      "back": "backs/invaders-must-die.jpg"
+      "back": "backs/invaders-must-die.jpg",
+      "bookletBack": "booklets/invaders-must-die-back.jpg"
+    },
+    {
+      "id": "the-day-is-my-enemy",
+      "title": "The Day Is My Enemy",
+      "year": "2015",
+      "kind": "Studio album",
+      "color": "#7f4a1c",
+      "accent": "#f2b61f",
+      "motif": "lines",
+      "musicbrainz": {
+        "releaseGroup": "b935bfda-dd9b-4f30-8e43-ea9561a7e751"
+      },
+      "cover": "covers/the-day-is-my-enemy.jpg",
+      "disc": "discs/the-day-is-my-enemy.jpg",
+      "back": "backs/the-day-is-my-enemy.jpg"
+    },
+    {
+      "id": "no-tourists",
+      "title": "No Tourists",
+      "year": "2018",
+      "kind": "Studio album",
+      "color": "#0c0b14",
+      "accent": "#bc1fcc",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "b8f58ed0-ea06-41cb-87d2-6027caeea1cd"
+      },
+      "cover": "covers/no-tourists.jpg",
+      "back": "backs/no-tourists.jpg"
     }
   ]
 }

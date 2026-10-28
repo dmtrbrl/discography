@@ -17,6 +17,115 @@ decision changes.
 | Pre-2 | Title screen, artist selection and menu, four more artists | Done |
 | 2a | Booklet as a flip book with LeafThrough | Planned |
 | 2b | Disc to CD player animation, tracklist, 30-second previews | Planned |
+| Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
+
+## Artwork audit and complete discographies (28 October 2026)
+
+Before the audit, every album had a cover, all but *Amnesty (I)* had a disc scan and back insert,
+and only Nirvana's 7 albums had a booklet back page (7/28).
+
+### Albums
+
+Each artist was checked against its MusicBrainz release groups (album type: studio, live,
+compilation, soundtrack; the many bootleg compilations ignored) under the existing rules: studio
+albums plus major official live albums and compilations, single-disc only.
+
+- **The Knife:** *Hannah med H* removed (a film soundtrack; the user's call), with its files. Now 3
+  albums. *Tomorrow, in a Year* (2 CDs everywhere) and *Shaking the Habitual* (96 minutes; the only
+  single-CD listings have no back scan) stay out. *Silent Shout: An Audio Visual Experience* is
+  CD + DVD.
+- **The Prodigy:** added *The Day Is My Enemy* (2015) and *No Tourists* (2018). Now 8. *World's on
+  Fire* (live) is CD + DVD.
+- **Rammstein:** added *Made in Germany 1995–2011* (2011, the single-CD standard edition),
+  *Rammstein* (2019, untitled; MusicBrainz calls it "[Rammstein]") and *Zeit* (2022). Now 10.
+  *Völkerball* and *Paris* are multi-disc, *XXI* is a box set.
+- **Nirvana and Crystal Castles:** complete. Nirvana keeps the phase 0 scope (up to the 2002
+  compilation; *Sliver*, *Live at Reading* and *Icon* were dropped then on purpose).
+
+New albums' editions: *The Day Is My Enemy* the 2015 UK CD (`5fc2e3e2`, automatic pick); *No
+Tourists* the 2018 European CD (`0e356708`, the only CD edition; it has no disc scan, so the disc
+shows the cover); *Made in Germany* the European single CD `f6edb0e9`, whose back is the digipak's
+whole three-panel outside, so `backHalf: "2/3"` keeps the middle panel, and whose primary front is
+that same wide scan, so the cover comes from `434b542a`; *Rammstein* the standard edition
+`b0c5fe24` (the automatic pick was the Special Edition, with a sticker saying so), left half of the
+outside scan as the back; *Zeit* the European CD `f680b786`, cover included, since its front has
+the red logo band that continues past the spine onto the back (the release group's front is the
+digital artwork without it). Colours are each cover's mean colour and a strong accent, measured.
+
+### Booklet back pages
+
+Picked by eye from contact sheets of every image of the album's editions, as for Nirvana. The
+order of preference: the edition the disc and back come from, an outer spread (back page beside the
+booklet's front) or a page labelled as the back in the archive's comments, then another single-CD
+edition. Coverage is now 28/32.
+
+| Album | Source | How it was identified |
+| --- | --- | --- |
+| *Experience* | `5143cebd/31705841412`, same edition | Credits page; `c31de678` labels it "page 8, back page of closed booklet" |
+| *Jilted Generation* | `2579bfbb/34013918252`, same edition | Labelled "page 8"; `ecbd4dc8`'s outer spread has it beside the cover |
+| *The Fat of the Land* | `8417d94a/27141657376@left`, same edition | Outer spread; `acefbe79` labels the same page "page 20" |
+| *Always Outnumbered* | `00bc3621/3508432304`, another edition | **Unconfirmed.** Every edition has a single `Booklet` scan (the drummers collage); nothing shows where it sits |
+| *Their Law* | `ad53c255/3507834441`, same edition | `27c88429` labels the same page "Back page of booklet" |
+| *Invaders Must Die* | `6a75994d/32087538740@1/4`, same edition | Outer side of a four-panel foldout. The panels are equal, so it is accordion-folded and the first panel ("Protect yourself") is the back |
+| *The Knife* | `365bf4dc/28486015348`, same edition | The edition's only booklet scan, credits with the dancing figures; likely the back, not labelled |
+| *Deep Cuts* | `d314ad58/28493498229`, another edition | Scanned front, three inner spreads, then this page (the cover pattern without lettering) |
+| *Silent Shout* | `099094f6/23129607098@left`, another edition | Outer spread: plain dark page beside the cover |
+| *Herzeleid* | `315858ef/13287378209@left`, same edition | Outer spread; `e81d9bf9` labels the page "page 16" |
+| *Sehnsucht* | `f7cba0e8/33510216422`, same edition | The six-faces foldout; `68da350f`'s outer spread shows this logo-less profile beside the cover |
+| *Live aus Berlin* | `7cac8c44/18631425084@left`, another edition | Outer spread (the edition the disc comes from has no booklet scans) |
+| *Mutter*, *Reise, Reise*, *Rosenrot* | `eed328a1/9614674636@left`, `8ec370f8/16019138335@left`, `b48e5591/13288280417@left`, same editions | Outer spreads |
+| *Liebe ist für alle da* | `3798a530/27820317897`, same edition | Last page of the sequence ("Zensiert") |
+| *Made in Germany* | `f6edb0e9/34434317343@left`, same edition | Outer spread: the back of the head beside the cover |
+| *Rammstein* | `b0c5fe24/34264581678@left`, same edition | Outer spread: tracklist page beside the match |
+| *Zeit* | `183678eb/34229312359`, another edition | The red booklet's back (that edition tags the booklet's front as its Front) |
+| *Crystal Castles* | `f5dde22a/42703574279@left`, another edition | Outer spread: black page with the credits line |
+| *Crystal Castles (II)* | `15310e2d/34914987623@1/2,2/2`, same edition | A poster folded in four; this scan is its whole outer side, cover bottom right. The girl's face runs across both top panels as one image, which only shows as a spread if the poster folds top behind bottom first, then left behind right; folded that way the bottom-left panel (plain dark) is the back. 269 × 299 px, since the whole side was scanned at 538 px |
+
+Still a plain page in the album colour, because no archived scan shows the back page:
+
+- *The Day Is My Enemy*: only the two inner spreads are archived; the Japanese edition's
+  `Booklet` scans are its liner-notes insert.
+- *No Tourists* and *Amnesty (I)*: no booklet scans at all. *Amnesty (I)*'s two CD editions with
+  images (`e11a49ac`, `8fffbd04` has none) only have the front, so it keeps the cover on the disc
+  and a generated insert. The 12" vinyl (`c917ef1b`) has a back, but it is the sleeve's layout (a
+  full-bleed photo, "Side A" and "Side B"), so it isn't used as the CD's back insert.
+- *(III)*: the only CD edition with booklet scans (`dde16355`) has the two lyric sides of the inner
+  sheet; the outer side was never scanned. Every other CD edition has only a front.
+
+Current coverage: discs 30/32 (not *No Tourists*, *Amnesty (I)*), back inserts 31/32 (not
+*Amnesty (I)*), booklet back pages 28/32. These gaps were checked against every release of each
+album in the archive, not only the official single-CD ones.
+
+### Changes to existing albums
+
+- *Sehnsucht*'s cover was the release group's front, which is the 2017 Anniversary Edition (small
+  "Anniversary Edition" lettering). Now the 1997 front of `f7cba0e8`, the edition its disc and back
+  come from (576 px; the other 1997 scan is 599 px).
+- *Crystal Castles (I)*'s disc and back were a promo pressing ("PROMO COPY NOT FOR SALE" on the
+  back), from before the script skipped promos. The rerun picked the retail Australian CD
+  (`f760baf8`). Every other existing cover, disc and back came out byte-identical on the rerun.
+
+### Download script
+
+- `take_half` became `take_part`: besides `left` and `right` it takes `n/m`, the nth of m equal
+  panels, for `bookletBack` (`…@1/4`) and `backHalf` (`"2/3"`), and `n/m,r/s` for one panel of a
+  poster folded in four (column, then row). `left` and `right` crop exactly as before (checked
+  byte for byte). sips silently refuses a crop that ends on the bottom edge (one ending on the
+  right edge works) and sometimes leaves a file uncropped when it writes in place, so rows are cut
+  as columns of the scan turned a quarter, and crops are written to a copy.
+- Disc scans prefer a `Medium` image without `Matrix/Runout`: *Made in Germany* and *Zeit* list the
+  silver data side first.
+- Non-JPEG downloads are re-encoded to JPEG (*The Day Is My Enemy*'s disc is archived only as a
+  2 MB PNG, which was saved under a `.jpg` name). JPEGs are left alone, so reruns stay
+  byte-identical.
+
+Verified with contact sheets of the local files, and in headless Chrome: every album of the four
+artists opened (booklet back page on the lid), the new albums turned over (back inserts) and
+closed (covers), no page errors; `npm run typecheck` passes.
+
+The favicon is a full-size rounded square in the page's warm beige, with a solid dark CD, a beige
+hub ring and a dark center hole (`public/favicon.svg`). The page links directly to this SVG. The
+earlier reflective and outlined disc versions were less legible at tab size.
 
 ## Running the project
 
@@ -535,7 +644,8 @@ re-pinned to a single-CD edition: Invaders Must Die (was CD+DVD; now the 2009 UK
 and Rosenrot (was the CD+DVD `bf7c54d3`; now the 2005 Russian single CD `b48e5591`, whose outer
 digipak scan `13288278590` has the back panel as its right half; no single-CD jewel case
 edition has a back scan). Checked for every album on MusicBrainz: the original release's media
-and the scanned edition's media.
+and the scanned edition's media. (The album lists below are as of the pre-phase; the artwork audit
+at the top removed *Hannah med H* and added five albums.)
 
 | Band | Albums | Logo |
 | --- | --- | --- |

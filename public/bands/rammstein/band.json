@@ -12,10 +12,12 @@
       "accent": "#2a2522",
       "motif": "rings",
       "musicbrainz": {
-        "releaseGroup": "806eb9e1-06c6-385e-bf04-f3c5e2b4a6be"
+        "releaseGroup": "806eb9e1-06c6-385e-bf04-f3c5e2b4a6be",
+        "bookletBack": "315858ef-863b-4f35-8bc6-1f126497f36e/13287378209@left"
       },
       "disc": "discs/herzeleid.jpg",
-      "back": "backs/herzeleid.jpg"
+      "back": "backs/herzeleid.jpg",
+      "bookletBack": "booklets/herzeleid-back.jpg"
     },
     {
       "id": "sehnsucht",
@@ -27,10 +29,13 @@
       "accent": "#c9c3b6",
       "motif": "lines",
       "musicbrainz": {
-        "releaseGroup": "2a323740-b615-35bc-9f58-1d2e6a5d9289"
+        "releaseGroup": "2a323740-b615-35bc-9f58-1d2e6a5d9289",
+        "bookletBack": "f7cba0e8-61f5-41c9-b203-3c1bbf1b7db2/33510216422",
+        "coverRelease": "f7cba0e8-61f5-41c9-b203-3c1bbf1b7db2"
       },
       "disc": "discs/sehnsucht.jpg",
-      "back": "backs/sehnsucht.jpg"
+      "back": "backs/sehnsucht.jpg",
+      "bookletBack": "booklets/sehnsucht-back.jpg"
     },
     {
       "id": "live-aus-berlin",
@@ -42,10 +47,12 @@
       "accent": "#b8312a",
       "motif": "waves",
       "musicbrainz": {
-        "releaseGroup": "d066f24b-e129-3ebf-be6c-0c789aabc5ee"
+        "releaseGroup": "d066f24b-e129-3ebf-be6c-0c789aabc5ee",
+        "bookletBack": "7cac8c44-9db1-4c2e-96ac-414f0f41187e/18631425084@left"
       },
       "disc": "discs/live-aus-berlin.jpg",
-      "back": "backs/live-aus-berlin.jpg"
+      "back": "backs/live-aus-berlin.jpg",
+      "bookletBack": "booklets/live-aus-berlin-back.jpg"
     },
     {
       "id": "mutter",
@@ -58,10 +65,12 @@
       "motif": "arches",
       "musicbrainz": {
         "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07",
-        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c"
+        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c",
+        "bookletBack": "eed328a1-5f3c-33d5-bf9e-b9033175124c/9614674636@left"
       },
       "back": "backs/mutter.jpg",
-      "disc": "discs/mutter.jpg"
+      "disc": "discs/mutter.jpg",
+      "bookletBack": "booklets/mutter-back.jpg"
     },
     {
       "id": "reise-reise",
@@ -73,10 +82,12 @@
       "accent": "#f4efe6",
       "motif": "sun",
       "musicbrainz": {
-        "releaseGroup": "ea9bf147-abbd-39df-b927-46fc945a5140"
+        "releaseGroup": "ea9bf147-abbd-39df-b927-46fc945a5140",
+        "bookletBack": "8ec370f8-1aa0-461c-a9b5-0d9b37620175/16019138335@left"
       },
       "disc": "discs/reise-reise.jpg",
-      "back": "backs/reise-reise.jpg"
+      "back": "backs/reise-reise.jpg",
+      "bookletBack": "booklets/reise-reise-back.jpg"
     },
     {
       "id": "rosenrot",
@@ -91,10 +102,12 @@
         "releaseGroup": "15e65e08-85d1-3145-85b2-e18b9fbd4cba",
         "release": "b48e5591-d52a-44d7-928a-939a23a4f14a",
         "backImage": "13288278590",
-        "backHalf": "right"
+        "backHalf": "right",
+        "bookletBack": "b48e5591-d52a-44d7-928a-939a23a4f14a/13288280417@left"
       },
       "disc": "discs/rosenrot.jpg",
-      "back": "backs/rosenrot.jpg"
+      "back": "backs/rosenrot.jpg",
+      "bookletBack": "booklets/rosenrot-back.jpg"
     },
     {
       "id": "liebe-ist-fur-alle-da",
@@ -107,10 +120,70 @@
       "motif": "lines",
       "musicbrainz": {
         "releaseGroup": "da9fcca3-7dfc-45ee-b94e-54d898fe5bf3",
-        "release": "3798a530-9729-4855-9995-7f8977e0cece"
+        "release": "3798a530-9729-4855-9995-7f8977e0cece",
+        "bookletBack": "3798a530-9729-4855-9995-7f8977e0cece/27820317897"
       },
       "disc": "discs/liebe-ist-fur-alle-da.jpg",
-      "back": "backs/liebe-ist-fur-alle-da.jpg"
+      "back": "backs/liebe-ist-fur-alle-da.jpg",
+      "bookletBack": "booklets/liebe-ist-fur-alle-da-back.jpg"
+    },
+    {
+      "id": "made-in-germany",
+      "title": "Made in Germany 1995–2011",
+      "year": "2011",
+      "kind": "Compilation",
+      "color": "#c8c6c5",
+      "accent": "#af975a",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "2fb4554c-6ae3-4423-98ac-08c91d9fe99f",
+        "release": "f6edb0e9-a08d-41bb-9ce6-356925a52000",
+        "backHalf": "2/3",
+        "bookletBack": "f6edb0e9-a08d-41bb-9ce6-356925a52000/34434317343@left",
+        "coverRelease": "434b542a-e2cd-4972-9e76-1d2363c5aed0"
+      },
+      "cover": "covers/made-in-germany.jpg",
+      "disc": "discs/made-in-germany.jpg",
+      "back": "backs/made-in-germany.jpg",
+      "bookletBack": "booklets/made-in-germany-back.jpg"
+    },
+    {
+      "id": "rammstein",
+      "title": "Rammstein",
+      "year": "2019",
+      "kind": "Studio album",
+      "color": "#f5f5f4",
+      "accent": "#98181e",
+      "motif": "sun",
+      "musicbrainz": {
+        "releaseGroup": "e4d39d2e-9420-4007-881a-9b5bc23944e0",
+        "release": "b0c5fe24-ade2-4509-8b22-4ba261997655",
+        "backHalf": "left",
+        "bookletBack": "b0c5fe24-ade2-4509-8b22-4ba261997655/34264581678@left"
+      },
+      "cover": "covers/rammstein.jpg",
+      "disc": "discs/rammstein.jpg",
+      "back": "backs/rammstein.jpg",
+      "bookletBack": "booklets/rammstein-back.jpg"
+    },
+    {
+      "id": "zeit",
+      "title": "Zeit",
+      "year": "2022",
+      "kind": "Studio album",
+      "color": "#a0a9bb",
+      "accent": "#3f4650",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "071fd9df-1946-4c05-a875-893cdf89f3d0",
+        "release": "f680b786-de11-40e1-acbf-9c3c10dac0c8",
+        "bookletBack": "183678eb-3094-4c0d-bb2e-20dae7bafab6/34229312359",
+        "coverRelease": "f680b786-de11-40e1-acbf-9c3c10dac0c8"
+      },
+      "cover": "covers/zeit.jpg",
+      "disc": "discs/zeit.jpg",
+      "back": "backs/zeit.jpg",
+      "bookletBack": "booklets/zeit-back.jpg"
     }
   ]
 }
