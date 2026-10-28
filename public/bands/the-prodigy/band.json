@@ -18,7 +18,67 @@
       },
       "disc": "discs/experience.jpg",
       "back": "backs/experience.jpg",
-      "bookletBack": "booklets/experience-back.jpg"
+      "bookletBack": "booklets/experience-back.jpg",
+      "appleMusic": 1741021253,
+      "tracks": [
+        {
+          "title": "Jericho",
+          "length": 224,
+          "apple": 1741021254
+        },
+        {
+          "title": "Music Reach (1/2/3/4)",
+          "length": 252,
+          "apple": 1741021259
+        },
+        {
+          "title": "Wind It Up",
+          "length": 273
+        },
+        {
+          "title": "Your Love (remix)",
+          "length": 328,
+          "apple": 1741021267
+        },
+        {
+          "title": "Hyperspeed (G-Force, Part 2)",
+          "length": 318
+        },
+        {
+          "title": "Charly (Trip Into Drum and Bass version)",
+          "length": 313
+        },
+        {
+          "title": "Out of Space",
+          "length": 298,
+          "apple": 1741021271
+        },
+        {
+          "title": "Everybody in the Place (155 and Rising)",
+          "length": 251,
+          "apple": 1741021273
+        },
+        {
+          "title": "Weather Experience",
+          "length": 484,
+          "apple": 1741021276
+        },
+        {
+          "title": "Fire (Sunrise version)",
+          "length": 299,
+          "apple": 1741021428
+        },
+        {
+          "title": "Ruff in the Jungle Bizness",
+          "length": 304,
+          "apple": 1741021432
+        },
+        {
+          "title": "Death of the Prodigy Dancers (live)",
+          "length": 230,
+          "apple": 1741021434
+        }
+      ]
     },
     {
       "id": "music-for-the-jilted-generation",
@@ -35,7 +95,75 @@
       },
       "disc": "discs/music-for-the-jilted-generation.jpg",
       "back": "backs/music-for-the-jilted-generation.jpg",
-      "bookletBack": "booklets/music-for-the-jilted-generation-back.jpg"
+      "bookletBack": "booklets/music-for-the-jilted-generation-back.jpg",
+      "appleMusic": 500162485,
+      "tracks": [
+        {
+          "title": "Intro",
+          "length": 46,
+          "apple": 500162486
+        },
+        {
+          "title": "Break & Enter",
+          "length": 504,
+          "apple": 500162487
+        },
+        {
+          "title": "Their Law",
+          "length": 401,
+          "apple": 500162592
+        },
+        {
+          "title": "Full Throttle",
+          "length": 303,
+          "apple": 500162593
+        },
+        {
+          "title": "Voodoo People",
+          "length": 387,
+          "apple": 500162594
+        },
+        {
+          "title": "Speedway (Theme From Fastlane)",
+          "length": 536,
+          "apple": 500162599
+        },
+        {
+          "title": "The Heat (The Energy)",
+          "length": 268,
+          "apple": 500162600
+        },
+        {
+          "title": "Poison",
+          "length": 402,
+          "apple": 500162601
+        },
+        {
+          "title": "No Good (Start the Dance)",
+          "length": 378,
+          "apple": 500162602
+        },
+        {
+          "title": "One Love (edit)",
+          "length": 233,
+          "apple": 500162603
+        },
+        {
+          "title": "The Narcotic Suite: 3 Kilos",
+          "length": 446,
+          "apple": 500162604
+        },
+        {
+          "title": "The Narcotic Suite: Skylined",
+          "length": 358,
+          "apple": 500162605
+        },
+        {
+          "title": "The Narcotic Suite: Claustrophobic Sting",
+          "length": 432,
+          "apple": 500162606
+        }
+      ]
     },
     {
       "id": "the-fat-of-the-land",
@@ -52,7 +180,60 @@
       },
       "disc": "discs/the-fat-of-the-land.jpg",
       "back": "backs/the-fat-of-the-land.jpg",
-      "bookletBack": "booklets/the-fat-of-the-land-back.jpg"
+      "bookletBack": "booklets/the-fat-of-the-land-back.jpg",
+      "appleMusic": 500162127,
+      "tracks": [
+        {
+          "title": "Smack My Bitch Up",
+          "length": 343,
+          "apple": 500162135
+        },
+        {
+          "title": "Breathe",
+          "length": 335,
+          "apple": 500162140
+        },
+        {
+          "title": "Diesel Power",
+          "length": 258,
+          "apple": 500162142
+        },
+        {
+          "title": "Funky Shit",
+          "length": 316,
+          "apple": 500162144
+        },
+        {
+          "title": "Serial Thrilla",
+          "length": 311,
+          "apple": 500162146
+        },
+        {
+          "title": "Mindfields",
+          "length": 340,
+          "apple": 500162231
+        },
+        {
+          "title": "Narayan",
+          "length": 546,
+          "apple": 500162233
+        },
+        {
+          "title": "Firestarter",
+          "length": 281,
+          "apple": 500162235
+        },
+        {
+          "title": "Climbatize",
+          "length": 397,
+          "apple": 500162238
+        },
+        {
+          "title": "Fuel My Fire",
+          "length": 259,
+          "apple": 500162240
+        }
+      ]
     },
     {
       "id": "always-outnumbered",
@@ -69,7 +250,70 @@
       },
       "disc": "discs/always-outnumbered.jpg",
       "back": "backs/always-outnumbered.jpg",
-      "bookletBack": "booklets/always-outnumbered-back.jpg"
+      "bookletBack": "booklets/always-outnumbered-back.jpg",
+      "appleMusic": 500402694,
+      "tracks": [
+        {
+          "title": "Spitfire",
+          "length": 308,
+          "apple": 500402701
+        },
+        {
+          "title": "Girls",
+          "length": 247,
+          "apple": 500402703
+        },
+        {
+          "title": "Memphis Bells",
+          "length": 269,
+          "apple": 500402706
+        },
+        {
+          "title": "Get Up Get Off",
+          "length": 260,
+          "apple": 500402707
+        },
+        {
+          "title": "Hotride",
+          "length": 276,
+          "apple": 500402709
+        },
+        {
+          "title": "Wake Up Call",
+          "length": 296,
+          "apple": 500402710
+        },
+        {
+          "title": "Action Radar",
+          "length": 333,
+          "apple": 500402712
+        },
+        {
+          "title": "Medusa’s Path",
+          "length": 369,
+          "apple": 500402713
+        },
+        {
+          "title": "Phoenix",
+          "length": 279,
+          "apple": 500402714
+        },
+        {
+          "title": "You’ll Be Under My Wheels",
+          "length": 237,
+          "apple": 500402716
+        },
+        {
+          "title": "The Way It Is",
+          "length": 346,
+          "apple": 500402717
+        },
+        {
+          "title": "Shoot Down",
+          "length": 274,
+          "apple": 500402718
+        }
+      ]
     },
     {
       "id": "their-law",
@@ -86,7 +330,85 @@
       },
       "disc": "discs/their-law.jpg",
       "back": "backs/their-law.jpg",
-      "bookletBack": "booklets/their-law-back.jpg"
+      "bookletBack": "booklets/their-law-back.jpg",
+      "appleMusic": 1454134564,
+      "tracks": [
+        {
+          "title": "Firestarter",
+          "length": 283,
+          "apple": 1454134565
+        },
+        {
+          "title": "Their Law",
+          "length": 336,
+          "apple": 1454134566
+        },
+        {
+          "title": "Breathe",
+          "length": 336,
+          "apple": 1454134567
+        },
+        {
+          "title": "Out of Space",
+          "length": 302,
+          "apple": 1454134652
+        },
+        {
+          "title": "Smack My Bitch Up",
+          "length": 343,
+          "apple": 1454134653
+        },
+        {
+          "title": "Poison",
+          "length": 241,
+          "apple": 1454134655
+        },
+        {
+          "title": "Girls",
+          "length": 252,
+          "apple": 1454134656
+        },
+        {
+          "title": "Voodoo People",
+          "length": 220,
+          "apple": 1454134657
+        },
+        {
+          "title": "Charly",
+          "length": 323,
+          "apple": 1454134658
+        },
+        {
+          "title": "No Good (Start the dance)",
+          "length": 380,
+          "apple": 1454134659
+        },
+        {
+          "title": "Spitfire",
+          "length": 207,
+          "apple": 1454134660
+        },
+        {
+          "title": "Jericho",
+          "length": 227,
+          "apple": 1454134661
+        },
+        {
+          "title": "Everybody in the Place",
+          "length": 310,
+          "apple": 1454134662
+        },
+        {
+          "title": "One Love",
+          "length": 325,
+          "apple": 1454134663
+        },
+        {
+          "title": "Hotride",
+          "length": 273,
+          "apple": 1454134666
+        }
+      ]
     },
     {
       "id": "invaders-must-die",
@@ -104,7 +426,65 @@
       },
       "disc": "discs/invaders-must-die.jpg",
       "back": "backs/invaders-must-die.jpg",
-      "bookletBack": "booklets/invaders-must-die-back.jpg"
+      "bookletBack": "booklets/invaders-must-die-back.jpg",
+      "appleMusic": 1852687885,
+      "tracks": [
+        {
+          "title": "Invaders Must Die",
+          "length": 295,
+          "apple": 1852687887
+        },
+        {
+          "title": "Omen",
+          "length": 216,
+          "apple": 1852687888
+        },
+        {
+          "title": "Thunder",
+          "length": 249,
+          "apple": 1852687890
+        },
+        {
+          "title": "Colours",
+          "length": 208,
+          "apple": 1852687892
+        },
+        {
+          "title": "Take Me to the Hospital",
+          "length": 220,
+          "apple": 1852687898
+        },
+        {
+          "title": "Warrior’s Dance",
+          "length": 313,
+          "apple": 1852687901
+        },
+        {
+          "title": "Run With the Wolves",
+          "length": 265,
+          "apple": 1852687902
+        },
+        {
+          "title": "Omen (reprise)",
+          "length": 134,
+          "apple": 1852687905
+        },
+        {
+          "title": "World’s on Fire",
+          "length": 290,
+          "apple": 1852687906
+        },
+        {
+          "title": "Piranha",
+          "length": 245,
+          "apple": 1852688029
+        },
+        {
+          "title": "Stand Up",
+          "length": 330,
+          "apple": 1852688030
+        }
+      ]
     },
     {
       "id": "the-day-is-my-enemy",
@@ -119,7 +499,80 @@
       },
       "cover": "covers/the-day-is-my-enemy.jpg",
       "disc": "discs/the-day-is-my-enemy.jpg",
-      "back": "backs/the-day-is-my-enemy.jpg"
+      "back": "backs/the-day-is-my-enemy.jpg",
+      "appleMusic": 1895923166,
+      "tracks": [
+        {
+          "title": "The Day Is My Enemy",
+          "length": 266,
+          "apple": 6764816231
+        },
+        {
+          "title": "Nasty",
+          "length": 243,
+          "apple": 6764816234
+        },
+        {
+          "title": "Rebel Radio",
+          "length": 232,
+          "apple": 6764816236
+        },
+        {
+          "title": "Ibiza",
+          "length": 166,
+          "apple": 6764816238
+        },
+        {
+          "title": "Destroy",
+          "length": 269,
+          "apple": 6764816242
+        },
+        {
+          "title": "Wild Frontier",
+          "length": 268,
+          "apple": 6764816243
+        },
+        {
+          "title": "Rok-Weiler",
+          "length": 231,
+          "apple": 6764816396
+        },
+        {
+          "title": "Beyond the Deathray",
+          "length": 189,
+          "apple": 6764816412
+        },
+        {
+          "title": "Rhythm Bomb",
+          "length": 252,
+          "apple": 6764816416
+        },
+        {
+          "title": "Roadblox",
+          "length": 301,
+          "apple": 6764816419
+        },
+        {
+          "title": "Get Your Fight On",
+          "length": 219,
+          "apple": 6764816545
+        },
+        {
+          "title": "Medicine",
+          "length": 236,
+          "apple": 6764816549
+        },
+        {
+          "title": "Invisible Sun",
+          "length": 256,
+          "apple": 6764816553
+        },
+        {
+          "title": "Wall of Death",
+          "length": 244,
+          "apple": 6764816557
+        }
+      ]
     },
     {
       "id": "no-tourists",
@@ -133,7 +586,60 @@
         "releaseGroup": "b8f58ed0-ea06-41cb-87d2-6027caeea1cd"
       },
       "cover": "covers/no-tourists.jpg",
-      "back": "backs/no-tourists.jpg"
+      "back": "backs/no-tourists.jpg",
+      "appleMusic": 1440989122,
+      "tracks": [
+        {
+          "title": "Need Some1",
+          "length": 164,
+          "apple": 1440989123
+        },
+        {
+          "title": "Light Up the Sky",
+          "length": 200,
+          "apple": 1440989124
+        },
+        {
+          "title": "We Live Forever",
+          "length": 224,
+          "apple": 1440989125
+        },
+        {
+          "title": "No Tourists",
+          "length": 258,
+          "apple": 1440989127
+        },
+        {
+          "title": "Fight Fire With Fire",
+          "length": 209,
+          "apple": 1440989128
+        },
+        {
+          "title": "Timebomb Zone",
+          "length": 205,
+          "apple": 1440989131
+        },
+        {
+          "title": "Champions of London",
+          "length": 289,
+          "apple": 1440989134
+        },
+        {
+          "title": "Boom Boom Tap",
+          "length": 246,
+          "apple": 1440989137
+        },
+        {
+          "title": "Resonate",
+          "length": 231,
+          "apple": 1440989140
+        },
+        {
+          "title": "Give Me a Signal",
+          "length": 243,
+          "apple": 1440989171
+        }
+      ]
     }
   ]
 }

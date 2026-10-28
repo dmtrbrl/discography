@@ -16,7 +16,7 @@ decision changes.
 | 1 | Jewel cases instead of discs, opening the front case | Done |
 | Pre-2 | Title screen, artist selection and menu, four more artists | Done |
 | 2a | Booklet as a flip book with LeafThrough | Planned |
-| 2b | Disc to CD player animation, tracklist, 30-second previews | Planned |
+| 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
 | Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
 
 ## Artwork audit and complete discographies (28 October 2026)
@@ -138,8 +138,10 @@ npm run preview    # serve the build
 bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
 bash scripts/download-covers.sh the-prodigy   # the same for any band folder
+node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 18+), same arguments
 # / is the title screen; /?band=<folder> opens a band from public/bands/ directly,
-# &album=<id> brings an album to the front, &open opens it (the page keeps these up to date).
+# &album=<id> brings an album to the front, &open opens it, &listen puts its disc in the player
+# (the page keeps these up to date).
 ```
 
 ## Phase 0: what is implemented
@@ -153,6 +155,7 @@ bash scripts/download-covers.sh the-prodigy   # the same for any band folder
 | `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. `public/bands/index.json` lists the bands in order. |
 | `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band (cached, so the title screen and menu fetch each once), resolves its paths and adds the band name to each album; `loadBands()` loads the list. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
+| `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs <band> [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `band.json`. See phase 2b. |
 | `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
 | `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
 
@@ -745,27 +748,145 @@ Integration plan:
 
 ## Phase 2b: disc to player, tracklist and previews
 
-- **Animation:** the disc lifts from the tray, flips and drops into a CD player. The player model is
-  probably the largest single piece of work in the whole plan.
-- **Tracklist:** from MusicBrainz, per release.
-- **30-second previews** (checked during planning):
+First version landed on 28 October 2026, after a discussion with two product photos of a square,
+lidless top-loading CD player (body about 210 × 210 × 45 mm, in black and in white). Awaiting review.
 
-  | Service | Previews | Direct browser use | Notes |
-  | --- | --- | --- | --- |
-  | Apple iTunes Search API | Yes, no key | Yes (`Access-Control-Allow-Origin: *`) | A lookup by album can return all tracks with `previewUrl` in one request. Recommended. |
-  | Deezer API | Yes, no key; lookup by ISRC is precise | No (no CORS allow-origin header) | Needs JSONP or a small proxy. Preview URLs are signed and expire, so fetch them at play time. |
-  | Spotify Web API | Removed for new apps in late 2024, as far as known | | Skip unless an older app still has access. |
+### Decisions
 
-  Check each service's terms before shipping; previews usually require attribution or a store link.
-- **Data approach:** fetch tracklists and other static data in the download script and store them
-  locally, like the artwork. Fetch only short-lived preview URLs at runtime.
+- **Player:** a top-loader with an open circular well, so the disc stays visible while it plays.
+  Graphite. Fixed pose, no hover tilt, in the same perspective scene and camera, so the disc's
+  flight into it matches. After review it is posed like the open case: square to the camera with the
+  front and its controls facing the viewer, tipped back much further (56°) so it lies on a surface
+  seen from above. A first version turned 45° like the product photos (isometric), with its turn
+  corrected for sitting off centre; it looked odd beside the flat page and was dropped.
+  Minimal but realistic, as the user asked: no full set of controls. Model the look, not the
+  product: no maker's logo or text, our own labels, and textures painted in code rather than cut from
+  the photos (they are someone else's product shots, and angled photos distort on a model).
+- **Flow:** a click on the disc in the open case (or the caption, or Enter) switches to the player
+  view. The disc does not flip, since a top-loader takes it label up: it lifts out of the tray, the
+  row with the case slides up out of view while the player rises into its place, and the disc drops
+  onto the spindle. The view then shows only the player, with the disc, and the tracklist. Nothing
+  plays until a track is clicked. Back or Escape ejects: the same path backwards.
+- **Spin:** only while a track plays; pausing pauses it. 200 rpm (`spinRpm`), the slow end of a real
+  disc, spinning up and coasting down (`spinUp`, `spinDown`). 48 and then 100 rpm were too slow in
+  review. At that speed the print would strobe at 60 fps, so it gets a rotational motion blur
+  (`withSpinBlur`): the colour map is averaged over the arc the disc turns in `spinBlur` (25 ms, like
+  a camera exposure), `spinBlurSamples` samples with a per-pixel jitter, a single sample at rest.
+  Still with reduced motion.
+- **Previews:** Apple's iTunes Search API, chosen after comparing alternatives (below). No key,
+  works from the browser. Its terms tie previews to a store link, so the tracklist carries one.
+- **Links under the tracklist,** quiet and in our own type: "Apple Music" (the album there) and
+  "Buy the CD": the artist's official shop when it sells that CD (`buy` in `band.json`, picked by
+  hand), otherwise an Amazon search for the artist, title and CD (the user's call). MusicBrainz has
+  almost no physical shop links (checked on Nevermind and Sehnsucht: one each, from random
+  retailers). Official shops found so far, not yet linked per album: `shop.nirvana.com` (CD section,
+  mostly current reissues), `shop.rammstein.de` (CD category), a store on `theprodigy.com`
+  (catalogue not checked). The Crystal Castles store page only links to an old merch shop and Amazon;
+  The Knife have none.
+
+### What is implemented
+
+- **Model** (`makePlayer` and the `makePlayer*` functions in `src/scene.ts`, tuning in `C.player*`),
+  in millimetres, y up, the front face +z. Geometry: an extruded rounded square slab with softened
+  edges and the well cut through it, the well floor, a lathed spindle (platform and centring pin), a
+  thin satin ring round the well's lip, and on the front six rounded buttons and a display panel.
+  The front between the rounded corners is a brushed aluminium panel (`makePlayerFrontCanvases`:
+  colour and roughness maps with the same horizontal grain; `playerFront*`) with a "Discography"
+  wordmark in the page's heading font (Instrument Serif italic) at its left end, as asked in review.
+  It replaced a painted speaker grille there. A darker, more metallic panel (`#8f9298`, metalness
+  0.9) reflected the dark lower half of the room and read as graphite, hiding the wordmark.
+  Painted (canvas textures): the top plate's satin grain, engraved panel lines, a set of rings and
+  pairs of dots (the body's caps keep millimetre UVs for this); two ports with small labels on the right side, which perspective shows a little; the floor's pickup
+  slot, lens and laser mark; the button icons. The top plate takes the soft strip reflection
+  (`withSoftReflection`, `playerTopSheen`). The labels and display use DM Mono, so they are
+  repainted once the font has loaded (`prepare`).
+- **Display:** the number of tracks while stopped, the track number and elapsed time while playing
+  (`setDisplay`, `drawPlayerDisplay`), lit pale blue through the emissive map.
+- **Pose and layout** (`resize`): on wide screens (aspect 1.1 and up) the player sits `playerShift`
+  of the half-width left of centre with the tracklist on the right; on narrow ones it sits above the
+  list (`playerRaise`) and shrinks to fit. It is tipped by `playerTilt` only; being off centre, plain
+  perspective shows a little of its right side.
+- **Transfer** (`insert`, `eject`, `updatePlayer`): one `listen` value, tweened over
+  `insertDuration` (`ejectDuration` back), drives everything. 0 to 0.3: the disc lifts `insertLift`
+  off the tray toward the camera. 0.2 to 0.7: the gallery group moves up by `insertPan` and the
+  player rises from the same distance below, like a pan down. 0.35 to 0.8: the disc glides to
+  `insertHover` above the spindle, turning to lie in the well and scaling to the player's size;
+  then it drops. While out of its case the disc is a child of the scene; its start pose is the
+  tray's pose with the gallery's pan taken out, so it is held where it was lifted instead of
+  leaving with the case. When the eject finishes it goes back into the case body at its rest
+  transform (`discRest`). The open case stays open meanwhile, and `close`, `open`, `goTo`, clicks and
+  drags do nothing until the disc is back. Reduced motion jumps.
+- **Scene API added:** `insert()`, `eject()`, `setPlaying(playing)`, `setDisplay(track, seconds)`,
+  the `listenOnReveal` option, and `overDisc`, `listening` (player view wanted) and `discOut` (disc
+  out of its case, until the eject finishes) in the pointer state.
+- **Page** (`Tracklist` in `src/main.tsx`, styles under `.tracklist`): eyebrow, title, the tracks
+  (number, title, length; the current one shows a play or pause icon and its progress as a hairline),
+  then the two links. A click plays a track's preview, a second click pauses it, the next track with a
+  preview follows when one ends. Space plays and pauses, Escape and Back eject. The list fades in once
+  the disc has landed; the caption bar stays hidden until the disc is back in its case. The caption
+  is usable while the case is open ("Listen to …") and focus no longer moves from it to Back on
+  opening. Keyboard focus moves into the list when the disc goes in by keyboard, and back to the
+  caption when it comes out. The bubble cursor says "Listen" over the disc in the open case. The URL
+  gets `&listen` (implies `&open`), and a link with it restores the player view.
+- **Previews at runtime:** one `lookup?id=<collection>&entity=song&country=us` request per album,
+  cached for the visit, gives each Apple track ID's `previewUrl` (`loadPreviews`). Preview URLs
+  aren't stored, since Apple may change them.
+
+### Data (`scripts/fetch-tracks.mjs`)
+
+- **Tracklist** (`tracks`: `title`, `length` in seconds, `apple` track ID): from the CD on MusicBrainz,
+  `musicbrainz.release` when pinned, otherwise the earliest official single-CD release of the
+  release group (as in `download-covers.sh`). Replaces the old `tracks: string[]`; the generated back
+  insert reads the titles.
+- **Apple Music match** (`appleMusic`, a collection ID): the artist's Apple ID comes from the artist's
+  MusicBrainz links (`appleArtist` in `band.json` overrides). A plain iTunes search was too noisy
+  (Nevermind itself wasn't in the top 20 results), so the script lists the artist's albums by that
+  ID, takes those whose name matches ignoring edition notes ("(Deluxe Edition)", "(Remastered
+  2020)", "(Live)"), and compares up to four track by track: most tracks matched, then fewest extras.
+  Titles match exactly, then without version notes, then by position. Many albums exist on Apple only
+  as a remaster or deluxe edition, which this handles (Bleach, In Utero, Herzeleid). "ß" is compared
+  as "ss" (Weißes Fleisch).
+- **Coverage:** all 32 albums matched; 396 of 406 tracks have a preview. The rest are missing on
+  Apple's US store or are hidden tracks: Kept (Amnesty (I)), Where Did You Sleep Last Night
+  (Nirvana), the English versions of Engel and Du hast (Sehnsucht), [silence] and Pussy (Liebe ist
+  für alle da), Pussy (Made in Germany), Wind It Up, Hyperspeed and the Charly remix (Experience).
+- Rate limits: about one MusicBrainz request a second and 20 iTunes requests a minute, so a band
+  takes a minute or two.
+
+### Verification
+
+Headless Chrome with the GPU flags above, at 1440 × 900, 1024 × 768 and 390 × 844, on Nirvana,
+Rammstein and The Prodigy: the transition posed at fixed points (0.15 to 1, through a temporary
+debug handle, since removed), a real insert, play, pause, resume and eject (spin 5.0 rad/s, the
+48 rpm then set, while playing; coasting after pause; the URL switching between `&listen` and
+`&open`), the
+"Listen" label and a click on the disc, and a link with `&listen`. The insert, and playback with the
+motion blur, ran at a steady 60 fps (median frame 16.7 ms, none over 50 ms). `npm run typecheck` passes.
+
+### Possible follow-ups
+
+- Hand-pick official `buy` links per album (Nirvana, Rammstein, maybe The Prodigy).
+- Clicking the spinning disc to pause, and the player's buttons as real controls.
+- Previews from other storefronts for the tracks missing in the US store.
+
+### Preview services compared
+
+| Service | Previews | Direct browser use | Notes |
+| --- | --- | --- | --- |
+| Apple iTunes Search API | Yes, no key | Yes (`Access-Control-Allow-Origin: *`) | A lookup by album returns all tracks with `previewUrl` in one request. Chosen. |
+| Deezer API | Yes, no key; lookup by ISRC is precise | No (no CORS allow-origin header) | Needs JSONP or a small proxy; terms also require attribution. |
+| Spotify Web API | Removed for new apps in late 2024 | | Skip. |
+| YouTube embeds | Full songs | Only through the visible YouTube player | Would hide the CD player look. |
+| Hosting clips ourselves | | | Not allowed without a licence. |
 
 ## Open questions
 
-1. Player style: portable Discman, hi-fi deck with a sliding tray, or sketch both? (Phase 2b.)
+None at the moment.
 
 Answered: every album uses a standard jewel case; a drag on the closed case turns it to show the
-spines and back (both phase 1).
+spines and back (both phase 1). Player: a lidless top-loader in graphite; the case leaves upward and
+only the player and the tracklist stay; a click on the disc switches views and a click on a track
+plays (phase 2b).
 
 ## Later ideas (from the original README)
 

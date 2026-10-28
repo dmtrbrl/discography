@@ -17,7 +17,75 @@
       "musicbrainz": {
         "releaseGroup": "f1afec0b-26dd-3db5-9aa1-c91229a74a24",
         "bookletBack": "02b23593-ad18-4c8c-b30a-5c96b4796289/45223444350"
-      }
+      },
+      "appleMusic": 669728060,
+      "tracks": [
+        {
+          "title": "Blew",
+          "length": 174,
+          "apple": 669728223
+        },
+        {
+          "title": "Floyd the Barber",
+          "length": 138,
+          "apple": 669728224
+        },
+        {
+          "title": "About a Girl",
+          "length": 168,
+          "apple": 669728225
+        },
+        {
+          "title": "School",
+          "length": 162,
+          "apple": 669728226
+        },
+        {
+          "title": "Love Buzz",
+          "length": 215,
+          "apple": 669728227
+        },
+        {
+          "title": "Paper Cuts",
+          "length": 246,
+          "apple": 669728228
+        },
+        {
+          "title": "Negative Creep",
+          "length": 176,
+          "apple": 669728249
+        },
+        {
+          "title": "Scoff",
+          "length": 250,
+          "apple": 669728250
+        },
+        {
+          "title": "Swap Meet",
+          "length": 183,
+          "apple": 669728257
+        },
+        {
+          "title": "Mr. Moustache",
+          "length": 204,
+          "apple": 669728258
+        },
+        {
+          "title": "Sifting",
+          "length": 322,
+          "apple": 669728259
+        },
+        {
+          "title": "Big Cheese",
+          "length": 222,
+          "apple": 669728260
+        },
+        {
+          "title": "Downer",
+          "length": 103,
+          "apple": 669728261
+        }
+      ]
     },
     {
       "id": "nevermind",
@@ -34,7 +102,70 @@
       "musicbrainz": {
         "releaseGroup": "1b022e01-4da6-387b-8658-8678046e4cef",
         "bookletBack": "350a8190-2c4b-4010-9bd2-437857325ac5/27145200195@left"
-      }
+      },
+      "appleMusic": 1440783617,
+      "tracks": [
+        {
+          "title": "Smells Like Teen Spirit",
+          "length": 301,
+          "apple": 1440783625
+        },
+        {
+          "title": "In Bloom",
+          "length": 255,
+          "apple": 1440783633
+        },
+        {
+          "title": "Come as You Are",
+          "length": 219,
+          "apple": 1440783636
+        },
+        {
+          "title": "Breed",
+          "length": 184,
+          "apple": 1440783638
+        },
+        {
+          "title": "Lithium",
+          "length": 257,
+          "apple": 1440783764
+        },
+        {
+          "title": "Polly",
+          "length": 177,
+          "apple": 1440783767
+        },
+        {
+          "title": "Territorial Pissings",
+          "length": 143,
+          "apple": 1440783772
+        },
+        {
+          "title": "Drain You",
+          "length": 224,
+          "apple": 1440783774
+        },
+        {
+          "title": "Lounge Act",
+          "length": 157,
+          "apple": 1440783779
+        },
+        {
+          "title": "Stay Away",
+          "length": 212,
+          "apple": 1440783783
+        },
+        {
+          "title": "On a Plain",
+          "length": 196,
+          "apple": 1440783786
+        },
+        {
+          "title": "Something in the Way / Endless, Nameless",
+          "length": 1235,
+          "apple": 1440783790
+        }
+      ]
     },
     {
       "id": "incesticide",
@@ -51,7 +182,85 @@
       "musicbrainz": {
         "releaseGroup": "01cf1391-141b-3c87-8650-45ade6e59070",
         "bookletBack": "756577ba-cdef-4924-9069-ebe1e1ada168/27144906539@left"
-      }
+      },
+      "appleMusic": 1434917065,
+      "tracks": [
+        {
+          "title": "Dive",
+          "length": 236,
+          "apple": 1434917068
+        },
+        {
+          "title": "Sliver",
+          "length": 136,
+          "apple": 1434917069
+        },
+        {
+          "title": "Stain",
+          "length": 161,
+          "apple": 1434917070
+        },
+        {
+          "title": "Been a Son",
+          "length": 116,
+          "apple": 1434917071
+        },
+        {
+          "title": "Turnaround",
+          "length": 139,
+          "apple": 1434917072
+        },
+        {
+          "title": "Molly’s Lips",
+          "length": 114,
+          "apple": 1434917076
+        },
+        {
+          "title": "Son of a Gun",
+          "length": 168,
+          "apple": 1434917077
+        },
+        {
+          "title": "(New Wave) Polly",
+          "length": 108,
+          "apple": 1434917078
+        },
+        {
+          "title": "Beeswax",
+          "length": 170,
+          "apple": 1434917079
+        },
+        {
+          "title": "Downer",
+          "length": 104,
+          "apple": 1434917080
+        },
+        {
+          "title": "Mexican Seafood",
+          "length": 115,
+          "apple": 1434917141
+        },
+        {
+          "title": "Hairspray Queen",
+          "length": 254,
+          "apple": 1434917143
+        },
+        {
+          "title": "Aero Zeppelin",
+          "length": 281,
+          "apple": 1434917144
+        },
+        {
+          "title": "Big Long Now",
+          "length": 304,
+          "apple": 1434917145
+        },
+        {
+          "title": "Aneurysm",
+          "length": 277,
+          "apple": 1434917146
+        }
+      ]
     },
     {
       "id": "in-utero",
@@ -68,7 +277,70 @@
       "musicbrainz": {
         "releaseGroup": "2a0981fb-9593-3019-864b-ce934d97a16e",
         "bookletBack": "b9f84ee2-3690-4a76-a53e-ee0cbccf2639/39564868348"
-      }
+      },
+      "appleMusic": 1440858699,
+      "tracks": [
+        {
+          "title": "Serve the Servants",
+          "length": 216,
+          "apple": 1440858845
+        },
+        {
+          "title": "Scentless Apprentice",
+          "length": 228,
+          "apple": 1440859100
+        },
+        {
+          "title": "Heart‐Shaped Box",
+          "length": 282,
+          "apple": 1440859107
+        },
+        {
+          "title": "Rape Me",
+          "length": 170,
+          "apple": 1440859114
+        },
+        {
+          "title": "Frances Farmer Will Have Her Revenge on Seattle",
+          "length": 250,
+          "apple": 1440859118
+        },
+        {
+          "title": "Dumb",
+          "length": 152,
+          "apple": 1440859361
+        },
+        {
+          "title": "Very Ape",
+          "length": 116,
+          "apple": 1440859386
+        },
+        {
+          "title": "Milk It",
+          "length": 235,
+          "apple": 1440859484
+        },
+        {
+          "title": "Pennyroyal Tea",
+          "length": 217,
+          "apple": 1440859494
+        },
+        {
+          "title": "Radio Friendly Unit Shifter",
+          "length": 291,
+          "apple": 1440859504
+        },
+        {
+          "title": "Tourette’s",
+          "length": 95,
+          "apple": 1440859509
+        },
+        {
+          "title": "All Apologies",
+          "length": 230,
+          "apple": 1440859612
+        }
+      ]
     },
     {
       "id": "mtv-unplugged",
@@ -85,7 +357,80 @@
       "musicbrainz": {
         "releaseGroup": "fb3770f6-83fb-32b7-85c4-1f522a92287e",
         "bookletBack": "2ff3be28-f74f-40c9-bdde-c19b6e4384ee/46180379880"
-      }
+      },
+      "appleMusic": 1440892370,
+      "tracks": [
+        {
+          "title": "About a Girl",
+          "length": 218,
+          "apple": 1440892384
+        },
+        {
+          "title": "Come as You Are",
+          "length": 254,
+          "apple": 1440892667
+        },
+        {
+          "title": "Jesus Doesn’t Want Me for a Sunbeam",
+          "length": 277,
+          "apple": 1440892673
+        },
+        {
+          "title": "The Man Who Sold the World",
+          "length": 261,
+          "apple": 1440892680
+        },
+        {
+          "title": "Pennyroyal Tea",
+          "length": 220,
+          "apple": 1440892686
+        },
+        {
+          "title": "Dumb",
+          "length": 173,
+          "apple": 1440892965
+        },
+        {
+          "title": "Polly",
+          "length": 196,
+          "apple": 1440892975
+        },
+        {
+          "title": "On a Plain",
+          "length": 225,
+          "apple": 1440892985
+        },
+        {
+          "title": "Something in the Way",
+          "length": 242,
+          "apple": 1440893051
+        },
+        {
+          "title": "Plateau",
+          "length": 218,
+          "apple": 1440893056
+        },
+        {
+          "title": "Oh Me",
+          "length": 206,
+          "apple": 1440893061
+        },
+        {
+          "title": "Lake of Fire",
+          "length": 176,
+          "apple": 1440893065
+        },
+        {
+          "title": "All Apologies",
+          "length": 263,
+          "apple": 1440893070
+        },
+        {
+          "title": "Where Did You Sleep Last Night?",
+          "length": 306,
+          "apple": 1440893075
+        }
+      ]
     },
     {
       "id": "muddy-banks",
@@ -102,7 +447,95 @@
       "musicbrainz": {
         "releaseGroup": "249e7835-5c39-3a10-b15b-e2d3470fb40c",
         "bookletBack": "6213251a-9e62-3d27-a772-de423115dccc/40724467330"
-      }
+      },
+      "appleMusic": 1440917165,
+      "tracks": [
+        {
+          "title": "Intro",
+          "length": 53,
+          "apple": 1440917419
+        },
+        {
+          "title": "School",
+          "length": 160,
+          "apple": 1440917435
+        },
+        {
+          "title": "Drain You",
+          "length": 215,
+          "apple": 1440917595
+        },
+        {
+          "title": "Aneurysm",
+          "length": 271,
+          "apple": 1440917606
+        },
+        {
+          "title": "Smells Like Teen Spirit",
+          "length": 287,
+          "apple": 1440917612
+        },
+        {
+          "title": "Been a Son",
+          "length": 127,
+          "apple": 1440917618
+        },
+        {
+          "title": "Lithium",
+          "length": 250,
+          "apple": 1440917833
+        },
+        {
+          "title": "Sliver",
+          "length": 116,
+          "apple": 1440917838
+        },
+        {
+          "title": "Spank Thru",
+          "length": 190,
+          "apple": 1440917844
+        },
+        {
+          "title": "Scentless Apprentice",
+          "length": 211,
+          "apple": 1440917849
+        },
+        {
+          "title": "Heart‐Shaped Box",
+          "length": 282,
+          "apple": 1440917851
+        },
+        {
+          "title": "Milk It",
+          "length": 225,
+          "apple": 1440917853
+        },
+        {
+          "title": "Negative Creep",
+          "length": 164,
+          "apple": 1440917860
+        },
+        {
+          "title": "Polly",
+          "length": 150,
+          "apple": 1440918138
+        },
+        {
+          "title": "Breed",
+          "length": 208,
+          "apple": 1440918148
+        },
+        {
+          "title": "tourette’s",
+          "length": 115,
+          "apple": 1440918155
+        },
+        {
+          "title": "Blew",
+          "length": 218,
+          "apple": 1440918255
+        }
+      ]
     },
     {
       "id": "nirvana",
@@ -119,7 +552,84 @@
       "musicbrainz": {
         "releaseGroup": "5ab32af4-c62e-3cbf-aa8c-c761581d3b94",
         "bookletBack": "15df9d9e-cd02-447d-99b6-c25abfce1b81/39573619956"
-      }
+      },
+      "appleMusic": 1413920644,
+      "tracks": [
+        {
+          "title": "You Know You’re Right",
+          "length": 218,
+          "apple": 1413920646
+        },
+        {
+          "title": "About a Girl",
+          "length": 169,
+          "apple": 1413920650
+        },
+        {
+          "title": "Been a Son",
+          "length": 144,
+          "apple": 1413921134
+        },
+        {
+          "title": "Sliver",
+          "length": 134,
+          "apple": 1413921135
+        },
+        {
+          "title": "Smells Like Teen Spirit",
+          "length": 301,
+          "apple": 1413921155
+        },
+        {
+          "title": "Come as You Are",
+          "length": 219,
+          "apple": 1413921156
+        },
+        {
+          "title": "Lithium",
+          "length": 257,
+          "apple": 1413921158
+        },
+        {
+          "title": "In Bloom",
+          "length": 255,
+          "apple": 1413921160
+        },
+        {
+          "title": "Heart‐Shaped Box",
+          "length": 282,
+          "apple": 1413921237
+        },
+        {
+          "title": "Pennyroyal Tea",
+          "length": 218,
+          "apple": 1413921239
+        },
+        {
+          "title": "Rape Me",
+          "length": 171,
+          "apple": 1413921241
+        },
+        {
+          "title": "Dumb",
+          "length": 154,
+          "apple": 1413921581
+        },
+        {
+          "title": "All Apologies",
+          "length": 228,
+          "apple": 1413921588
+        },
+        {
+          "title": "The Man Who Sold the World",
+          "length": 230,
+          "apple": 1413921932
+        },
+        {
+          "title": "Where Did You Sleep Last Night",
+          "length": 302
+        }
+      ]
     }
   ]
 }
