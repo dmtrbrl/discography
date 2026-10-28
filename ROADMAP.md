@@ -199,7 +199,8 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
   stop the booklet (`lidStopY`); half-ring clips stand on the tray's top and bottom edges,
   `trayClipSpread` either side of the disc's centre. A first version placed tabs and clips
   unevenly and looked off. The tabs sit 0.05 mm clear of the booklet's back, since a shared face
-  z-fought.
+  z-fought. The bottom tabs were first made by mirroring the top ones with a
+  negative scale, which flipped their normals and made them over-reflect; they are turned instead.
 - **Hinge side:** the tray (with its black spine strip) is 121 mm tall, nearly the full height
   as in real cases, and the base's spine walls match it. Knuckles with the hinge pins sit at the
   hinge's top and bottom corners, where the lid's flanges turn. Before, the tray stopped 3.5 mm

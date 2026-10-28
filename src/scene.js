@@ -338,9 +338,11 @@ function makeBaseShellGeometry() {
 }
 
 // A flat half-disc with its straight edge on y = 0, bulging toward -y (side -1) or +y (side 1).
+// Turned rather than mirrored for +y: a negative scale would turn its faces inside out, and the
+// flipped normals then caught the light band as if facing it.
 function halfDisc(radius, thickness, side) {
-  return new THREE.CylinderGeometry(radius, radius, thickness, 24, 1, false, -Math.PI / 2, Math.PI)
-    .rotateX(Math.PI / 2).scale(1, -side, 1);
+  const geometry = new THREE.CylinderGeometry(radius, radius, thickness, 24, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2);
+  return side > 0 ? geometry.rotateZ(Math.PI) : geometry;
 }
 
 // The clear lid: front plate, the flanges along the top and bottom, the half-round tabs that hold
