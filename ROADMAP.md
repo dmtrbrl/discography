@@ -463,8 +463,10 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
   `pointerenter` as a move, so the dot stays when a menu closes under it. Tested with a still
   pointer through 22 cases (Menu/Close by click and Escape, Back by click, Escape and Space, Back
   fading in, current artist, menu background, Home, artists, the wordmark, the credit link).
-- **Drag and keys while open**: no drag does anything while a case is open, and neither do the
-  arrow keys, Home or End (see phase 1 interactions). The wheel still moves on and closes it.
+- **Drag, keys and wheel while open**: no drag does anything while a case is open, and neither do
+  the arrow keys, Home, End or the wheel (see phase 1 interactions). The wheel still follows the
+  gesture's momentum while open, so the tail of a trackpad swipe doesn't step the row once the
+  case closes.
 
 ### Artists and artwork
 

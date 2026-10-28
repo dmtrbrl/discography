@@ -2048,6 +2048,12 @@ export class GalleryScene {
     clearTimeout(wheel.timer);
     wheel.timer = setTimeout(() => this.resetWheel(), C.wheelIdleReset);
     const decayed = gap === Infinity ? 0 : wheel.envelope * Math.exp(-gap / C.wheelEnvelopeTau);
+    // While a case is open the wheel neither moves the row nor closes the case. The gesture is still
+    // followed, so the momentum tail of a swipe doesn't step the row once the case closes.
+    if (this.opened >= 0) {
+      Object.assign(wheel, { armed: false, rising: false, total: 0, count: 0, stepTime: now, envelope: Math.max(size, decayed), peak: Math.max(wheel.peak, size) });
+      return;
+    }
     if (size < C.wheelNoiseFloor) {
       wheel.envelope = decayed;
       return;
