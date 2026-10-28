@@ -329,9 +329,10 @@ black tray floor; that was replaced by the strip.
   fades back in (0.22 s each way); several quick moves keep it hidden until they settle.
 - No visible prev/next buttons or counter (they distracted); the buttons stay for screen readers.
 - Bubble cursor (prototype, mouse only): a dot that sits on the pointer (a lagging follow was
-  tried and rejected). Over something interactive it grows a little (about 23 px), and after
-  `labelDelay` (500 ms, in `src/main.jsx`) it opens like a tooltip to show the action; showing the
-  label at once felt busy. A change of action restarts the wait. The scene re-checks the case
+  tried and rejected). Over something interactive it grows a little (about 23 px), and only once
+  the pointer has rested for `labelDelay` (5 s, in `src/main.jsx`) does it open like a tooltip to
+  show the action; showing the label at once felt busy. Moving more than `restSlop` (3 px) or a
+  change of action hides it and restarts the wait. The scene re-checks the case
   under the pointer every frame, not only when the mouse moves: before, after a click the gallery
   glided under a still pointer and the label went stale (it said "Open" over the next case).
   Tested with scripted clicks, comparing the label with a fresh 1 px nudge. The actions: Open on the front case, Prev or Next on side cases, Drag while

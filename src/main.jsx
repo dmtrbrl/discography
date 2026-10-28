@@ -34,8 +34,9 @@ function App(props) {
   let captionTimer = 0;
 
   // Bubble cursor: a dot on the pointer (no lag). Over something interactive it grows a little,
-  // and after labelDelay it opens like a tooltip and says what a click will do; a change of action
-  // (say Next becoming Open after a click) hides the label and restarts the wait. Over the Back
+  // and once the pointer has rested for labelDelay it opens like a tooltip and says what a click
+  // will do. Moving more than restSlop pixels, or a change of action (say Next becoming Open after
+  // a click), hides the label and restarts the wait. Over the Back
   // button it becomes a larger dot, and a white copy of the button, clipped to the dot, shows the
   // text white inside it.
   let bubble;
@@ -54,14 +55,18 @@ function App(props) {
     if (hovered === front) return 'Open';
     return hovered < front ? 'Prev' : 'Next';
   };
-  const labelDelay = 500;
+  const labelDelay = 5000;
+  const restSlop = 3;
   const [tip, setTip] = createSignal({ text: '', shown: false });
   let tipTimer = 0;
-  createEffect(on(bubbleLabel, (label) => {
+  const rest = { x: 0, y: 0 };
+  function armTip() {
     clearTimeout(tipTimer);
     setTip((current) => ({ ...current, shown: false }));
-    if (label) tipTimer = setTimeout(() => setTip({ text: label, shown: true }), reducedMotion ? 0 : labelDelay);
-  }));
+    const label = bubbleLabel();
+    if (label) tipTimer = setTimeout(() => setTip({ text: bubbleLabel(), shown: Boolean(bubbleLabel()) }), labelDelay);
+  }
+  createEffect(on(bubbleLabel, armTip));
   const backDot = 20;
   const mouse = { x: 0, y: 0, bx: 0, by: 0, clip: 0, raf: 0 };
   function followMouse() {
@@ -79,6 +84,11 @@ function App(props) {
     if (!canBubble || event.pointerType !== 'mouse') return;
     mouse.x = event.clientX;
     mouse.y = event.clientY;
+    if (Math.hypot(mouse.x - rest.x, mouse.y - rest.y) > restSlop) {
+      rest.x = mouse.x;
+      rest.y = mouse.y;
+      armTip();
+    }
     if (!bubbleShown()) {
       mouse.bx = mouse.x;
       mouse.by = mouse.y;
