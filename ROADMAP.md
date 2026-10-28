@@ -328,8 +328,13 @@ black tray floor; that was replaced by the strip.
   centred under the front case. When the album changes it fades out, swaps, and
   fades back in (0.22 s each way); several quick moves keep it hidden until they settle.
 - No visible prev/next buttons or counter (they distracted); the buttons stay for screen readers.
-- Bubble cursor (prototype, mouse only): a dark circle that sits on the pointer (a lagging follow
-  was tried and rejected) and says what a click does: Open on the front case, Prev or Next on side cases, Drag while
+- Bubble cursor (prototype, mouse only): a dot that sits on the pointer (a lagging follow was
+  tried and rejected). Over something interactive it grows a little (about 23 px), and after
+  `labelDelay` (500 ms, in `src/main.jsx`) it opens like a tooltip to show the action; showing the
+  label at once felt busy. A change of action restarts the wait. The scene re-checks the case
+  under the pointer every frame, not only when the mouse moves: before, after a click the gallery
+  glided under a still pointer and the label went stale (it said "Open" over the next case).
+  Tested with scripted clicks, comparing the label with a fresh 1 px nudge. The actions: Open on the front case, Prev or Next on side cases, Drag while
   dragging, and a small dot otherwise, including over an open case (a "Close" label there was
   rejected). An open case closes with a Back button top left (42 px / 39 px, like the caption's
   inset), Escape, Space or a click beside it; a click on the open case itself does nothing yet,

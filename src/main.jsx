@@ -33,9 +33,11 @@ function App(props) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let captionTimer = 0;
 
-  // Bubble cursor: sits on the pointer (no lag) and says what a click will do. Over the Back
-  // button it becomes a larger translucent dot, and a white copy of the button, clipped to the
-  // dot, shows the text white inside it.
+  // Bubble cursor: a dot on the pointer (no lag). Over something interactive it grows a little,
+  // and after labelDelay it opens like a tooltip and says what a click will do; a change of action
+  // (say Next becoming Open after a click) hides the label and restarts the wait. Over the Back
+  // button it becomes a larger dot, and a white copy of the button, clipped to the dot, shows the
+  // text white inside it.
   let bubble;
   let backCopy;
   const [overBack, setOverBack] = createSignal(false);
@@ -52,6 +54,14 @@ function App(props) {
     if (hovered === front) return 'Open';
     return hovered < front ? 'Prev' : 'Next';
   };
+  const labelDelay = 500;
+  const [tip, setTip] = createSignal({ text: '', shown: false });
+  let tipTimer = 0;
+  createEffect(on(bubbleLabel, (label) => {
+    clearTimeout(tipTimer);
+    setTip((current) => ({ ...current, shown: false }));
+    if (label) tipTimer = setTimeout(() => setTip({ text: label, shown: true }), reducedMotion ? 0 : labelDelay);
+  }));
   const backDot = 20;
   const mouse = { x: 0, y: 0, bx: 0, by: 0, clip: 0, raf: 0 };
   function followMouse() {
@@ -132,6 +142,7 @@ function App(props) {
   });
   onCleanup(() => {
     clearTimeout(captionTimer);
+    clearTimeout(tipTimer);
     cancelAnimationFrame(mouse.raf);
     window.removeEventListener('keydown', onKeyDown);
     scene?.destroy();
@@ -143,8 +154,8 @@ function App(props) {
       <div class="stage" classList={{ 'is-hidden': !revealed(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label={`Interactive ${artist} album slider`}
         onPointerMove={onStageMove} onPointerLeave={() => setBubbleShown(false)} onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} />
       <div class="bubble" ref={bubble} aria-hidden="true">
-        <span class="bubble-body" classList={{ 'is-shown': bubbleShown() && revealed(), 'has-label': Boolean(bubbleLabel()) && !overBack(), 'is-back': overBack(), 'is-pressed': pressed() }}>
-          <span class="bubble-label">{bubbleLabel()}</span>
+        <span class="bubble-body" classList={{ 'is-shown': bubbleShown() && revealed(), 'is-active': Boolean(bubbleLabel()) && !overBack(), 'has-label': tip().shown && !overBack(), 'is-back': overBack(), 'is-pressed': pressed() }}>
+          <span class="bubble-label">{tip().text}</span>
         </span>
       </div>
       {/* Collaboration-style masthead: the site's wordmark, a thin cross, and the band's logo. */}

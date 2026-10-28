@@ -21,6 +21,8 @@ button { cursor: pointer; }
 .bubble { position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none; will-change: transform; }
 .bubble-body { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: var(--ink); color: var(--bg-center); opacity: 0; transform: scale(0); transition: transform .35s cubic-bezier(.32,.72,0,1), opacity .2s ease, background-color .25s ease; }
 .bubble-body.is-shown { opacity: 1; transform: scale(.14); }
+.bubble-body.is-shown.is-active { transform: scale(.3); }
+.bubble-body.is-shown.is-active.is-pressed { transform: scale(.26); }
 .bubble-body.is-shown.has-label { transform: scale(1); }
 .bubble-body.is-shown.has-label.is-pressed { transform: scale(.9); }
 .bubble-body.is-shown.is-back { transform: scale(.526); }

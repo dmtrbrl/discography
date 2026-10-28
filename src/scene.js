@@ -1227,6 +1227,9 @@ export class GalleryScene {
     this.hitUV = { x: 0, y: 0 };
     this.hovered = -1;
     this.pointerMoved = false;
+    // A mouse over the stage: the case under it is checked every frame, since cases glide under a
+    // still pointer too.
+    this.pointerInside = false;
     this.press = null;
     this.dragging = false;
     this.spinning = -1;
@@ -1630,10 +1633,12 @@ export class GalleryScene {
     this.move.x = event.clientX;
     this.move.y = event.clientY;
     this.pointerMoved = true;
+    this.pointerInside = true;
     this.request();
   }
 
   onPointerLeave() {
+    this.pointerInside = false;
     if (this.press) return;
     this.pointerMoved = false;
     this.hovered = -1;
@@ -1934,11 +1939,13 @@ export class GalleryScene {
     this.lastTime = now;
     this.updateTweens(dt);
 
-    if (this.pointerMoved) {
+    if (this.pointerMoved || (this.pointerInside && !this.press)) {
+      const moved = this.pointerMoved;
       this.pointerMoved = false;
       const hit = this.pick();
       if (hit !== this.hovered) {
-        if (hit >= 0 && !this.press) this.swipe(hit);
+        // Only the mouse's own movement nudges a case, not a case gliding under a still pointer.
+        if (hit >= 0 && !this.press && moved) this.swipe(hit);
         this.hovered = hit;
         this.updateCursor();
         this.forceFrames = Math.max(this.forceFrames, 2);
