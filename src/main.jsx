@@ -12,7 +12,7 @@ function applyBand(band) {
   root.setProperty('--bg-edge', band.theme.backgroundEdge);
   root.setProperty('--ink', band.theme.ink);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', band.theme.background);
-  document.title = `${band.name} discography`;
+  document.title = `Discography × ${band.name}`;
 }
 
 function App(props) {
@@ -147,8 +147,12 @@ function App(props) {
           <span class="bubble-label">{bubbleLabel()}</span>
         </span>
       </div>
-      <header class="logo" classList={{ 'is-hidden': !revealed() || !logoRatio() }} role="img" aria-label={artist}
-        style={{ '--logo': `url("${props.band.logo}")`, 'aspect-ratio': logoRatio() }} />
+      {/* Collaboration-style masthead: the site's wordmark, a thin cross, and the band's logo. */}
+      <header class="masthead" classList={{ 'is-hidden': !revealed() || !logoRatio() }} role="img" aria-label={`Discography × ${artist}`}>
+        <span class="wordmark" aria-hidden="true">Discography</span>
+        <svg class="cross" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3 17 17M17 3 3 17" /></svg>
+        <span class="logo" aria-hidden="true" style={{ '--logo': `url("${props.band.logo}")`, 'aspect-ratio': logoRatio() }} />
+      </header>
       <button class="back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" onClick={() => scene?.close()} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0}
         onPointerMove={onStageMove} onPointerEnter={(event) => event.pointerType === 'mouse' && setOverBack(true)}
         onPointerLeave={() => { setOverBack(false); setBubbleShown(false); if (!mouse.raf) mouse.raf = requestAnimationFrame(followMouse); }}>

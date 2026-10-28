@@ -189,9 +189,21 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
   base plate; back insert, whose ends fold forward into the two spines behind the base's clear side
   walls; black tray with a rosette (platform and ring of teeth through the disc's hole); the disc
   itself, turned up to ±25° per album; a black hinge strip, part of the tray, finely ribbed, full
-  height and reaching up to just under the lid (`hingeStrip`, `hingeRibs`); the booklet, 120 × 120 mm, pushed toward the open side; the
-  clear lid plate, with flanges along the top and bottom and two tabs holding the booklet. Hinge on
-  the left. Dimensions and depths are in `C` and the derived `CASE` object.
+  height and reaching up to just under the lid (`hingeStrip`, `hingeRibs`); the booklet, 120 × 120 mm, centred over the disc (as in real cases; an earlier offset of 2 mm let the disc's edge show beside it); the
+  clear lid plate, with flanges along the top and bottom. Hinge on the left. Dimensions and depths
+  are in `C` and the derived `CASE` object.
+- **Moulded details** (from a photo of an open Nevermind case and Wikimedia Commons' "Cd jewel
+  case, no art, right angle"): four clear half-round tabs on the lid's top and bottom flanges hold
+  the booklet's edges, placed symmetrically `lidTabInset` in from each side of the booklet
+  (`lidTabRadius`; they replaced two rectangular tabs); two short ribs just inside the free edge
+  stop the booklet (`lidStopY`); half-ring clips stand on the tray's top and bottom edges,
+  `trayClipSpread` either side of the disc's centre. A first version placed tabs and clips
+  unevenly and looked off. The tabs sit 0.05 mm clear of the booklet's back, since a shared face
+  z-fought.
+- **Hinge side:** the tray (with its black spine strip) is 121 mm tall, nearly the full height
+  as in real cases, and the base's spine walls match it. Knuckles with the hinge pins sit at the
+  hinge's top and bottom corners, where the lid's flanges turn. Before, the tray stopped 3.5 mm
+  short, the pins sat mid-height, and gaps at the hinge corners made it look like separate parts.
 - **Clear plastic** (`makeCasePlastic`, one material per case): built on the disc hub's plastic at
   4% opacity, so edges seen side-on and glints stay opaque. No refraction. It drops reflections of
   the direct lights: on the flat lid
@@ -252,8 +264,15 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
   reports `onReady`. The page fades the loading screen out, and on its `transitionend` calls
   `reveal()`, which fades the gallery in with the intro; the caption follows 0.3 s later. With
   reduced motion there is no fade, so the page reveals at once.
-- **Performance:** discs are hidden while their case is closed (shown once for the shader compile at
-  reveal). Navigation plus opening and closing at 1440 × 900 with vsync: no frames over 25 ms.
+- **Disc in the closed case:** always drawn, but shaded (`discClosedShade`, 0.1) while the lid
+  covers it, brightening as the lid opens (`withShade`, a per-disc uniform on all four disc
+  materials). The scene has no shadows, so an unshaded disc glowed white through the thin gaps
+  around the booklet. An earlier version hid the disc while closed and showed it when the lid
+  started to move, which made a white arc pop in between the hinge strip and the booklet.
+  Checked by rendering the closed case with the disc on and off in 17 poses (turned, tilted,
+  hovered, starting to open): about 300 differing pixels at rest before, 4 dark ones after.
+- **Performance:** navigation plus opening and closing at 1440 × 900 with vsync: no frames over
+  25 ms, with every disc always drawn.
 
 ### Reference photos
 
@@ -293,6 +312,9 @@ black tray floor; that was replaced by the strip.
 
 ### Page
 
+- Masthead, top centre: "Discography" in Instrument Serif italic, a thin drawn ×, then the band's
+  logo from `band.json`, like a collaboration logo. Compared with an upright and a spaced-caps
+  wordmark. Below, the history of the band logo itself:
 - The Nirvana wordmark sits top centre, 39 px from the top (24 px on phones). It is `public/bands/nirvana/logo.svg`, cleaned
   from Wikimedia Commons' `NirvanaLogo.svg` (public domain as a simple text logo, taken from the
   2002 compilation cover; possibly trademarked): background removed, cropped to the letters. The
@@ -314,7 +336,9 @@ black tray floor; that was replaced by the strip.
   leaving it for the disc and booklet in phase 2. Over the Back button the bubble becomes a 40 px black dot, and
   a white copy of the button, clipped to the dot's circle, shows the text white
   inside it.
-- Album title in Instrument Serif (Google Fonts) at 40 px (32 px on phones). Its condensed, high-contrast letters echo the Onyx-style logo; Georgia read as generic.
+- Type is Instrument Serif throughout. Newsreader (wider, normal proportions) was tried as a
+  replacement and rejected: Instrument Serif looked better. Also compared Fraunces, Playfair
+  Display, Libre Caslon Text, DM Serif Display, Source Serif 4 and Crimson Pro. Its condensed, high-contrast letters echo the Onyx-style logo; Georgia read as generic.
   Compared against Bodoni Moda, Gloock, Fraunces, Young Serif, Libre Caslon Display, Playfair
   Display SC, Anton and Oswald. Year and kind are in the same family, italic, sentence case, 18 px (15 px on phones), with a
   slash and 5 px either side (no word spaces). Tried for them and rejected: DM Mono caps (wide

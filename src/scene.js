@@ -23,14 +23,21 @@ const C = {
   // 10.4 mm, hinged on the left. Back to front: base plate, back insert, black tray, disc, booklet,
   // lid plate. The insert's ends fold forward into the two spines.
   caseWidth: 142, caseHeight: 125, caseDepth: 10.4, lidPlate: 1.5, lidFlange: 8, basePlate: 1, caseWall: 1, hingeInset: 1,
-  bookletSize: 120, bookletThickness: 0.8, bookletInset: 3, insertWidth: 138, insertHeight: 118, spineWidth: 6.5,
-  trayWidth: 136, trayHeight: 118, trayDepth: 5, discOffsetX: 6, discTurn: 25, hingeStrip: 14, hingeRibs: 18,
+  bookletSize: 120, bookletThickness: 0.8, bookletInset: 5, insertWidth: 138, insertHeight: 118, spineWidth: 6.5,
+  trayWidth: 136, trayHeight: 121, trayDepth: 5, discOffsetX: 6, discTurn: 25, hingeStrip: 14, hingeRibs: 18,
+  // Moulded details, from photos of open and empty cases (mm). Lid: half-round tabs on the top and
+  // bottom flanges hold the booklet's edges, lidTabInset in from each side of the booklet, and two
+  // short ribs inside the free edge stop it (lidStopY, from the centre). Tray: half-ring clips on its
+  // top and bottom edges, trayClipSpread either side of the disc's centre. Both sit symmetrically.
+  lidTabInset: 16, lidTabRadius: 5, lidStopY: [16, 40], trayClipSpread: 37, trayClipRadius: 4.5,
   // The case plastic (makeCasePlastic). Its reflection: a long, soft strip light running left to
   // right, above and in front (caseSheenDir, world space), seen as a soft band with no ends.
   // Strength and angular half-width in radians. The disc print and rim reflect the same light
   // (discSheen) instead of the direct lights, so the open case is lit like the closed one. Cut edges get a little extra opacity, so they read
   // as thicker plastic; wear adds scratches and smudges.
-  caseSheen: 0.12, caseSheenWidth: 0.1, caseSheenDir: [0, 0.75, 0.66], discSheen: 0.18, caseEdgeAlpha: 0.15, caseScratches: 0.32, caseSmudges: 0.8,
+  caseSheen: 0.12, caseSheenWidth: 0.1, caseSheenDir: [0, 0.75, 0.66], discSheen: 0.18,
+  // How much light reaches a disc inside the closed case (it brightens to 1 as the lid opens).
+  discClosedShade: 0.1, caseEdgeAlpha: 0.15, caseScratches: 0.32, caseSmudges: 0.8,
   // Black tray: satin, finely stippled polystyrene, with a raised ring around the disc well.
   casePlasticOpacity: 0.04, trayColor: '#151518', trayRough: 0.5, trayStipple: 0.35, printRough: 0.5, paperColor: '#ece7dc', caseScale: 0.78,
   // Opening: the case turns square to the camera and tips back by openTilt degrees, like a book
@@ -310,39 +317,61 @@ function makeInsertGeometry() {
   ]);
 }
 
-// The clear base: back plate, side walls over the spines, and the hinge pins.
+// The clear base: back plate, side walls over the spines (as tall as the tray), and at the hinge's
+// top and bottom corners a knuckle with its pin, which the lid's flanges turn on. The knuckles
+// close the gap between the tray's ends and the lid, so the hinge side reads as one piece.
 function makeBaseShellGeometry() {
   const wallDepth = CASE.trayFront + 1.5 - CASE.back;
   const wallX = C.caseWidth / 2 - 1;
-  const pins = [-1, 1].map((side) => sheet(new THREE.CylinderGeometry(1.6, 1.6, 10, 16).translate(CASE.hingeX, side * 48, 0)));
+  const knuckleHeight = C.caseHeight / 2 - C.trayHeight / 2 - C.caseWall;
+  const knuckleY = C.trayHeight / 2 + knuckleHeight / 2;
+  const knuckles = [-1, 1].flatMap((side) => [
+    sheet(box(4, knuckleHeight, wallDepth, CASE.hingeX + 2, side * knuckleY, CASE.back + wallDepth / 2), 1),
+    sheet(new THREE.CylinderGeometry(1.6, 1.6, knuckleHeight + C.caseWall, 16).translate(CASE.hingeX, side * (knuckleY + C.caseWall / 2), 0)),
+  ]);
   return mergeParts([
     sheet(box(C.caseWidth - 2, C.caseHeight - 2, C.basePlate, 0, 0, CASE.back + C.basePlate / 2), 2),
-    sheet(box(C.caseWall, C.insertHeight + 2, wallDepth, -wallX, 0, CASE.back + wallDepth / 2), 0),
-    sheet(box(C.caseWall, C.insertHeight + 2, wallDepth, wallX, 0, CASE.back + wallDepth / 2), 0),
-    ...pins,
+    sheet(box(C.caseWall, C.trayHeight, wallDepth, -wallX, 0, CASE.back + wallDepth / 2), 0),
+    sheet(box(C.caseWall, C.trayHeight, wallDepth, wallX, 0, CASE.back + wallDepth / 2), 0),
+    ...knuckles,
   ]);
 }
 
-// The clear lid: front plate, the flanges along the top and bottom, and the two tabs that hold the
-// booklet. Built around the hinge line so the lid group can rotate about its origin.
+// A flat half-disc with its straight edge on y = 0, bulging toward -y (side -1) or +y (side 1).
+function halfDisc(radius, thickness, side) {
+  return new THREE.CylinderGeometry(radius, radius, thickness, 24, 1, false, -Math.PI / 2, Math.PI)
+    .rotateX(Math.PI / 2).scale(1, -side, 1);
+}
+
+// The clear lid: front plate, the flanges along the top and bottom, the half-round tabs that hold
+// the booklet's top and bottom edges just behind it, and the ribs that stop it at the free edge.
+// Built around the hinge line so the lid group can rotate about its origin.
 function makeLidShellGeometry() {
   const front = C.caseDepth / 2;
   const flangeY = C.caseHeight / 2 - C.caseWall / 2;
-  const tabZ = CASE.lidInner - C.bookletThickness - 0.3;
-  const tabX = C.caseWidth / 2 - 4;
+  const flangeInner = C.caseHeight / 2 - C.caseWall;
+  const bookletBack = CASE.booklet - C.bookletThickness / 2;
+  // The tabs sit just clear of the booklet's back (a shared face would z-fight).
+  const tabX = [-1, 1].map((side) => CASE.bookletX + side * (C.bookletSize / 2 - C.lidTabInset));
+  const tabs = tabX.flatMap((x) => [-1, 1].map((side) => sheet(halfDisc(C.lidTabRadius, 0.6, -side)
+    .translate(x, side * flangeInner, bookletBack - 0.35), 2)));
+  const [stopNear, stopFar] = C.lidStopY;
+  const stopX = (CASE.bookletX + C.bookletSize / 2 + C.caseWidth / 2) / 2;
+  const stops = [-1, 1].map((side) => sheet(box(0.8, stopFar - stopNear, 1.6, stopX, side * (stopNear + stopFar) / 2, CASE.lidInner - 0.8), 0));
   return mergeParts([
     sheet(box(C.caseWidth, C.caseHeight, C.lidPlate, 0, 0, front - C.lidPlate / 2), 2),
     sheet(box(C.caseWidth, C.caseWall, C.lidFlange, 0, flangeY, front - C.lidFlange / 2), 1),
     sheet(box(C.caseWidth, C.caseWall, C.lidFlange, 0, -flangeY, front - C.lidFlange / 2), 1),
-    sheet(box(5, 12, 0.6, tabX, 40, tabZ), 2),
-    sheet(box(5, 12, 0.6, tabX, -40, tabZ), 2),
+    ...tabs,
+    ...stops,
   ].map((part) => part.translate(-CASE.hingeX, 0, 0)));
 }
 
 // The black tray and its rosette: a raised platform the disc rests on and a ring of teeth that
 // grips the centre hole. Along the hinge the tray rises into a finely ribbed strip, full height and
 // just under the lid, which is what shows on the left of a closed case. A low ring outlines the
-// disc well; the tray's top and bottom edges cut through it, as on real trays.
+// disc well; the tray's top and bottom edges cut through it, as on real trays. Half-ring clips stand
+// on the top and bottom edges.
 function makeTrayGeometry() {
   const top = CASE.trayFront;
   const turnUp = (geometry) => geometry.rotateX(Math.PI / 2);
@@ -359,11 +388,18 @@ function makeTrayGeometry() {
   const gap = Math.acos((C.trayHeight / 2 - 1) / wellOuter);
   const wellProfile = [[60.8, 0], [wellOuter, 0], [wellOuter, 0.5], [60.8, 0.5], [60.8, 0]].map(([x, y]) => new THREE.Vector2(x, y));
   const well = [gap, Math.PI + gap].map((start) => turnUp(new THREE.LatheGeometry(wellProfile, 48, start, Math.PI - gap * 2)).translate(C.discOffsetX, 0, top));
+  const clipProfile = [[C.trayClipRadius - 0.7, 0], [C.trayClipRadius, 0], [C.trayClipRadius, 1.2], [C.trayClipRadius - 0.7, 1.2], [C.trayClipRadius - 0.7, 0]]
+    .map(([x, y]) => new THREE.Vector2(x, y));
+  // Each clip's arc opens toward the tray's edge and bulges in toward the disc.
+  const clipX = [-1, 1].map((side) => C.discOffsetX + side * C.trayClipSpread);
+  const clips = clipX.flatMap((x) => [-1, 1].map((side) => turnUp(new THREE.LatheGeometry(clipProfile, 24, side > 0 ? -Math.PI / 2 : Math.PI / 2, Math.PI))
+    .translate(x, side * C.trayHeight / 2, top)));
   return mergeParts([
     box(C.trayWidth, C.trayHeight, C.trayDepth, 0, 0, top - C.trayDepth / 2),
     box(C.hingeStrip, stripHeight, stripFront - stripBack, stripLeft + C.hingeStrip / 2, 0, (stripFront + stripBack) / 2),
     ...ribs,
     ...well,
+    ...clips,
     turnUp(new THREE.CylinderGeometry(17, 17, 0.8, 64)).translate(C.discOffsetX, 0, top + 0.4),
     turnUp(new THREE.CylinderGeometry(2.6, 2.6, 1, 24)).translate(C.discOffsetX, 0, top + 1.3),
     ...teeth,
@@ -735,12 +771,6 @@ function makeSharedResources(renderer) {
     casePick: new THREE.PlaneGeometry(C.caseWidth * MM, C.caseHeight * MM),
   };
   const materials = {
-    // Clear polycarbonate rim with a faint thin-film shimmer.
-    edge: withSoftReflection(new THREE.MeshPhysicalMaterial({
-      color: C.edgeColor, roughness: C.edgeRoughness, metalness: C.edgeMetalness, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.1,
-      iridescence: 1, iridescenceIOR: 1.6, iridescenceThicknessRange: [300, 900], side: THREE.DoubleSide,
-    }), 'cd-edge', C.discSheen),
-    hub: makePlastic({ roughness: 0.05, opacity: C.plasticOpacity, rings: C.plasticRings }),
     // Satin black polystyrene with a fine stipple.
     tray: new THREE.MeshPhysicalMaterial({
       color: C.trayColor, roughness: 1, roughnessMap: textures.trayRough, normalMap: textures.trayNormal, normalScale: new THREE.Vector2(1, 1), metalness: 0, envMapIntensity: 1.8,
@@ -1055,21 +1085,51 @@ function makeInsertCanvas(album, image) {
   return canvas;
 }
 
+// The scene has no shadows, so a disc inside a closed case would be lit as if it lay in the open,
+// and its edge would glow through the gaps around the booklet. shade (a { value } uniform, 0 to 1)
+// scales the light a disc's materials give off: dark while the lid covers it, brightening as the
+// lid opens. Chains onto any onBeforeCompile the material already has.
+function withShade(material, shade) {
+  const compile = material.onBeforeCompile;
+  const key = material.customProgramCacheKey;
+  material.customProgramCacheKey = () => `${key.call(material)}-shaded`;
+  material.onBeforeCompile = (shader, renderer) => {
+    compile.call(material, shader, renderer);
+    shader.uniforms.discShade = shade;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float discShade;')
+      .replace('#include <opaque_fragment>', 'outgoingLight *= discShade;\n#include <opaque_fragment>');
+  };
+  return material;
+}
+
+// The disc's clear rim, with a faint thin-film shimmer.
+function makeEdgeMaterial() {
+  return withSoftReflection(new THREE.MeshPhysicalMaterial({
+    color: C.edgeColor, roughness: C.edgeRoughness, metalness: C.edgeMetalness, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.1,
+    iridescence: 1, iridescenceIOR: 1.6, iridescenceThicknessRange: [300, 900], side: THREE.DoubleSide,
+  }), 'cd-edge', C.discSheen);
+}
+
 function makeDisc(shared, seed) {
   const { geometries, materials } = shared;
+  // Each disc has its own materials so its shade can differ from the others'.
+  const shade = { value: 1 };
   const group = new THREE.Group();
   const spin = new THREE.Group();
   group.add(spin);
-  const frontMaterial = withSoftReflection(new THREE.MeshPhysicalMaterial({
+  const frontMaterial = withShade(withSoftReflection(new THREE.MeshPhysicalMaterial({
     roughness: C.frontRough, metalness: C.frontMetal, roughnessMap: shared.textures.frontRough,
     clearcoat: C.frontClearcoat, clearcoatRoughness: 0.18 * (1 - C.texGloss),
     normalMap: shared.textures.frontNormal, normalScale: new THREE.Vector2(0.3, 0.3), envMapIntensity: 0.85,
-  }), 'cd-front', C.discSheen);
+  }), 'cd-front', C.discSheen), shade);
   const front = new THREE.Mesh(geometries.front, frontMaterial);
-  const backMaterial = makeBackMaterial(shared, seed);
+  const backMaterial = withShade(makeBackMaterial(shared, seed), shade);
+  const edgeMaterial = withShade(makeEdgeMaterial(), shade);
+  const hubMaterial = withShade(makePlastic({ roughness: 0.05, opacity: C.plasticOpacity, rings: C.plasticRings }), shade);
   const back = new THREE.Mesh(geometries.back, backMaterial);
-  const edge = new THREE.Mesh(geometries.edge, materials.edge);
-  const hub = new THREE.Mesh(geometries.hub, materials.hub);
+  const edge = new THREE.Mesh(geometries.edge, edgeMaterial);
+  const hub = new THREE.Mesh(geometries.hub, hubMaterial);
   front.position.z = C.discThickness / 2 + 6e-4;
   back.position.z = -C.discThickness / 2 - 6e-4;
   back.rotation.y = Math.PI;
@@ -1079,7 +1139,7 @@ function makeDisc(shared, seed) {
   const pick = new THREE.Mesh(geometries.pick, materials.pick);
   group.add(pick);
   return {
-    group, spin, pick, frontMaterial, backMaterial, art: null, disposed: false,
+    group, spin, pick, shade, materials: [frontMaterial, backMaterial, edgeMaterial, hubMaterial], frontMaterial, art: null, disposed: false,
     hover: 0, spinX: 0, spinY: 0, resetTween: null, placed: false,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -1101,9 +1161,9 @@ function makeCase(shared, album, seed) {
   spin.add(body);
   const disc = makeDisc(shared, seed);
   disc.group.position.set(C.discOffsetX * MM, 0, CASE.disc * MM);
-  // Discs sit in the tray at a slight turn, each its own.
+  // Discs sit in the tray at a slight turn, each its own, shaded until the lid opens.
   disc.group.rotation.z = THREE.MathUtils.degToRad((seed * 2 - 1) * C.discTurn);
-  disc.group.visible = false;
+  disc.shade.value = C.discClosedShade;
   body.add(
     new THREE.Mesh(geometries.baseShell, plastic),
     new THREE.Mesh(geometries.insert, prints.insert),
@@ -1240,10 +1300,8 @@ export class GalleryScene {
     clearTimeout(this.loadTimer);
     this.prepared = true;
     // Compile every shader now rather than when a case first scrolls into view or opens. Compiling
-    // skips hidden objects, so the gallery and the discs (hidden while their case is closed) are
-    // shown just for the call.
+    // skips hidden objects, so the gallery is shown just for the call.
     this.gallery.visible = true;
-    this.cases.forEach((item) => { item.disc.group.visible = true; });
     this.renderer.compile(this.scene, this.camera);
     this.gallery.visible = false;
     this.onReady?.();
@@ -1285,8 +1343,7 @@ export class GalleryScene {
   setAlbums(albums) {
     this.cases.forEach((item) => {
       item.disposed = true;
-      item.disc.frontMaterial.dispose();
-      item.disc.backMaterial.dispose();
+      item.disc.materials.forEach((material) => material.dispose());
       item.disc.art?.dispose();
       item.plastic.dispose();
       Object.values(item.prints).forEach((material) => {
@@ -2005,7 +2062,8 @@ export class GalleryScene {
       item.lid.rotation.y = -swing * THREE.MathUtils.degToRad(C.lidOpenAngle);
       item.body.position.x = -CASE.hingeX * MM * swing;
       item.pick.scale.x = 1 + swing;
-      item.disc.group.visible = swing > 0;
+      // Light reaches the disc as the lid opens; until then it sits in the closed case's shade.
+      item.disc.shade.value = C.discClosedShade + (1 - C.discClosedShade) * ease.power3InOut(clamp(swing / 0.5, 0, 1));
 
       // The hovered case tilts toward the cursor; an open case only follows it a little.
       const hoverTarget = this.hovered === index && this.spinning < 0 ? 1 : 0;
