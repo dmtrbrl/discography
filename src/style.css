@@ -21,12 +21,19 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 .bottom-bar { position: absolute; left: 42px; right: 42px; bottom: 39px; z-index: 3; display: flex; justify-content: center; pointer-events: none; text-align: center; }
 /* The caption leaves room for the arrows on either side. */
 .album-caption { max-width: min(760px, calc(100vw - 220px)); transition: opacity .22s ease; }
-.album-arrow { position: absolute; bottom: 3px; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; background: none; color: var(--ink); font: 400 20px/1 'DM Sans', sans-serif; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
+.album-arrow { position: absolute; bottom: 9px; display: block; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: 400 20px/1 'DM Sans', sans-serif; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
 .album-arrow.is-prev { left: -9px; }
 .album-arrow.is-next { right: -9px; }
 .album-arrow.is-shown { opacity: 1; visibility: visible; }
 .album-arrow.is-shown:disabled { opacity: .25; }
 .album-caption.is-switching { opacity: 0; }
+/* The caption opens the album; its outline shows for keyboard focus only. */
+.album-open { display: block; max-width: 100%; margin: 0 auto; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: inherit; text-align: center; pointer-events: auto; }
+.album-open .eyebrow, .album-title { display: block; }
+/* Keyboard focus, the same on every control: a 1 px ink ring 4 px outside a 4 × 10 px padding round
+   the content. Controls carry that padding, cancelled by negative margins or offsets so nothing
+   moves. */
+:focus-visible { outline: 1px solid var(--ink); outline-offset: 4px; border-radius: 2px; }
 /* Where the bubble cursor is on (mouse only), it replaces the system cursor. */
 .has-bubble, .has-bubble * { cursor: none !important; }
 .bubble { position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none; will-change: transform; }
@@ -40,13 +47,14 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 /* Holds a white clone of the text button under the bubble, clipped to the dot. */
 .bubble-copy { position: fixed; z-index: 6; pointer-events: none; clip-path: circle(0 at 0 0); }
 .bubble-copy * { color: #fff !important; opacity: 1 !important; }
+.bubble-copy .menu-label:not(.is-shown) { opacity: 0 !important; }
 .bubble-copy .logo { background: #fff; }
 .bubble-label { font: 500 11px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .12em; opacity: 0; transition: opacity .2s ease; }
 .has-label .bubble-label { opacity: 1; transition-delay: .08s; }
 .masthead { position: absolute; left: 50%; top: 36px; z-index: 3; display: flex; align-items: center; gap: 16px; translate: -50% 0; color: var(--ink); pointer-events: none; white-space: nowrap; transition: opacity .6s ease .3s; }
 .masthead.is-hidden { opacity: 0; }
 .wordmark { font: italic 400 var(--wordmark-size)/1 'Instrument Serif', Georgia, serif; translate: 0 -2px; color: inherit; text-decoration: none; }
-a.wordmark { pointer-events: auto; }
+a.wordmark { pointer-events: auto; padding: 4px 10px; margin: -4px -10px; }
 .cross { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; }
 /* Every band's logo is as tall as Nirvana's, but no wider than the wordmark ("Discography" is 4.45 em
    wide); a wider one shrinks to fit. A band without a logo gets its name in capitals of the same
@@ -57,28 +65,37 @@ a.wordmark { pointer-events: auto; }
 .masthead { --wordmark-size: 34px; --logo-height: 28.75px; --logo-max: calc(var(--wordmark-size) * 4.45); }
 .logo { display: block; width: min(min(var(--logo-height) * var(--logo-ratio), var(--logo-max)) * var(--logo-scale, 1), var(--logo-max)); aspect-ratio: var(--logo-ratio); background: var(--ink); mask: var(--logo) center / contain no-repeat; }
 .band-name { font: 400 min(calc(var(--logo-height) / .72), calc(var(--logo-max) / var(--name-ems, .001)))/1 'Instrument Serif', Georgia, serif; letter-spacing: .02em; text-transform: uppercase; translate: 0 .04em; }
-.corner-button { position: absolute; left: 42px; top: 39px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 8px 0; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; opacity: 0; visibility: hidden; translate: -8px 0; transition: opacity .3s ease, translate .3s ease, visibility .3s; }
+/* Back and Menu are centred on the masthead: their ink centre matches the logo's and wordmark's
+   (measured from screenshots; 2.5 px higher than lining up their boxes from the top). */
+.corner-button { position: absolute; left: 32px; top: 40.5px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; opacity: 0; visibility: hidden; translate: -8px 0; transition: opacity .3s ease, translate .3s ease, visibility .3s; }
 .corner-button span { font: normal 400 18px/1 'DM Sans', sans-serif; }
-.corner-button.is-shown { opacity: 1; visibility: visible; translate: 0 0; transition-delay: .5s, .5s, 0s; }
-.menu-button { left: auto; right: 42px; translate: 8px 0; }
+/* Visible at once when shown (only the fade is delayed), so it can take focus straight away. */
+.corner-button.is-shown { opacity: 1; visibility: visible; translate: 0 0; transition-duration: .3s, .3s, 0s; transition-delay: .5s, .5s, 0s; }
+.menu-button { left: auto; right: 32px; translate: 8px 0; display: grid; }
+/* Menu and Close stacked, right-aligned, cross-fading. */
+.menu-button .menu-label { grid-area: 1 / 1; justify-self: end; font: inherit; transition: opacity .2s ease; }
+.menu-button .menu-label:not(.is-shown) { opacity: 0; }
 .menu-button.is-shown { transition-delay: .3s, .3s, 0s; }
 /* The menu covers the gallery with the artist list; the Menu button stays on top to close it. */
 .menu { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 40px; padding: 96px 20px; overflow-y: auto; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px); opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility .35s; }
 .menu.is-open { opacity: 1; visibility: visible; transition: opacity .35s ease; }
-.menu-home { font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.menu-home { padding: 4px 10px; margin: -4px -10px; font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .menu-home:hover { color: var(--ink); }
 /* Artist list, shared by the title screen and the menu: logos on the centre axis, years to their left
    and the album count to their right. Hovering one dims the others; in the menu the current artist
    is dimmed. */
-.artist-list { --logo-height: 30px; --logo-max: 190px; width: min(760px, 100%); margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr auto 1fr; column-gap: 36px; }
-/* Rows share the list's columns, so the years and counts line up, and every row is the same height. */
+.artist-list { --logo-height: 30px; --logo-max: 190px; --meta-gap: 26px; width: min(760px, 100%); margin: 0; padding: 8px 0; list-style: none; display: grid; grid-template-columns: 1fr auto 1fr; row-gap: 16px; }
+/* Each link is the logo column (every one as wide as the widest logo, so the focus rings match), with
+   the years and album count hanging either side at the same distance. */
 .artist-list li { display: contents; }
-.artist { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; justify-items: center; align-items: center; height: calc(var(--logo-height) + 24px); padding: 0 8px; color: var(--ink); text-decoration: none; transition: opacity .25s ease; }
-.artist-list:has(.artist:hover) .artist:not(:hover), .artist[aria-current]:not(:hover) { opacity: .35; }
-.artist:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+.artist { grid-column: 2; position: relative; display: grid; place-items: center; height: calc(var(--logo-height) + 8px); padding: 4px 10px; color: var(--ink); text-decoration: none; }
+/* The row's contents dim, not the row, so a focus ring on it stays full ink. */
+.artist > * { transition: opacity .25s ease; }
+.artist-list:has(.artist:hover) .artist:not(:hover) > *, .artist[aria-current]:not(:hover) > * { opacity: .35; }
 .artist-years, .artist-count { font: italic 400 16px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 42%, var(--bg)); white-space: nowrap; }
-.artist-years { justify-self: end; }
-.artist-count { justify-self: start; }
+.artist-years, .artist-count { position: absolute; top: 50%; translate: 0 -50%; }
+.artist-years { right: calc(100% + var(--meta-gap)); }
+.artist-count { left: calc(100% + var(--meta-gap)); }
 /* Title screen: the wordmark, what the project is, the artists, and a credit. */
 .home { display: flex; flex-direction: column; }
 .home-body { position: relative; z-index: 2; margin: auto; padding: 72px 24px 56px; display: grid; justify-items: center; text-align: center; transition: opacity .6s ease; }
@@ -87,8 +104,9 @@ a.wordmark { pointer-events: auto; }
 .home-intro { max-width: 28em; margin: 16px 0 44px; font: 400 19px/1.45 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); text-wrap: balance; }
 /* The credit bottom left, the source code bottom right, inset like the corner buttons. */
 .home-footer { position: relative; z-index: 2; display: flex; justify-content: space-between; gap: 20px; padding: 0 42px 36px; font: 400 12px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 40%, var(--bg)); }
-.home-footer a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.home-footer a { padding: 4px 10px; margin: 0 -10px; color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .home-footer a:hover { color: var(--ink); }
+.home-footer > a { margin: -4px -10px; }
 /* Switching between the title screen and a band: a curtain drawn like the page (gradient and grain)
    fades in over the view, the next view is swapped in, and it fades out. */
 .curtain { position: fixed; inset: 0; z-index: 20; pointer-events: none; opacity: 0; background: radial-gradient(circle at 48% 38%, var(--bg-center) 0, var(--bg) 68%, var(--bg-edge) 100%) var(--bg); transition: opacity .5s ease; }
@@ -96,31 +114,32 @@ a.wordmark { pointer-events: auto; }
 .curtain.is-covering { opacity: 1; transition-duration: .4s; }
 .eyebrow { font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); }
 .eyebrow-separator { padding: 0 5px; color: color-mix(in srgb, var(--ink) 35%, var(--bg)); }
-h1 { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 40px; letter-spacing: -.005em; line-height: 1.05; }
+h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 40px; letter-spacing: -.005em; line-height: 1.05; }
 .bottom-bar { transition: opacity .6s ease .3s, visibility .6s ease .3s; }
 .bottom-bar.is-hidden { opacity: 0; visibility: hidden; }
 .preloader { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; transition: opacity .5s ease, visibility .5s ease; }
 .preloader.is-done { opacity: 0; visibility: hidden; }
 .preloader-label { font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 60%, var(--bg)); }
-.preloader-label strong { color: var(--ink); font-weight: 400; }
+/* Tabular figures, so the label doesn't shift as the count changes. */
+.preloader-label strong { display: inline-block; min-width: 1.6em; color: var(--ink); font-weight: 400; font-variant-numeric: tabular-nums; text-align: left; }
 .preloader-track { width: 120px; height: 1px; background: color-mix(in srgb, var(--ink) 15%, var(--bg)); overflow: hidden; }
-.preloader-fill { display: block; height: 100%; background: var(--ink); transform-origin: left; transition: transform .3s ease; }
+.preloader-fill { display: block; height: 100%; background: var(--ink); transform-origin: left; }
 @media (max-width: 650px) {
   .bottom-bar { left: 20px; right: 20px; bottom: 24px; }
   .masthead { top: 22px; gap: 10px; }
   .cross { width: 8px; height: 8px; }
   .masthead { --wordmark-size: 24px; --logo-height: 20px; }
   /* A wide logo fills the top row on phones, so the corner buttons sit just below the masthead. */
-  .corner-button { left: 20px; top: 56px; }
-  .menu-button { left: auto; right: 20px; }
-  .artist-list { --logo-height: 22px; --logo-max: 130px; column-gap: 14px; }
-  .artist { height: calc(var(--logo-height) + 20px); padding: 0 4px; }
+  .corner-button { left: 10px; top: 60px; }
+  .menu-button { left: auto; right: 10px; }
+  .artist-list { --logo-height: 22px; --logo-max: 130px; --meta-gap: 4px; row-gap: 12px; padding: 6px 0; }
+  .artist { height: calc(var(--logo-height) + 8px); }
   .artist-years, .artist-count { font-size: 13px; }
   .home-wordmark { font-size: 44px; }
   .home-intro { margin: 12px 0 32px; font-size: 17px; }
   .home-footer { padding: 0 20px 24px; font-size: 11px; }
   .album-caption { max-width: calc(100vw - 120px); }
-  h1 { font-size: 32px; }
+  h1, .album-title { font-size: 32px; }
   .eyebrow { font-size: 15px; }
 }
-@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .menu, .artist, .home-body, .curtain, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .album-arrow, .preloader, .preloader-fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .menu, .artist > *, .home-body, .curtain, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .album-arrow, .menu-label, .preloader, .preloader-fill { transition: none; } }

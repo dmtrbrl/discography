@@ -463,6 +463,62 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
   `pointerenter` as a move, so the dot stays when a menu closes under it. Tested with a still
   pointer through 22 cases (Menu/Close by click and Escape, Back by click, Escape and Space, Back
   fading in, current artist, menu background, Home, artists, the wordmark, the credit link).
+- **Keyboard and screen readers**: Enter opens the front case, like Space (Space toggles), unless
+  a control has focus, which then gets the key. The caption is a button between the arrows in Tab
+  order, named "Open <title> (<year>, <kind>)"; Enter, Space or a click on it opens the album, and
+  it goes inert while a case is open, like the arrows. The title inside is a styled span
+  (`.album-title`), since a button can't contain a heading; the caption's live region still
+  announces album changes. Focus moves only when the control holding it is about to go away: from
+  the keyboard-focused caption (inert while open) to Back when the case opens, and from Back back to
+  the caption when it closes, if Back got focus by keyboard (noted when it gets focus: any key press,
+  Escape included, makes the focused element count as keyboard-focused from then on). Anywhere else
+  focus stays put. Two earlier versions were rejected as odd: one moved focus whenever the last input
+  was a key (clicking a case then pressing Escape put a ring on the caption), and one keyed the effect
+  on `pointer()`, which changes with every step, so each arrow key focused the caption. The
+  open/closed state and the cursor label are memos, so they react only when they change. Back is now visible at once
+  when shown (only its fade is delayed): with `visibility` transitioning from hidden it couldn't
+  take focus in the first frame. Outline (`:focus-visible`) for keyboard focus only. Tested: Tab
+  order, Enter and Space on the caption, Escape, Enter on Back, Enter with nothing focused, Enter
+  on an arrow, a link with `&open`, mouse clicks (no outline).
+- **Back and Menu centred on the masthead** (desktop): their ink sat about 2.4 px below the heading's
+  (box tops lined up instead of centres), which read as sitting on the heading's bottom line. Now
+  `top: 40.5px`, measured from screenshots: the ink centres of Back and Menu (53 to 53.25 px) match
+  the logo's and wordmark's (52.5 to 52.75 px). On phones they keep their own row under the heading.
+- **Loading counter**: "Loading 64", 0 to 100 with no percent sign (was "Loading 03 / 07", the
+  album count, which said little). Progress arrives album by album, so the number eases towards
+  it every frame instead of jumping in sevenths; once the gallery is ready it hurries to 100, and
+  the loading screen only fades once it shows 100 (before, it faded at about 60 and never showed
+  100). The bar follows the same value. Screen readers get a `progressbar` with the real value; the
+  counter itself is hidden from them, since a live region would announce every step.
+- **Cursor label and keyboard focus**: the cursor's text label stays closed while anything shows a
+  keyboard focus ring (`:focus-visible`), and closes at once when one appears (after a key press or a
+  focus change). The keyboard is in use then, and a tooltip by the mouse competed with the ring. The
+  dot still follows and grows; the label works again once the ring is gone.
+- **Booklet edges in the cover's colours**: the booklet is a 0.8 mm box whose edges were white paper.
+  Turned or tilted, the right and bottom edges caught the light as thin white lines along the cover
+  (reported on Muddy Banks). Each edge now takes the mean colour of the matching side of the cover (a
+  strip 2% wide; `setBookletEdges`), set with the cover print, so the placeholder's colours apply
+  until the scan loads. A real booklet's edge is white paper; this was the user's call, since the
+  white line read as a rendering fault. `materials.paper` and `paperColor` were removed.
+- **Menu and Close cross-fade** (0.2 s): both words sit stacked, right-aligned, in the button, so its
+  right edge and the word Menu stay exactly where they were. The button is named by `aria-label`
+  ("Menu", "Close menu"). The cursor's white copy shows only the current word, and its re-check
+  also compares `aria-label`, since the button's text no longer changes. With the mouse on the
+  button the dot covers the word, so the fade has to run in the copy too: when only an element's
+  state changed (same size, same words, different classes) the re-check updates the copy's classes
+  in place (`syncClone`) instead of rebuilding it, so the copy's own transition runs. The first
+  version rebuilt it, and the word in the dot switched instantly while the page faded underneath.
+- **Focus ring, the same on every control**: one `:focus-visible` rule draws a 1 px ink ring 4 px
+  outside a 4 × 10 px padding round the content, with 2 px rounded corners (the caption's look).
+  Every control carries that padding, cancelled by negative margins or shifted offsets (corner
+  buttons at 32 px instead of 42, arrows 9 px from the edge with padding instead of a 40 px box),
+  so nothing moved: the content of all 39 controls checked was in the same place before and after,
+  to half a pixel, on desktop and phone. The artist rows changed most: each link is now just the
+  logo column (as wide as the widest logo, so every ring matches), with the years and count hung
+  either side (`--meta-gap`) and a row gap plus list padding keeping the old spacing. A ring round
+  the whole 760 px row would have been a long, mostly empty bar. Dimming (hover, current artist)
+  now applies to a row's contents, so a ring on a dimmed row stays full ink. The cursor's white
+  copy carries `--meta-gap` like the logo sizes, and its old subgrid handling was removed.
 - **Drag, keys and wheel while open**: no drag does anything while a case is open, and neither do
   the arrow keys, Home, End or the wheel (see phase 1 interactions). The wheel still follows the
   gesture's momentum while open, so the tail of a trackpad swipe doesn't step the row once the

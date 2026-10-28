@@ -40,7 +40,7 @@ const C = {
   // How much light reaches a disc inside the closed case (it brightens to 1 as the lid opens).
   discClosedShade: 0.1, caseEdgeAlpha: 0.15, caseScratches: 0.32, caseSmudges: 0.8,
   // Black tray: satin, finely stippled polystyrene, with a raised ring around the disc well.
-  casePlasticOpacity: 0.04, trayColor: '#151518', trayRough: 0.5, trayStipple: 0.35, printRough: 0.5, paperColor: '#ece7dc', caseScale: 0.78,
+  casePlasticOpacity: 0.04, trayColor: '#151518', trayRough: 0.5, trayStipple: 0.35, printRough: 0.5, caseScale: 0.78,
   // Opening: the case turns square to the camera and tips back by openTilt degrees, like a book
   // lying open on a table seen from the front (no sideways angle). It comes forward and settles at
   // openScale, the neighbours move aside and back (on screen), then the lid swings open.
@@ -129,6 +129,8 @@ interface JewelCase extends Push {
   pick: THREE.Mesh;
   disc: Disc;
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
+  // The booklet's four edges (+x, -x, +y, -y), coloured from the matching side of the cover.
+  bookletEdges: THREE.MeshStandardMaterial[];
   plastic: THREE.MeshPhysicalMaterial;
   disposed: boolean;
   open: number;
@@ -900,7 +902,6 @@ function makeSharedResources(renderer: THREE.WebGLRenderer) {
       color: C.trayColor, roughness: 1, roughnessMap: textures.trayRough, normalMap: textures.trayNormal, normalScale: new THREE.Vector2(1, 1), metalness: 0, envMapIntensity: 1.8,
       clearcoat: 0.15, clearcoatRoughness: 0.35,
     }),
-    paper: new THREE.MeshStandardMaterial({ color: C.paperColor, roughness: 0.9 }),
     pick: new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide, depthWrite: false }),
   };
   return { textures, geometries, materials, anisotropy };
@@ -1276,6 +1277,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
   const { geometries, materials } = shared;
   const print = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: album.color || '#3b3a36', roughness: C.printRough, side });
   const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: print(THREE.DoubleSide) };
+  const bookletEdges = [0, 1, 2, 3].map(() => print(THREE.FrontSide));
   const plastic = makeCasePlastic(shared, seed);
   const group = new THREE.Group();
   const spin = new THREE.Group();
@@ -1296,15 +1298,17 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
     lid,
   );
   lid.position.x = CASE.hingeX * MM;
-  // Box faces run +x, -x, +y, -y, +z, -z: paper edges, the cover, and the booklet's back page.
-  const booklet = new THREE.Mesh(geometries.booklet, [materials.paper, materials.paper, materials.paper, materials.paper, prints.cover, prints.bookletBack]);
+  // Box faces run +x, -x, +y, -y, +z, -z: the edges, the cover, and the booklet's back page. White
+  // paper edges caught the light as thin white lines along the cover when the case turned, so the
+  // edges take the cover's colours instead (setBookletEdges).
+  const booklet = new THREE.Mesh(geometries.booklet, [...bookletEdges, prints.cover, prints.bookletBack]);
   booklet.position.set((CASE.bookletX - CASE.hingeX) * MM, 0, CASE.booklet * MM);
   lid.add(booklet, new THREE.Mesh(geometries.lidShell, plastic));
   // The flat, invisible pick plane stays outside the spin group so hit tests ignore spin.
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, pick, disc, prints, plastic, disposed: false,
+    group, spin, body, lid, pick, disc, prints, bookletEdges, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -1540,6 +1544,7 @@ export class GalleryScene {
         material.map?.dispose();
         material.dispose();
       });
+      item.bookletEdges.forEach((material) => material.dispose());
       this.gallery.remove(item.group);
     });
     this.albums = albums;
@@ -1608,7 +1613,29 @@ export class GalleryScene {
     material.color.set('#ffffff');
     this.renderer.initTexture(texture);
     material.needsUpdate = true;
+    if (part === 'cover') this.setBookletEdges(item, canvas);
     this.request();
+  }
+
+  // Colours each edge of the booklet with the mean colour of the matching side of the cover (a strip
+  // 2% of its width), as if the print ran round the edge.
+  private setBookletEdges(item: JewelCase, canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d')!;
+    const size = canvas.width;
+    const strip = Math.max(2, Math.round(size * 0.02));
+    // +x is the cover's right side, -x its left, +y its top, -y its bottom.
+    const areas = [[size - strip, 0, strip, size], [0, 0, strip, size], [0, 0, size, strip], [0, size - strip, size, strip]];
+    areas.forEach(([x, y, width, height], index) => {
+      const data = ctx.getImageData(x, y, width, height).data;
+      let red = 0, green = 0, blue = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        red += data[i];
+        green += data[i + 1];
+        blue += data[i + 2];
+      }
+      const count = data.length / 4;
+      item.bookletEdges[index].color.setRGB(red / count / 255, green / count / 255, blue / count / 255, THREE.SRGBColorSpace);
+    });
   }
 
   private playIntro() {

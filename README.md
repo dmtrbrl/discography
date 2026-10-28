@@ -30,7 +30,8 @@ Open the local URL printed by Vite. The URL follows the gallery, so a link resto
 - Move the mouse over a case and it tilts toward the cursor. A fast pass across a case nudges it.
 - Drag the front case to turn it and see its spines and back insert. Turn it past halfway or flick it and it turns over to its back, staying there until you move to another album.
 - Drag anywhere else to scrub through the row. Scroll, swipe on a trackpad, use the arrows beside the album title, or the arrow keys, Home and End to move one album at a time. With a mouse, a bubble cursor says what a click will do.
-- Click the front case or press Space to open it: it turns to face you like an open book, showing the disc in its tray and the booklet's back page. While it is open, dragging, scrolling and the arrow keys do nothing, and the arrows beside the title hide. Close it with Back, a click beside it, Space or Escape.
+- Click the front case or its title, or press Enter or Space, to open it: it turns to face you like an open book, showing the disc in its tray and the booklet's back page. While it is open, dragging, scrolling and the arrow keys do nothing, and the arrows beside the title hide. Close it with Back, a click beside it, Space or Escape.
+- With the keyboard, Tab reaches the arrows and the album title between them (Enter on the title opens the album). Focus moves to Back when an album opens and returns to the title when it closes.
 
 ## How it works
 

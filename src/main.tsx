@@ -1,5 +1,5 @@
 import { render } from 'solid-js/web';
-import { For, Match, Show, Switch, createEffect, createResource, createSignal, on, onCleanup, onMount } from 'solid-js';
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { GalleryScene } from './scene';
 import type { PointerState } from './scene';
@@ -35,7 +35,7 @@ const labelDelay = 3000;
 const restSlop = 3;
 const buttonDot = 20;
 const canBubble = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-const cloneStyles = ['font', 'letterSpacing', 'textTransform', 'textDecoration', 'textUnderlineOffset', 'display', 'alignItems', 'justifyContent', 'justifyItems', 'gap', 'padding', 'whiteSpace', 'gridTemplateColumns'] as const;
+const cloneStyles = ['font', 'letterSpacing', 'textTransform', 'textDecoration', 'textUnderlineOffset', 'display', 'alignItems', 'justifyContent', 'justifyItems', 'gap', 'padding', 'whiteSpace'] as const;
 const contentRect = (element: Node) => {
   const range = document.createRange();
   range.selectNodeContents(element);
@@ -74,12 +74,22 @@ function createBubble(options: BubbleOptions) {
   const [tip, setTip] = createSignal({ text: '', shown: false });
   let tipTimer = 0;
   const rest = { x: 0, y: 0 };
+  // A memo, so the wait restarts only when the label changes, not on every change of what it's
+  // derived from.
+  const label = createMemo(options.label);
+  // No label while something shows a keyboard focus ring: the keyboard is in use, and a tooltip by
+  // the mouse would compete with it. A label already open closes when a ring appears.
+  const keyboardFocus = () => Boolean(document.querySelector(':focus-visible'));
   function armTip() {
     clearTimeout(tipTimer);
     setTip((current) => ({ ...current, shown: false }));
-    if (options.label()) tipTimer = setTimeout(() => setTip({ text: options.label(), shown: Boolean(options.label()) }), labelDelay);
+    if (label()) tipTimer = setTimeout(() => setTip({ text: label(), shown: Boolean(label()) && !keyboardFocus() }), labelDelay);
   }
-  createEffect(on(options.label, armTip));
+  createEffect(on(label, armTip));
+  // After the focus moves or a key is pressed, the ring has settled by the next frame.
+  const closeTipForFocus = () => requestAnimationFrame(() => {
+    if (keyboardFocus()) setTip((current) => ({ ...current, shown: false }));
+  });
   const mouse = { x: 0, y: 0, clip: 0, raf: 0, left: 0, top: 0 };
   function follow() {
     bubble.style.transform = `translate3d(${mouse.x}px, ${mouse.y}px, 0)`;
@@ -104,13 +114,19 @@ function createBubble(options: BubbleOptions) {
   // The element whose clone is shown, and what it looked like when cloned.
   let target: HTMLElement | null = null;
   let cloned = '';
+  let clonedBox = '';
+  const box = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    return [rect.left, rect.top, rect.width, rect.height].join('|');
+  };
   const signature = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
-    return [element.className, element.textContent, element.getAttribute('aria-current'), rect.left, rect.top, rect.width, rect.height].join('|');
+    return [element.className, element.textContent, element.getAttribute('aria-current'), element.getAttribute('aria-label'), rect.left, rect.top, rect.width, rect.height].join('|');
   };
   function showClone(element: HTMLElement) {
     target = element;
     cloned = signature(element);
+    clonedBox = box(element);
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     const clone = element.cloneNode(true) as HTMLElement;
@@ -120,15 +136,8 @@ function createBubble(options: BubbleOptions) {
     // Inline boxes ignore translate (used below to line the clone up), and an inline-block would sit
     // on the layer's baseline.
     if (style.display === 'inline') clone.style.display = 'block';
-    // Logo sizes come from the list or masthead around the element.
-    for (const name of ['--logo-height', '--logo-max']) clone.style.setProperty(name, style.getPropertyValue(name));
-    // A subgrid row (the artist list) has no grid around it in the layer, so it gets the list's
-    // resolved columns.
-    if (style.gridTemplateColumns.startsWith('subgrid')) {
-      let grid = element.parentElement;
-      while (grid && !/^\d/.test(getComputedStyle(grid).gridTemplateColumns)) grid = grid.parentElement;
-      if (grid) Object.assign(clone.style, { gridTemplateColumns: getComputedStyle(grid).gridTemplateColumns, columnGap: getComputedStyle(grid).columnGap });
-    }
+    // Logo sizes and the artist rows' spacing come from the list or masthead around the element.
+    for (const name of ['--logo-height', '--logo-max', '--meta-gap']) clone.style.setProperty(name, style.getPropertyValue(name));
     Object.assign(clone.style, {
       position: 'static', inset: 'auto', translate: 'none', transform: 'none', transition: 'none', opacity: '1', visibility: 'visible',
       margin: '0', width: '100%', height: '100%', boxSizing: 'border-box', color: '#fff', textDecorationColor: '#fff', pointerEvents: 'none',
@@ -176,10 +185,26 @@ function createBubble(options: BubbleOptions) {
         if (next) showClone(next);
         else leaveButton(false);
       } else if (target && signature(target) !== cloned) {
-        showClone(target);
+        if (box(target) === clonedBox && syncClone(target)) cloned = signature(target);
+        else showClone(target);
       }
     }
     if (performance.now() < recheckUntil) recheckRaf = requestAnimationFrame(recheck);
+  }
+  // When only the state of the element changed (its classes, at the same size and with the same
+  // words, as when Menu turns to Close), update the clone in place rather than rebuilding it, so its
+  // own transitions run inside the dot as they do on the page. Returns false if it needs a rebuild.
+  function syncClone(element: HTMLElement) {
+    const clone = layer.firstElementChild;
+    if (!clone || clone.textContent !== element.textContent) return false;
+    const from = element.querySelectorAll('*');
+    const to = clone.querySelectorAll('*');
+    if (from.length !== to.length) return false;
+    from.forEach((node, index) => {
+      const classes = node.getAttribute('class') ?? '';
+      if (to[index].getAttribute('class') !== classes) to[index].setAttribute('class', classes);
+    });
+    return true;
   }
   function watch() {
     if (!canBubble) return;
@@ -188,12 +213,16 @@ function createBubble(options: BubbleOptions) {
   }
   window.addEventListener('click', watch, true);
   window.addEventListener('keydown', watch, true);
+  window.addEventListener('keydown', closeTipForFocus, true);
+  document.addEventListener('focusin', closeTipForFocus);
   onCleanup(() => {
     clearTimeout(tipTimer);
     cancelAnimationFrame(mouse.raf);
     cancelAnimationFrame(recheckRaf);
     window.removeEventListener('click', watch, true);
     window.removeEventListener('keydown', watch, true);
+    window.removeEventListener('keydown', closeTipForFocus, true);
+    document.removeEventListener('focusin', closeTipForFocus);
   });
   return {
     over,
@@ -207,7 +236,7 @@ function createBubble(options: BubbleOptions) {
     view: () => (
       <>
         <div class="bubble" ref={bubble} aria-hidden="true">
-          <span class="bubble-body" classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(options.label()) && !over(), 'has-label': tip().shown && !over(), 'is-button': over(), 'is-pressed': pressed() }}>
+          <span class="bubble-body" classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over(), 'has-label': tip().shown && !over(), 'is-button': over(), 'is-pressed': pressed() }}>
             <span class="bubble-label">{tip().text}</span>
           </span>
         </div>
@@ -332,12 +361,14 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
   const [menuOpen, setMenuOpen] = createSignal(false);
   const [captionHidden, setCaptionHidden] = createSignal(false);
   const selected = () => albums[shown()];
-  const pad = (value: number) => String(value).padStart(2, '0');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let captionTimer = 0;
 
   // What a click does, for the bubble cursor. In the menu, a click beside the list closes it.
   let menuButton!: HTMLButtonElement;
+  let backButton!: HTMLButtonElement;
+  let backByKeyboard = false;
+  let captionButton!: HTMLButtonElement;
   const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false });
   const bubbleLabel = () => {
     if (menuOpen()) return 'Close';
@@ -380,6 +411,23 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
     }, 220);
   }, { defer: true }));
 
+  // The loading counter, 0 to 100. Loading finishes album by album, so it counts up smoothly towards
+  // the real progress rather than jumping. Once the gallery is ready it hurries to 100, and the
+  // loading screen only fades once it shows 100.
+  const [percent, setPercent] = createSignal(0);
+  const progress = () => (ready() ? 100 : loading().total ? (loading().loaded / loading().total) * 100 : 0);
+  let percentRaf = 0;
+  function countUp() {
+    const target = progress();
+    const next = reducedMotion || Math.abs(target - percent()) < 0.5 ? target : percent() + (target - percent()) * (ready() ? 0.3 : 0.18);
+    setPercent(next);
+    percentRaf = next !== target ? requestAnimationFrame(countUp) : 0;
+  }
+  createEffect(on(progress, () => {
+    if (!percentRaf) percentRaf = requestAnimationFrame(countUp);
+  }));
+  const loaded = () => ready() && percent() === 100;
+
   // Keeps the URL on the album in front and whether it is open, replacing the history entry, so the
   // browser's back button still goes to the previous artist or the title screen. Only while the URL
   // is still this band's: a gallery fading out mustn't overwrite the next one's address.
@@ -388,6 +436,28 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
     if (!revealed() || bandFromUrl() !== props.band.folder || window.location.search === url) return;
     window.history.replaceState(window.history.state, '', url);
   });
+
+  // Focus moves only when the control holding it is about to go away: from the caption (inactive
+  // while open) to Back when the case opens, and from Back (hidden) to the caption when it closes.
+  // Anywhere else it stays put, so opening by clicking the case and closing with Escape leaves focus
+  // alone, and a mouse click on the caption doesn't send focus to Back. Focus returns to the caption
+  // only if Back got focus by keyboard; otherwise closing lets it go. How Back got focus is noted
+  // when it gets it (backByKeyboard): any key press, Escape included, makes the focused element
+  // count as keyboard-focused from then on. A memo, so this runs only when the case opens or
+  // closes, not on every pointer change.
+  const isOpen = createMemo(() => pointer().opened >= 0);
+  createEffect(on(isOpen, (open) => {
+    if (menuOpen()) return;
+    const focused = document.activeElement;
+    const keyboardCaption = focused === captionButton && captionButton.matches(':focus-visible');
+    requestAnimationFrame(() => {
+      if (open && keyboardCaption) backButton.focus({ preventScroll: true });
+      if (!open && focused === backButton) {
+        if (backByKeyboard) captionButton.focus({ preventScroll: true });
+        else backButton.blur();
+      }
+    });
+  }, { defer: true }));
 
   // The scene owns the motion and reports the case in front back through setActive.
   function onKeyDown(event: KeyboardEvent) {
@@ -403,7 +473,11 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
     if (event.key === 'ArrowLeft') { event.preventDefault(); scene.step(-1); }
     if (event.key === 'Home') { event.preventDefault(); scene.goTo(0, 'key'); }
     if (event.key === 'End') { event.preventDefault(); scene.goTo(albums.length - 1, 'key'); }
-    if (event.key === ' ' && !(event.target as Element | null)?.closest?.('button, input, textarea, select')) { event.preventDefault(); scene.toggle(); }
+    // Space toggles the front case and Enter opens it, unless a control has focus: then the key is
+    // that control's (Enter on an arrow steps, on the caption opens).
+    const onControl = Boolean((event.target as Element | null)?.closest?.('button, a, input, textarea, select'));
+    if (event.key === ' ' && !onControl) { event.preventDefault(); scene.toggle(); }
+    if (event.key === 'Enter' && !onControl && browse) { event.preventDefault(); scene.open(); }
     if (event.key === 'Escape') scene.close();
   }
 
@@ -435,6 +509,7 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
   });
   onCleanup(() => {
     clearTimeout(captionTimer);
+    cancelAnimationFrame(percentRaf);
     window.removeEventListener('keydown', onKeyDown);
     scene?.destroy();
   });
@@ -449,29 +524,40 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
         <svg class="cross" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3 17 17M17 3 3 17" /></svg>
         <BandMark band={props.band} onReady={() => setMarkReady(true)} />
       </header>
-      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" onClick={() => scene?.close()} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
+      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={() => scene?.close()} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
         <span aria-hidden="true">←</span> Back
       </button>
       <nav class="menu" classList={{ 'is-open': menuOpen(), 'has-bubble': canBubble }} id="menu" aria-label="Artists" inert={menuOpen() ? undefined : true} onClick={(event) => event.target === event.currentTarget && toggleMenu(false)} {...cursor.surface}>
         <ArtistList bands={props.bands} current={props.band.folder} onSelect={(folder) => (folder === props.band.folder ? toggleMenu(false) : props.onSelect(folder))} bubble={cursor.button} />
         <a class="menu-home" href="./" onClick={goHome} {...cursor.button}>Home</a>
       </nav>
-      <button class="corner-button menu-button" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} type="button" ref={menuButton} onClick={() => toggleMenu()} aria-expanded={menuOpen()} aria-controls="menu" {...cursor.button}>
-        {menuOpen() ? 'Close' : 'Menu'}
+      {/* Both words sit in the same place and cross-fade; the button is named by aria-label. */}
+      <button class="corner-button menu-button" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} type="button" ref={menuButton} onClick={() => toggleMenu()}
+        aria-label={menuOpen() ? 'Close menu' : 'Menu'} aria-expanded={menuOpen()} aria-controls="menu" {...cursor.button}>
+        <span class="menu-label" classList={{ 'is-shown': !menuOpen() }} aria-hidden="true">Menu</span>
+        <span class="menu-label" classList={{ 'is-shown': menuOpen() }} aria-hidden="true">Close</span>
       </button>
       {cursor.view()}
-      <div class="preloader" classList={{ 'is-done': ready() }} role="status" aria-hidden={ready()} onTransitionEnd={onPreloaderFaded}>
-        <span class="preloader-label">Loading <strong>{pad(loading().loaded)}</strong> / {pad(loading().total)}</span>
-        <span class="preloader-track"><span class="preloader-fill" style={{ transform: `scaleX(${loading().total ? loading().loaded / loading().total : 1})` }} /></span>
+      {/* The counter is hidden from screen readers, which would announce every step; they get the
+          progress bar's value instead. */}
+      <div class="preloader" classList={{ 'is-done': loaded() }} aria-hidden={loaded()} onTransitionEnd={onPreloaderFaded}>
+        <span class="preloader-label">Loading <strong aria-hidden="true">{Math.round(percent())}</strong></span>
+        <span class="preloader-track" role="progressbar" aria-label={`Loading ${artist}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress())}>
+          <span class="preloader-fill" style={{ transform: `scaleX(${percent() / 100})` }} />
+        </span>
       </div>
-      {/* The caption, with arrows to the previous and next album level with it. The arrows hide while a
-          case is open, which keeps the row where it is. */}
+      {/* The caption, with arrows to the previous and next album level with it. The caption is a button
+          that opens the album (Tab reaches it between the arrows). The arrows hide while a case is
+          open, which keeps the row where it is; the caption stays but goes inactive. */}
       <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() }}>
         <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
           disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
-          <div class="eyebrow">{selected().year}<span class="eyebrow-separator">/</span>{selected().kind}</div>
-          <h1>{selected().title}</h1>
+          <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} aria-label={`Open ${selected().title} (${selected().year}, ${selected().kind})`}
+            inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.open()} {...cursor.button}>
+            <span class="eyebrow">{selected().year}<span class="eyebrow-separator">/</span>{selected().kind}</span>
+            <span class="album-title">{selected().title}</span>
+          </button>
         </div>
         <button class="album-arrow is-next" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
           disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
