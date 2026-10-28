@@ -23,12 +23,14 @@ decision changes.
 ```bash
 npm install
 npm run dev        # Vite dev server
-npm run build      # production build into dist/
+npm run typecheck  # tsc, strict, no emit
+npm run build      # type-check, then production build into dist/
 npm run preview    # serve the build
 bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
 bash scripts/download-covers.sh the-prodigy   # the same for any band folder
-# / is the title screen; /?band=<folder> opens a band from public/bands/ directly.
+# / is the title screen; /?band=<folder> opens a band from public/bands/ directly,
+# &album=<id> brings an album to the front, &open opens it (the page keeps these up to date).
 ```
 
 ## Phase 0: what is implemented
@@ -37,10 +39,10 @@ bash scripts/download-covers.sh the-prodigy   # the same for any band folder
 
 | File | Role |
 | --- | --- |
-| `src/scene.js` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
-| `src/main.jsx` | Solid app: loading screen, logo, caption, bubble cursor, screen-reader prev/next buttons, keyboard shortcuts. Talks to the scene through its public methods. |
+| `src/scene.ts` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
+| `src/main.tsx` | Solid app: title screen, menu, loading screen, masthead, caption and album arrows, bubble cursor, keyboard shortcuts, routing. Talks to the scene through its public methods. |
 | `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. `public/bands/index.json` lists the bands in order. |
-| `src/band.js` | Loads a band (cached, so the title screen and menu fetch each once), resolves its paths and adds the band name to each album; `loadBands()` loads the list. Documents the JSON shape. |
+| `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band (cached, so the title screen and menu fetch each once), resolves its paths and adds the band name to each album; `loadBands()` loads the list. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
 | `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
 | `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
@@ -184,7 +186,7 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
 
 ### What is implemented
 
-- **Model** (`makeCase` and the `make*Geometry` functions in `src/scene.js`), built in millimetres
+- **Model** (`makeCase` and the `make*Geometry` functions in `src/scene.ts`), built in millimetres
   (one unit is 60 mm, the disc radius, so the phase 0 disc fits unchanged). Back to front: clear
   base plate; back insert, whose ends fold forward into the two spines behind the base's clear side
   walls; black tray with a rosette (platform and ring of teeth through the disc's hole); the disc
@@ -333,7 +335,7 @@ black tray floor; that was replaced by the strip.
 - No visible prev/next buttons or counter (they distracted); the buttons stay for screen readers.
 - Bubble cursor (prototype, mouse only): a dot that sits on the pointer (a lagging follow was
   tried and rejected). Over something interactive it grows a little (about 23 px), and only once
-  the pointer has rested for `labelDelay` (5 s, in `src/main.jsx`) does it open like a tooltip to
+  the pointer has rested for `labelDelay` (5 s then; 3 s since the pre-phase, in `src/main.tsx`) does it open like a tooltip to
   show the action; showing the label at once felt busy. Moving more than `restSlop` (3 px) or a
   change of action hides it and restarts the wait. The scene re-checks the case
   under the pointer every frame, not only when the mouse moves: before, after a click the gallery
@@ -371,20 +373,23 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
 
 ### What is implemented
 
-- **Routing** (`Root` in `src/main.jsx`): `/` is the title screen, `/?band=<folder>` a band's
+- **Routing** (`Root` in `src/main.tsx`): `/` is the title screen, `/?band=<folder>` a band's
   gallery. Choosing an artist keeps the page: it pushes the URL, applies the band's theme and mounts
   a fresh gallery, keyed by band, so the old scene is destroyed (`destroy()` now also calls
   `forceContextLoss()`, since browsers keep only a few WebGL contexts). The browser's back button
   works through `popstate`. A late response for an earlier choice is ignored.
-- **Fades between views**: the current view fades out (0.4 s), the next is swapped in while the page
-  is blank, and it fades in with its own animation (0.5 s). The swap waits for the fade-out's
-  `transitionend`, not a timer: leaving a gallery, the scene can hold up the main thread, and a
-  timed swap then reversed a half-finished fade, which Chrome shortens, so the title screen popped
-  in. No fade with reduced motion.
+- **Fades between views**: a curtain drawn like the page (`.curtain`: the same gradient and grain)
+  fades in over the view (0.4 s), the next view is swapped in under it, and it fades out (0.5 s).
+  The swap waits for the curtain's `transitionend` (a timer fallback at 0.7 s), not a timer alone:
+  leaving a gallery, the scene can hold up the main thread. The first version faded the view's own
+  opacity instead, and was replaced: an ancestor with opacity below 1 cuts off a descendant's
+  backdrop blur at once, so switching artist from the menu dropped the blurred menu out ahead of
+  the fade. No fade with reduced motion.
 - **Title screen** (`Home`): the Discography wordmark (Instrument Serif italic, 56 px; 44 px on
   phones; 112 px was too big), a one-sentence description, the artist list, and a small, faint
-  footer (14 px, 40% ink) "Made by Dmytro Barylo" linking to dmytrobarylo.com in a new tab (address
-  taken from the user's GitHub profile). It fades in once every logo has its size.
+  footer (12 px upright, 40% ink): "Made by Dmytro Barylo" bottom left, linking to dmytrobarylo.com
+  (address taken from the user's GitHub profile), and "Source on GitHub" bottom right, linking to
+  the repository; both open in a new tab and sit at the corner buttons' insets. It fades in once every logo has its size.
 - **Artist list** (`ArtistList`, shared by the title screen and the menu): each band's logo
   (`BandMark`, as in the masthead: 30 px tall, at most 190 px wide; 22 and 130 px on phones) on the
   centre axis, the years to its left and the album count to its right, both faint (42% ink). The
@@ -412,7 +417,7 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
   height (Rammstein was 340 px and looked out of proportion). On phones the Back and Menu buttons
   sit below the masthead (56 px from the top).
 - **Bubble cursor everywhere** (`createBubble`, shared by the gallery, the menu and the title
-  screen): the same dot, growth over anything clickable and label after 5 s of rest (Close beside
+  screen): the same dot, growth over anything clickable and label after 3 s of rest (5 s until the pre-phase) (Close beside
   the menu's list). Over text buttons and links (Back, Menu/Close, the masthead wordmark, the
   menu's Home, the credit link) and over each artist row it becomes the 40 px dot with the element
   white inside (logo, years and count for an artist; a "View" label there was replaced by this).
@@ -432,26 +437,61 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
   The gradient is on `html` and the grain on `body::before`, not on each view: when the views
   each had their own, a switch faded them out too and showed the flat page colour underneath, a
   pale flash. Checked by sampling page pixels every 50 ms through switches.
+- **Album state in the URL**: `?band=<folder>&album=<id>`, plus `&open` while it is open
+  (`galleryUrl`, `albumFromUrl` in `src/band.ts`). The gallery updates it with `replaceState`, so
+  browsing and opening don't add history entries and the back button still steps between artists
+  and the title screen; switching artist pushes one entry. It only writes while the URL is still
+  its band's, so a gallery fading out can't overwrite the next one's address. A link restores it:
+  the scene's `startIndex` puts that case in front, and `openOnReveal` sets it fully open before
+  the intro, so the intro grows in the open case (`openAtOnce`). Opening it after the intro was
+  tried first and replaced: the case sat closed for the 1.15 s intro and then opened, a visible
+  delay. An unknown album starts at the first, closed. Since
+  every history entry keeps its band's last album and open state, the back button restores them
+  too. Tested: links with and without `&open`, an unknown album, browsing, opening and closing
+  (history length unchanged), switching artist (one entry), back and forward.
+- **Album arrows**: "←" and "→" in the bottom corners, level with the caption's title (DM Sans,
+  like Back's arrow), replacing the screen-reader-only buttons. Disabled and dimmed (25%) at the
+  first and last album; they fade out and turn inert while a case is open. The caption is narrower
+  to leave room for them.
+- **Logo scale**: `logoScale` in `band.json` evens out logos that look too big or small at the
+  shared height, still within the width cap: The Knife 0.87, The Prodigy 1.13.
+- **Cursor after clicks and keys**: a click or key can change or remove the button under a still
+  pointer with no pointer event to say so (Menu becomes Close, Back hides, the menu closes, an arrow
+  becomes disabled). For a second afterwards the bubble hit-tests every frame (`recheck`): it drops
+  the white copy if the element is gone, disabled, inert, aria-hidden or still fading in, redraws
+  it if the element changed, or moves to a button now under the pointer. Surfaces also treat
+  `pointerenter` as a move, so the dot stays when a menu closes under it. Tested with a still
+  pointer through 22 cases (Menu/Close by click and Escape, Back by click, Escape and Space, Back
+  fading in, current artist, menu background, Home, artists, the wordmark, the credit link).
 - **Drag and keys while open**: no drag does anything while a case is open, and neither do the
   arrow keys, Home or End (see phase 1 interactions). The wheel still moves on and closes it.
 
 ### Artists and artwork
 
 Album choice follows the project's earlier scope: studio albums plus a major live album or
-compilation, mostly 1990s to 2000s.
+compilation, mostly 1990s to 2000s. **Single-disc albums only** (the user's decision, also stated
+in the README): the demo shows one CD per jewel case, so double albums are out (The Knife's
+Tomorrow, in a Year, 2 CDs in every edition, and Shaking the Habitual, 2 CDs in most, including
+the scanned one), and an album whose scans came from a special edition with a second disc was
+re-pinned to a single-CD edition: Invaders Must Die (was CD+DVD; now the 2009 UK CD `6a75994d`)
+and Rosenrot (was the CD+DVD `bf7c54d3`; now the 2005 Russian single CD `b48e5591`, whose outer
+digipak scan `13288278590` has the back panel as its right half; no single-CD jewel case
+edition has a back scan). Checked for every album on MusicBrainz: the original release's media
+and the scanned edition's media.
 
 | Band | Albums | Logo |
 | --- | --- | --- |
 | The Prodigy | Experience, Jilted Generation, Fat of the Land, Always Outnumbered, Their Law, Invaders Must Die | Wikimedia Commons `The Prodigy logo 2009.svg` (the FOTL version has white fills, which a mask loses) |
-| The Knife | The Knife, Deep Cuts, Hannah med H, Silent Shout, Tomorrow in a Year, Shaking the Habitual | No fixed logo exists (the lettering changes per album, and none is on Commons or Wikipedia). `logo.svg` is traced from the logo image the user chose on TheAudioDB (`r2.theaudiodb.com/images/media/artist/logo/knife-the-505af40099c0c.png`, 400 × 155, white letters with a drop shadow; community-uploaded, licence unknown). Traced in Chrome, since no tracing tool is installed: alpha from the white letters (whiteness × alpha, which drops the shadow), upsampled 6× with smoothing, outlines followed along the pixel grid, simplified (Ramer-Douglas-Peucker, 5.5 px at 6×; a smaller tolerance kept the pixel staircase on the slanted strokes), straightened (edges within 9° of horizontal or of the 5.9° slant snapped to it, corners rebuilt where neighbours meet) and sharpened (edges under 2.5 source px collapsed). 8 outlines, 99 points. Rejected on the way: the debut cover's "THE KN|FE" with a knife as the I (looked off), the Deep Cuts disc label's lettering traced the same way (a different, lighter typeface; "still not ok"), and the Shaking the Habitual serif "THE KNIΦE" (read as a generic font). |
+| The Knife | The Knife, Deep Cuts, Hannah med H, Silent Shout | No fixed logo exists (the lettering changes per album, and none is on Commons or Wikipedia). `logo.svg` is traced from the logo image the user chose on TheAudioDB (`r2.theaudiodb.com/images/media/artist/logo/knife-the-505af40099c0c.png`, 400 × 155, white letters with a drop shadow; community-uploaded, licence unknown). Traced in Chrome, since no tracing tool is installed: alpha from the white letters (whiteness × alpha, which drops the shadow), upsampled 6× with smoothing, outlines followed along the pixel grid, simplified (Ramer-Douglas-Peucker, 5.5 px at 6×; a smaller tolerance kept the pixel staircase on the slanted strokes), straightened (edges within 9° of horizontal or of the 5.9° slant snapped to it, corners rebuilt where neighbours meet) and sharpened (edges under 2.5 source px collapsed). 8 outlines, 99 points. Rejected on the way: the debut cover's "THE KN|FE" with a knife as the I (looked off), the Deep Cuts disc label's lettering traced the same way (a different, lighter typeface; "still not ok"), and the Shaking the Habitual serif "THE KNIΦE" (read as a generic font). |
 | Rammstein | Herzeleid, Sehnsucht, Live aus Berlin, Mutter, Reise Reise, Rosenrot, Liebe ist für alle da | Wikimedia Commons `Rammstein logo.svg` |
 | Crystal Castles | (I), (II), (III), Amnesty (I) | Wikimedia Commons `Crystal Castels (Logo).png` (sic; public domain), the doubled wordmark on the debut CD, cropped to its letters. |
 
 Logos were cropped to their letters as Nirvana's was. Setting The Knife and Crystal Castles in
 Instrument Serif capitals was tried and rejected: it read as a generic font, not the band. The
-typeset fallback stays in `BandMark` for future bands without a logo. Every album has a disc scan and back insert
-except Tomorrow, in a Year and Amnesty (I), which have none archived (cover on the disc, generated
-insert). No new album has a `bookletBack` yet, so their open lids show a plain page in the album
+typeset fallback stays in `BandMark` for future bands without a logo.
+
+Every album has a disc scan and back insert except Amnesty (I), which has none archived (cover on
+the disc, generated insert). No new album has a `bookletBack` yet, so their open lids show a plain page in the album
 colour; `color` and `accent` were picked from each cover. Fixes after a visual check:
 
 - Crystal Castles (II): the default pick was a wide photo of the disc beside its tray; pinned to the
@@ -466,9 +506,10 @@ colour; `color` and `accent` were picked from each cover. Fixes after a visual c
 
 ### Download script changes
 
-- `musicbrainz.release` pins the edition for the disc and back; `coverRelease` takes the front from
-  a release; `backHalf` (`left` or `right`) keeps half of a back scan; `take_half` is shared with
-  the booklet back page.
+- `musicbrainz.release` pins the edition for the disc and back; `backImage` picks the back image in
+  it; `coverRelease` takes the front from a release; `backHalf` (`left` or `right`) keeps half of a
+  back scan; `take_half` is shared with the booklet back page (it returned failure for `right`,
+  which skipped the shrink; fixed). Automatic picks now consider only single-CD releases.
 - Bug fixes: with neither scan archived, the second `read` hit end of input and `set -e` ended the
   whole run silently (it skipped the rest of The Knife); fields are now split on the unit separator,
   since tab is whitespace to `read` and empty fields collapsed. Rerunning Nevermind gave
@@ -484,6 +525,29 @@ that the title screen and menu draw every logo at the same size, that drags besi
 case change nothing, a click beside still closes it, a drag on a
 closed row still scrubs, the wordmark and menu Home reach the title screen with the canvas removed,
 the browser back button returns, and Escape closes the menu and restores focus.
+
+### TypeScript
+
+The code was moved to TypeScript at the end of the pre-phase, with no behaviour change: `src/band.ts`
+(the JSON types and loader), `src/main.tsx`, `src/scene.ts`, `vite.config.ts`. `tsconfig.json` is
+strict (also `noUnusedLocals` and `noUnusedParameters`); `typescript` 5.9 (the stable line the
+Vite and Solid tooling targets; 7.0, the native rewrite, was available) and `@types/three` 0.186,
+both pinned. `npm run build` type-checks first. `scene.ts` has no `any`; its few casts and `!`
+each carry a comment (2D canvas contexts, three's untyped `userData`, `removeEventListener`
+options). Checked by diffing esbuild output of the old and new scene (only class field
+declarations and two no-op guards differ) and by rerunning the browser checks above.
+
+Possible latent issues the types exposed, left as they were:
+
+- Discs carry hover, spin, push and tween fields from when they were standalone; nothing uses them.
+- `endPress` reads `this.cases[spinning]` without a guard; `setAlbums` with fewer albums during a
+  drag would throw. (Nothing calls `setAlbums` after construction today.)
+- `destroy()` calls `setAlbums([])`, which reports `onProgress(0, 0)`.
+- Mutter's disc scan is a promotional pressing ("FOR PROMOTION ONLY", release `dbc3dfab`): the
+  first download hit a Cover Art Archive error and the retry fell through to it. Pin a retail
+  single-CD release to replace it.
+- `removeEventListener(…, { passive: false })`: `passive` is ignored there (harmless).
+- The last branch of `makeFallbackArt` only runs for a motif outside the `Motif` type.
 
 ## Phase 2a: booklet as a flip book
 

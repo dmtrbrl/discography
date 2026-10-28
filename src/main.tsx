@@ -1,20 +1,24 @@
 import { render } from 'solid-js/web';
 import { For, Match, Show, Switch, createEffect, createResource, createSignal, on, onCleanup, onMount } from 'solid-js';
-import { GalleryScene } from './scene.js';
-import { bandFromUrl, defaultTheme, loadBand, loadBands } from './band.js';
+import type { Accessor } from 'solid-js';
+import { GalleryScene } from './scene';
+import type { PointerState } from './scene';
+import { albumFromUrl, bandFromUrl, defaultTheme, galleryUrl, loadBand, loadBands } from './band';
+import type { Band, Theme } from './band';
 import './style.css';
 
 const website = 'https://dmytrobarylo.com';
+const repository = 'https://github.com/dmtrbrl/discography';
 
 // In-page links still open a new tab with a modifier key or the middle button.
-const isPlainClick = (event) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+const isPlainClick = (event: MouseEvent) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 
 // Resolves once Instrument Serif is loaded. The font's stylesheet is imported from CSS, so until it
 // arrives there is no face to load: fonts.load() then returns nothing, and so does fonts.ready.
 // Gives up after about 5 s.
 const serifLoaded = (async () => {
   for (let attempt = 0; attempt < 50; attempt++) {
-    const faces = await document.fonts.load('400 40px "Instrument Serif"').catch(() => []);
+    const faces = await document.fonts.load('400 40px "Instrument Serif"').catch((): FontFace[] => []);
     if (faces.length) return;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -27,21 +31,43 @@ const serifLoaded = (async () => {
 // from .button: the text buttons and the artists) it becomes a larger dot, and a white clone of the
 // element, laid over it and clipped to the dot, shows it white inside the dot. The clone sits in one
 // layer above the bubble, so it works inside the menu too, whose blur would trap a copy beneath it.
-const labelDelay = 5000;
+const labelDelay = 3000;
 const restSlop = 3;
 const buttonDot = 20;
 const canBubble = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-const cloneStyles = ['font', 'letterSpacing', 'textTransform', 'textDecoration', 'textUnderlineOffset', 'display', 'alignItems', 'justifyContent', 'justifyItems', 'gap', 'padding', 'whiteSpace', 'gridTemplateColumns'];
-const contentRect = (element) => {
+const cloneStyles = ['font', 'letterSpacing', 'textTransform', 'textDecoration', 'textUnderlineOffset', 'display', 'alignItems', 'justifyContent', 'justifyItems', 'gap', 'padding', 'whiteSpace', 'gridTemplateColumns'] as const;
+const contentRect = (element: Node) => {
   const range = document.createRange();
   range.selectNodeContents(element);
   return range.getBoundingClientRect();
 };
 
-function createBubble(options) {
+interface BubbleOptions {
+  // What a click will do, shown as the label; empty for none.
+  label: Accessor<string>;
+  // Whether the page is showing yet.
+  revealed: Accessor<boolean>;
+}
+
+// Event handlers for the surfaces the bubble moves over, and for text buttons and links.
+interface SurfaceProps {
+  onPointerMove: (event: PointerEvent) => void;
+  onPointerEnter: (event: PointerEvent) => void;
+  onPointerLeave: () => void;
+  onPointerDown: () => void;
+  onPointerUp: () => void;
+}
+interface ButtonProps {
+  'data-bubble': string;
+  onPointerMove: (event: PointerEvent) => void;
+  onPointerEnter: (event: PointerEvent) => void;
+  onPointerLeave: () => void;
+}
+
+function createBubble(options: BubbleOptions) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let bubble;
-  let layer;
+  let bubble!: HTMLDivElement;
+  let layer!: HTMLDivElement;
   const [over, setOver] = createSignal(false);
   const [shown, setShown] = createSignal(false);
   const [pressed, setPressed] = createSignal(false);
@@ -63,7 +89,7 @@ function createBubble(options) {
     layer.style.clipPath = `circle(${mouse.clip}px at ${mouse.x - mouse.left}px ${mouse.y - mouse.top}px)`;
     mouse.raf = mouse.clip !== clipTarget ? requestAnimationFrame(follow) : 0;
   }
-  function move(event) {
+  function move(event: PointerEvent) {
     if (!canBubble || event.pointerType !== 'mouse') return;
     mouse.x = event.clientX;
     mouse.y = event.clientY;
@@ -75,13 +101,21 @@ function createBubble(options) {
     if (!shown()) setShown(true);
     if (!mouse.raf) mouse.raf = requestAnimationFrame(follow);
   }
-  function enterButton(event) {
-    if (!canBubble || event.pointerType !== 'mouse') return;
-    const element = event.currentTarget;
+  // The element whose clone is shown, and what it looked like when cloned.
+  let target: HTMLElement | null = null;
+  let cloned = '';
+  const signature = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    return [element.className, element.textContent, element.getAttribute('aria-current'), rect.left, rect.top, rect.width, rect.height].join('|');
+  };
+  function showClone(element: HTMLElement) {
+    target = element;
+    cloned = signature(element);
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
-    const clone = element.cloneNode(true);
+    const clone = element.cloneNode(true) as HTMLElement;
     clone.removeAttribute('id');
+    clone.removeAttribute('data-bubble');
     for (const name of cloneStyles) clone.style[name] = style[name];
     // Inline boxes ignore translate (used below to line the clone up), and an inline-block would sit
     // on the layer's baseline.
@@ -109,24 +143,67 @@ function createBubble(options) {
     mouse.left = rect.left;
     mouse.top = rect.top;
     setOver(true);
-  }
-  function leaveButton() {
-    setOver(false);
-    setShown(false);
+    setShown(true);
     if (!mouse.raf) mouse.raf = requestAnimationFrame(follow);
   }
+  function enterButton(event: PointerEvent) {
+    const element = event.currentTarget as HTMLElement;
+    if (canBubble && event.pointerType === 'mouse' && !(element as HTMLButtonElement).disabled) showClone(element);
+  }
+  // Leaving by moving hides the bubble until the next move over a surface; leaving because the
+  // element went away keeps the dot where the pointer is.
+  function leaveButton(hide = true) {
+    target = null;
+    setOver(false);
+    if (hide) setShown(false);
+    if (!mouse.raf) mouse.raf = requestAnimationFrame(follow);
+  }
+  // A click or a key can change or remove the element under a still pointer, with no pointer event
+  // to say so: Menu becomes Close, Back hides as the case closes, the menu closes under an artist.
+  // For a moment afterwards, check every frame what is under the pointer: drop the clone if the
+  // element is gone, inactive (disabled, inert, aria-hidden) or still fading in, redraw it if the
+  // element changed, or move to another button now under the pointer.
+  const usable = (element: HTMLElement | null | undefined): element is HTMLElement => Boolean(element?.isConnected) && !(element as HTMLButtonElement).disabled
+    && !element!.closest('[inert], [aria-hidden="true"]') && Number(getComputedStyle(element!).opacity) > 0.5;
+  let recheckUntil = 0;
+  let recheckRaf = 0;
+  function recheck() {
+    recheckRaf = 0;
+    if (target || shown()) {
+      const hit = document.elementFromPoint(mouse.x, mouse.y)?.closest<HTMLElement>('[data-bubble]');
+      const next = usable(hit) ? hit : null;
+      if (next !== target) {
+        if (next) showClone(next);
+        else leaveButton(false);
+      } else if (target && signature(target) !== cloned) {
+        showClone(target);
+      }
+    }
+    if (performance.now() < recheckUntil) recheckRaf = requestAnimationFrame(recheck);
+  }
+  function watch() {
+    if (!canBubble) return;
+    recheckUntil = performance.now() + 1000;
+    if (!recheckRaf) recheckRaf = requestAnimationFrame(recheck);
+  }
+  window.addEventListener('click', watch, true);
+  window.addEventListener('keydown', watch, true);
   onCleanup(() => {
     clearTimeout(tipTimer);
     cancelAnimationFrame(mouse.raf);
+    cancelAnimationFrame(recheckRaf);
+    window.removeEventListener('click', watch, true);
+    window.removeEventListener('keydown', watch, true);
   });
   return {
     over,
     move,
     hide: () => setShown(false),
     // For the surfaces the bubble moves over.
-    surface: { onPointerMove: move, onPointerLeave: () => setShown(false), onPointerDown: () => setPressed(true), onPointerUp: () => setPressed(false) },
+    // Entering counts as moving: a surface can come out from under a still pointer (a menu closing).
+    surface: { onPointerMove: move, onPointerEnter: move, onPointerLeave: () => setShown(false), onPointerDown: () => setPressed(true), onPointerUp: () => setPressed(false) } satisfies SurfaceProps,
     // For text buttons and links.
-    button: { onPointerMove: move, onPointerEnter: enterButton, onPointerLeave: leaveButton },
+    button: { 'data-bubble': '', onPointerMove: move, onPointerEnter: enterButton, onPointerLeave: () => leaveButton() } satisfies ButtonProps as ButtonProps,
     view: () => (
       <>
         <div class="bubble" ref={bubble} aria-hidden="true">
@@ -141,7 +218,7 @@ function createBubble(options) {
 }
 
 // Applies a theme: page colours as CSS variables, the browser bar colour and the title.
-function applyTheme(theme, title) {
+function applyTheme(theme: Theme, title: string) {
   const root = document.documentElement.style;
   root.setProperty('--bg', theme.background);
   root.setProperty('--bg-center', theme.backgroundCenter);
@@ -154,10 +231,10 @@ function applyTheme(theme, title) {
 // A band's logo, drawn as a mask in the ink colour, or its name in capitals when it has none. CSS sizes
 // it (.logo, .band-name): as tall as --logo-height, but no wider than --logo-max. The logo's
 // proportions and the name's width in em are measured here; onReady fires once they are known.
-function BandMark(props) {
+function BandMark(props: { band: Band; onReady?: () => void }) {
   const [ratio, setRatio] = createSignal(0);
   const [ems, setEms] = createSignal(0);
-  let name;
+  let name!: HTMLSpanElement;
   onMount(() => {
     if (props.band.logo) {
       const logo = new Image();
@@ -177,7 +254,7 @@ function BandMark(props) {
   });
   return (
     <Show when={props.band.logo} fallback={<span class="band-name" ref={name} style={{ '--name-ems': ems() || undefined }}>{props.band.name}</span>}>
-      <span class="logo" role="img" aria-label={props.band.name} style={{ '--logo': `url("${props.band.logo}")`, '--logo-ratio': ratio() || 1 }} />
+      <span class="logo" role="img" aria-label={props.band.name} style={{ '--logo': `url("${props.band.logo}")`, '--logo-ratio': ratio() || 1, '--logo-scale': props.band.logoScale }} />
     </Show>
   );
 }
@@ -185,15 +262,15 @@ function BandMark(props) {
 // The artists on the title screen and in the menu: years, logo, album count. Links work as links (a
 // new tab with a modifier key); a plain click switches in place. onReady fires once every logo has
 // its size.
-function ArtistList(props) {
-  const onClick = (event, band) => {
+function ArtistList(props: { bands: Band[] | undefined; current?: string; onSelect: (folder: string) => void; onReady?: () => void; bubble?: ButtonProps }) {
+  const onClick = (event: MouseEvent, band: Band) => {
     if (!isPlainClick(event)) return;
     event.preventDefault();
     props.onSelect(band.folder);
   };
   let ready = 0;
   const markReady = () => {
-    if (++ready === props.bands.length) props.onReady?.();
+    if (++ready === props.bands?.length) props.onReady?.();
   };
   return (
     <ul class="artist-list">
@@ -210,7 +287,10 @@ function ArtistList(props) {
   );
 }
 
-function Home(props) {
+// Switching view: a band's folder, or null for the title screen.
+type Select = (folder: string | null) => void;
+
+function Home(props: { bands: Band[] | undefined; onSelect: Select }) {
   const [ready, setReady] = createSignal(false);
   const cursor = createBubble({ label: () => '', revealed: ready });
   return (
@@ -226,35 +306,39 @@ function Home(props) {
         </Show>
       </div>
       <footer class="home-footer">
-        Made by <a href={website} target="_blank" rel="noopener" {...cursor.button}>Dmytro Barylo</a>
+        <span>Made by <a href={website} target="_blank" rel="noopener" {...cursor.button}>Dmytro Barylo</a></span>
+        <a href={repository} target="_blank" rel="noopener" {...cursor.button}>Source on GitHub</a>
       </footer>
       {cursor.view()}
     </main>
   );
 }
 
-function App(props) {
+function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select }) {
   const { albums, name: artist, theme } = props.band;
-  let stage;
-  let scene;
-  const [active, setActive] = createSignal(0);
+  let stage!: HTMLDivElement;
+  let scene: GalleryScene | undefined;
+  // A link can name the album in front and ask for it open; an unknown album starts at the first.
+  const linked = albumFromUrl();
+  const startIndex = Math.max(0, albums.findIndex((album) => album.id === linked.album));
+  const [active, setActive] = createSignal(startIndex);
   const [loading, setLoading] = createSignal({ loaded: 0, total: albums.length });
   const [ready, setReady] = createSignal(false);
   const [revealed, setRevealed] = createSignal(false);
   // The caption shows its own index, so it can fade out on the old album before switching.
-  const [shown, setShown] = createSignal(0);
+  const [shown, setShown] = createSignal(startIndex);
   // The masthead waits until the band's logo has its size.
   const [markReady, setMarkReady] = createSignal(false);
   const [menuOpen, setMenuOpen] = createSignal(false);
   const [captionHidden, setCaptionHidden] = createSignal(false);
   const selected = () => albums[shown()];
-  const pad = (value) => String(value).padStart(2, '0');
+  const pad = (value: number) => String(value).padStart(2, '0');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let captionTimer = 0;
 
   // What a click does, for the bubble cursor. In the menu, a click beside the list closes it.
-  let menuButton;
-  const [pointer, setPointer] = createSignal({ hovered: -1, active: 0, opened: -1, dragging: false });
+  let menuButton!: HTMLButtonElement;
+  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false });
   const bubbleLabel = () => {
     if (menuOpen()) return 'Close';
     const { hovered, active: front, opened, dragging } = pointer();
@@ -268,7 +352,7 @@ function App(props) {
   };
   const cursor = createBubble({ label: bubbleLabel, revealed });
 
-  function goHome(event) {
+  function goHome(event: MouseEvent) {
     if (!isPlainClick(event)) return;
     event.preventDefault();
     props.onSelect(null);
@@ -277,8 +361,8 @@ function App(props) {
   // The menu lists the artists over the gallery. Keys go to it, not the scene, while it is open.
   function toggleMenu(open = !menuOpen()) {
     setMenuOpen(open);
-    if (open) requestAnimationFrame(() => document.querySelector('.menu [aria-current], .menu .artist')?.focus());
-    else menuButton?.focus({ preventScroll: true });
+    if (open) requestAnimationFrame(() => document.querySelector<HTMLElement>('.menu [aria-current], .menu .artist')?.focus());
+    else menuButton.focus({ preventScroll: true });
   }
 
   // Fades the caption out, swaps in the new album, and fades it back in. Moves through several
@@ -296,8 +380,17 @@ function App(props) {
     }, 220);
   }, { defer: true }));
 
+  // Keeps the URL on the album in front and whether it is open, replacing the history entry, so the
+  // browser's back button still goes to the previous artist or the title screen. Only while the URL
+  // is still this band's: a gallery fading out mustn't overwrite the next one's address.
+  createEffect(() => {
+    const url = galleryUrl(props.band.folder, albums[active()]?.id, pointer().opened >= 0);
+    if (!revealed() || bandFromUrl() !== props.band.folder || window.location.search === url) return;
+    window.history.replaceState(window.history.state, '', url);
+  });
+
   // The scene owns the motion and reports the case in front back through setActive.
-  function onKeyDown(event) {
+  function onKeyDown(event: KeyboardEvent) {
     if (event.altKey || event.metaKey || event.ctrlKey || !scene) return;
     if (menuOpen()) {
       if (event.key === 'Escape') toggleMenu(false);
@@ -310,7 +403,7 @@ function App(props) {
     if (event.key === 'ArrowLeft') { event.preventDefault(); scene.step(-1); }
     if (event.key === 'Home') { event.preventDefault(); scene.goTo(0, 'key'); }
     if (event.key === 'End') { event.preventDefault(); scene.goTo(albums.length - 1, 'key'); }
-    if (event.key === ' ' && !event.target.closest?.('button, input, textarea, select')) { event.preventDefault(); scene.toggle(); }
+    if (event.key === ' ' && !(event.target as Element | null)?.closest?.('button, input, textarea, select')) { event.preventDefault(); scene.toggle(); }
     if (event.key === 'Escape') scene.close();
   }
 
@@ -321,13 +414,15 @@ function App(props) {
     scene?.reveal();
   }
 
-  function onPreloaderFaded(event) {
+  function onPreloaderFaded(event: TransitionEvent) {
     if (event.target === event.currentTarget && event.propertyName === 'opacity') reveal();
   }
 
   onMount(() => {
     scene = new GalleryScene(stage, albums, (index) => setActive(index), {
       fogColor: theme.background,
+      startIndex,
+      openOnReveal: linked.open && albums[startIndex]?.id === linked.album,
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
       onReady: () => {
@@ -369,59 +464,68 @@ function App(props) {
         <span class="preloader-label">Loading <strong>{pad(loading().loaded)}</strong> / {pad(loading().total)}</span>
         <span class="preloader-track"><span class="preloader-fill" style={{ transform: `scaleX(${loading().total ? loading().loaded / loading().total : 1})` }} /></span>
       </div>
+      {/* The caption, with arrows to the previous and next album level with it. The arrows hide while a
+          case is open, which keeps the row where it is. */}
       <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() }}>
+        <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
+          disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
           <div class="eyebrow">{selected().year}<span class="eyebrow-separator">/</span>{selected().kind}</div>
           <h1>{selected().title}</h1>
         </div>
-        {/* Visible navigation is the bubble cursor, the keys and the wheel; these stay for screen readers. */}
-        <div class="sr-only">
-          <button type="button" onClick={() => scene?.step(-1)} disabled={active() === 0}>Previous album</button>
-          <button type="button" onClick={() => scene?.step(1)} disabled={active() === albums.length - 1}>Next album</button>
-        </div>
+        <button class="album-arrow is-next" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
+          disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
       </footer>
     </main>
   );
 }
 
 // The title screen, or a band's gallery with ?band=<folder>. Switching keeps the page and pushes
-// the URL, so the browser's back button returns to the previous artist or the title screen. The
-// current view fades out, the next one is swapped in while the page is blank, and it fades in with
-// its own animation: reversing a half-finished fade-out (the gallery can hold up the main thread)
-// would make it abrupt.
+// the URL, so the browser's back button returns to the previous artist or the title screen.
+// A curtain drawn like the page background fades in over the current view, the next view is swapped
+// in under it, and it fades out. The views themselves never change opacity: an ancestor's opacity
+// cuts off the menu's backdrop blur at once, so the menu dropped out ahead of the fade.
+// What Root shows: a band's gallery, the title screen, or why a band couldn't load.
+interface View {
+  band?: Band;
+  home?: boolean;
+  error?: string;
+}
+
 function Root() {
   const [bands] = createResource(loadBands);
-  const [view, setView] = createSignal(null);
-  const [phase, setPhase] = createSignal('');
+  const [view, setView] = createSignal<View | null>(null);
+  const [covered, setCovered] = createSignal(false);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let viewElement;
+  let curtain!: HTMLDivElement;
   let request = 0;
-  // Resolves when the fade-out has finished, or after a while if the transition never reports.
-  const fadeOut = () => new Promise((resolve) => {
-    const done = (event) => {
-      if (event && (event.target !== viewElement || event.propertyName !== 'opacity')) return;
+  // Resolves when the curtain is fully in, or after a while if the transition never reports.
+  const cover = () => new Promise<void>((resolve) => {
+    const done = (event?: TransitionEvent) => {
+      if (event && (event.target !== curtain || event.propertyName !== 'opacity')) return;
       clearTimeout(timer);
-      viewElement.removeEventListener('transitionend', done);
+      curtain.removeEventListener('transitionend', done);
       resolve();
     };
     const timer = setTimeout(done, 700);
-    viewElement.addEventListener('transitionend', done);
-    setPhase('leaving');
+    curtain.addEventListener('transitionend', done);
+    setCovered(true);
   });
-  async function show(folder) {
+  async function show(folder: string | null) {
     const current = ++request;
-    const next = folder ? loadBand(folder).then((band) => ({ band }), (error) => ({ error: error.message })) : { home: true };
-    const fade = Boolean(view()) && !reducedMotion;
-    if (fade && phase() !== 'leaving') await fadeOut();
+    const next: View | Promise<View> = folder
+      ? loadBand(folder).then((band) => ({ band }), (error: Error) => ({ error: error.message }))
+      : { home: true };
+    if (view() && !reducedMotion && !covered()) await cover();
     const shown = await next;
     if (current !== request) return;
     if (shown.band) applyTheme(shown.band.theme, `Discography × ${shown.band.name}`);
     else applyTheme(defaultTheme, 'Discography');
     setView(shown);
-    setPhase(fade ? 'entering' : '');
+    setCovered(false);
   }
-  function select(folder) {
-    const url = folder ? `?band=${folder}` : window.location.pathname;
+  function select(folder: string | null) {
+    const url = folder ? galleryUrl(folder) : window.location.pathname;
     if (folder !== bandFromUrl()) window.history.pushState(null, '', url);
     show(folder);
   }
@@ -431,16 +535,16 @@ function Root() {
   show(bandFromUrl());
 
   return (
-    <div class="view" classList={{ 'is-leaving': phase() === 'leaving', 'is-entering': phase() === 'entering' }} ref={viewElement}
-      onAnimationEnd={(event) => event.target === viewElement && setPhase('')}>
+    <>
       <Switch>
         <Match when={view()?.band} keyed>{(band) => <App band={band} bands={bands()} onSelect={select} />}</Match>
         <Match when={view()?.home}><Home bands={bands()} onSelect={select} /></Match>
-        <Match when={view()?.error}><p class="load-error">{view().error}</p></Match>
+        <Match when={view()?.error} keyed>{(error) => <p class="load-error">{error}</p>}</Match>
       </Switch>
-    </div>
+      <div class="curtain" classList={{ 'is-covering': covered() }} ref={curtain} aria-hidden="true" />
+    </>
   );
 }
 
-const dispose = render(() => <Root />, document.getElementById('root'));
+const dispose = render(() => <Root />, document.getElementById('root')!);
 if (import.meta.hot) import.meta.hot.dispose(dispose);

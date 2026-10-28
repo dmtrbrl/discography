@@ -1,6 +1,7 @@
 {
   "name": "The Knife",
   "logo": "logo.svg",
+  "logoScale": 0.87,
   "albums": [
     {
       "id": "the-knife",
@@ -62,34 +63,6 @@
       },
       "disc": "discs/silent-shout.jpg",
       "back": "backs/silent-shout.jpg"
-    },
-    {
-      "id": "tomorrow-in-a-year",
-      "title": "Tomorrow, in a Year",
-      "year": "2010",
-      "kind": "Studio album",
-      "cover": "covers/tomorrow-in-a-year.jpg",
-      "color": "#f2f0ea",
-      "accent": "#222222",
-      "motif": "sun",
-      "musicbrainz": {
-        "releaseGroup": "302ca9df-7fe4-4e91-b0d1-cd48975e0fba"
-      }
-    },
-    {
-      "id": "shaking-the-habitual",
-      "title": "Shaking the Habitual",
-      "year": "2013",
-      "kind": "Studio album",
-      "cover": "covers/shaking-the-habitual.jpg",
-      "color": "#f0288f",
-      "accent": "#2bc0a0",
-      "motif": "rings",
-      "musicbrainz": {
-        "releaseGroup": "06448e12-18d8-4d52-a51f-d4c83d07ec09"
-      },
-      "disc": "discs/shaking-the-habitual.jpg",
-      "back": "backs/shaking-the-habitual.jpg"
     }
   ]
 }

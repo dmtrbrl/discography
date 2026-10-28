@@ -88,8 +88,9 @@
       "motif": "rings",
       "musicbrainz": {
         "releaseGroup": "15e65e08-85d1-3145-85b2-e18b9fbd4cba",
-        "release": "bf7c54d3-3e83-3d7c-ac14-31a4317e863d",
-        "backHalf": "left"
+        "release": "b48e5591-d52a-44d7-928a-939a23a4f14a",
+        "backImage": "13288278590",
+        "backHalf": "right"
       },
       "disc": "discs/rosenrot.jpg",
       "back": "backs/rosenrot.jpg"

@@ -68,26 +68,29 @@ take_half() {
   [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
   sips --cropToHeightWidth "$height" $((width / 2)) --cropOffset 0 $((width - width / 2)) "$file" >/dev/null
   [[ $half == left ]] && sips --flip horizontal "$file" >/dev/null
+  return 0
 }
 
 # Prints two lines: the URL of a disc scan (a "Medium" image) and of a back insert ("Back"). Both
-# come from the earliest CD release that has both, so they show the same edition; failing that,
-# each comes from the earliest release that has it. band.json can pin the edition instead
-# (musicbrainz.release). A line is empty if nothing is archived. Fails if MusicBrainz could not be
+# come from the earliest single-CD release that has both, so they show the same edition; failing
+# that, each comes from the earliest release that has it. The demo only shows single-disc cases, so
+# editions with a second CD or a DVD are skipped. band.json can pin the edition instead
+# (musicbrainz.release), and pick its back image (musicbrainz.backImage) when the first one tagged
+# Back is the wrong side. A line is empty if nothing is archived. Fails if MusicBrainz could not be
 # reached.
 find_scans() {
-  local group=$1 releases=${2:-} release images disc='' back='' found_disc found_back
+  local group=$1 releases=${2:-} back_image=${3:-} release images disc='' back='' found_disc found_back
   # MusicBrainz allows about one request per second.
   sleep 1
   [[ -n $releases ]] || releases=$(fetch "https://musicbrainz.org/ws/2/release?release-group=$group&inc=media&limit=100&fmt=json" 2>/dev/null \
     | jq -r '[.releases[]
-        | select(any(.media[]?; .format == "CD") and .["cover-art-archive"].count > 0)]
+        | select((.media | length) == 1 and .media[0].format == "CD" and .["cover-art-archive"].count > 0)]
         | sort_by([(if (.date // "") == "" then "9999" else .date end), .id])
         | .[].id') || return 1
   for release in $releases; do
     images=$(fetch "https://coverartarchive.org/release/$release" 2>/dev/null) || continue
     found_disc=$(jq -r 'first(.images[] | select(.types | index("Medium")) | .thumbnails["1200"] // .image) // empty' <<<"$images")
-    found_back=$(jq -r 'first(.images[] | select(.types | index("Back")) | .thumbnails["1200"] // .image) // empty' <<<"$images")
+    found_back=$(jq -r --arg id "$back_image" 'first(.images[] | select(if $id == "" then .types | index("Back") else (.id | tostring) == $id end) | .thumbnails["1200"] // .image) // empty' <<<"$images")
     if [[ -n $found_disc && -n $found_back ]]; then
       disc=$found_disc back=$found_back
       break
@@ -115,17 +118,17 @@ fetch_booklet_back() {
 }
 
 # musicbrainz.coverRelease takes the front cover from that release instead of the release group's
-# chosen image (when that one is small). musicbrainz.backHalf takes one half of a back scan that shows a whole spread (some editions only
-# have the digipak's outside archived).
+# chosen image (when that one is small). musicbrainz.backHalf takes one half of a back scan that
+# shows a whole spread (some editions only have the digipak's outside archived).
 # Fields are split on the unit separator: tabs count as whitespace, so empty fields would collapse.
-while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_release; do
+while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_release back_image; do
   if (($#)) && [[ " $* " != *" $slug "* ]]; then continue; fi
   echo "Downloading $slug"
   cover="release-group/$group"
   [[ -n $cover_release ]] && cover="release/$cover_release"
   save "https://coverartarchive.org/$cover/front-1200" "$dir/covers/$slug.jpg" >/dev/null 2>&1 \
     || save "https://coverartarchive.org/$cover/front-500" "$dir/covers/$slug.jpg" || true
-  if ! scans=$(find_scans "$group" "$release"); then
+  if ! scans=$(find_scans "$group" "$release" "$back_image"); then
     echo "  could not reach MusicBrainz; kept any existing scans"
   else
     # With neither scan archived the output is empty, and the second read fails at end of input.
@@ -149,4 +152,4 @@ while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_releas
   set_path "$slug" disc "discs/$slug.jpg"
   set_path "$slug" back "backs/$slug.jpg"
   set_path "$slug" bookletBack "booklets/$slug-back.jpg"
-done < <(jq -r '.albums[] | [.id, .musicbrainz.releaseGroup, (.musicbrainz.bookletBack // ""), (.musicbrainz.release // ""), (.musicbrainz.backHalf // ""), (.musicbrainz.coverRelease // "")] | join("\u001f")' "$config")
+done < <(jq -r '.albums[] | [.id, .musicbrainz.releaseGroup, (.musicbrainz.bookletBack // ""), (.musicbrainz.release // ""), (.musicbrainz.backHalf // ""), (.musicbrainz.coverRelease // ""), (.musicbrainz.backImage // "")] | join("\u001f")' "$config")

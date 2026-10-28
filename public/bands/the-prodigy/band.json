@@ -1,6 +1,7 @@
 {
   "name": "The Prodigy",
   "logo": "logo.svg",
+  "logoScale": 1.13,
   "albums": [
     {
       "id": "experience",
@@ -87,7 +88,8 @@
       "accent": "#e07a24",
       "motif": "rings",
       "musicbrainz": {
-        "releaseGroup": "dafbb45b-e06f-3a2b-b4fd-981d3d99a3a4"
+        "releaseGroup": "dafbb45b-e06f-3a2b-b4fd-981d3d99a3a4",
+        "release": "6a75994d-3286-44e2-b6f7-bc89cf507858"
       },
       "disc": "discs/invaders-must-die.jpg",
       "back": "backs/invaders-must-die.jpg"

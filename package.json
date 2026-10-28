@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "typecheck": "tsc",
+    "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
@@ -13,6 +14,8 @@
     "three": "0.186.1"
   },
   "devDependencies": {
+    "@types/three": "0.186.0",
+    "typescript": "5.9.3",
     "vite": "6.3.0",
     "vite-plugin-solid": "2.11.14"
   }
