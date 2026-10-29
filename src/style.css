@@ -40,10 +40,13 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
    by then the pair before them is long gone, so they don't wait for it. */
 .store-link.is-shown { transition: opacity .5s ease, visibility 0s; }
 .album-caption.is-switching { opacity: 0; }
-/* The caption opens the album; its outline shows for keyboard focus only. */
-.album-open { display: block; max-width: 100%; margin: 0 auto; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: inherit; text-align: center; pointer-events: auto; }
-.album-open .eyebrow, .album-title { display: block; }
-.album-open:disabled { cursor: default; }
+/* The caption opens the album on the row, and only names it in the other views: disabled there, it
+   still takes clicks (doing nothing), so a click on the title of an open case isn't a click beside
+   the case, which would close it. Over it the bubble shrinks to the plain dot, as over the plain
+   wordmark. */
+.album-name { display: block; max-width: 100%; margin: 0 auto; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: inherit; text-align: center; pointer-events: auto; }
+.album-name:disabled { cursor: default; }
+.album-name .eyebrow, .album-title { display: block; }
 /* Keyboard focus, the same on every control: a 1 px ink ring 4 px outside a 4 × 10 px padding round
    the content. Controls carry that padding, cancelled by negative margins or offsets so nothing
    moves. */

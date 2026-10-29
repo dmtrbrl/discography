@@ -50,9 +50,11 @@ interface SurfaceProps {
   onPointerDown: () => void;
   onPointerUp: () => void;
 }
+// The move is a native listener: Solid's delegated handlers skip disabled buttons, which left no dot
+// over them.
 interface ButtonProps {
   'data-bubble': string;
-  onPointerMove: (event: PointerEvent) => void;
+  'on:pointermove': (event: PointerEvent) => void;
   onPointerEnter: (event: PointerEvent) => void;
   onPointerLeave: () => void;
 }
@@ -65,6 +67,9 @@ function createBubble(options: BubbleOptions) {
   const [over, setOver] = createSignal(false);
   const [shown, setShown] = createSignal(false);
   const [pressed, setPressed] = createSignal(false);
+  // Over a disabled button (the caption of an open case, the last album's Next) a click does
+  // nothing, so the dot stays plain, with no label.
+  const [plain, setPlain] = createSignal(false);
   const [tip, setTip] = createSignal({ text: '', shown: false });
   let tipTimer = 0;
   const rest = { x: 0, y: 0 };
@@ -178,13 +183,16 @@ function createBubble(options: BubbleOptions) {
   }
   function enterButton(event: PointerEvent) {
     const element = event.currentTarget as HTMLElement;
-    if (canBubble && event.pointerType === 'mouse' && !(element as HTMLButtonElement).disabled) showClone(element);
+    const disabled = (element as HTMLButtonElement).disabled;
+    setPlain(disabled);
+    if (canBubble && event.pointerType === 'mouse' && !disabled) showClone(element);
   }
   // Leaving by moving hides the bubble until the next move over a surface; leaving because the
   // element went away keeps the dot where the pointer is.
   function leaveButton(hide = true) {
     target = null;
     setOver(false);
+    setPlain(false);
     if (hide) setShown(false);
     if (!mouse.raf) mouse.raf = requestAnimationFrame(follow);
   }
@@ -205,6 +213,7 @@ function createBubble(options: BubbleOptions) {
       if (next !== target) {
         if (next) showClone(next);
         else leaveButton(false);
+        setPlain(!next && Boolean((hit as HTMLButtonElement | null)?.disabled));
       } else if (target && signature(target) !== cloned) {
         if (box(target) === clonedBox && syncClone(target)) cloned = signature(target);
         else showClone(target);
@@ -254,11 +263,11 @@ function createBubble(options: BubbleOptions) {
     // Entering counts as moving: a surface can come out from under a still pointer (an overlay closing).
     surface: { onPointerMove: move, onPointerEnter: move, onPointerLeave: () => setShown(false), onPointerDown: () => setPressed(true), onPointerUp: () => setPressed(false) } satisfies SurfaceProps,
     // For text buttons and links.
-    button: { 'data-bubble': '', onPointerMove: move, onPointerEnter: enterButton, onPointerLeave: () => leaveButton() } satisfies ButtonProps as ButtonProps,
+    button: { 'data-bubble': '', 'on:pointermove': move, onPointerEnter: enterButton, onPointerLeave: () => leaveButton() } satisfies ButtonProps as ButtonProps,
     view: () => (
       <>
         <div class="bubble" ref={bubble} aria-hidden="true">
-          <span class="bubble-body" ref={body} classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over(), 'has-label': tip().shown && !over() && !quiet(), 'is-button': over(), 'is-pressed': pressed(), 'is-ring': quiet() }}>
+          <span class="bubble-body" ref={body} classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over() && !plain(), 'has-label': tip().shown && !over() && !quiet() && !plain(), 'is-button': over(), 'is-pressed': pressed(), 'is-ring': quiet() }}>
             <span class="bubble-label">{tip().text}</span>
           </span>
           <span class="bubble-tag" classList={{ 'is-shown': shown() && options.revealed() && quiet() && tip().shown }}>{tip().text}</span>
@@ -554,7 +563,9 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
 
   let backButton!: HTMLButtonElement;
   let backByKeyboard = false;
+  let prevArrow!: HTMLButtonElement;
   let captionButton!: HTMLButtonElement;
+  let nextArrow!: HTMLButtonElement;
   let bookletButton!: HTMLButtonElement;
   let listenButton!: HTMLButtonElement;
   const [bookletOpen, setBookletOpen] = createSignal(false);
@@ -564,7 +575,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   // A jump (see Gallery) is under way: the view is leaving, and the page's controls fade with it.
   const [leaving, setLeaving] = createSignal(false);
   // The view is changing (a jump, the intro, a case opening or closing, the disc going in or out):
-  // Back, Escape, Enter, Space, the wordmark, the caption, Booklet and Listen do nothing until it has
+  // Close, Escape, Enter, Space, the wordmark, the caption, Booklet and Listen do nothing until it has
   // finished, as clicks on the scene don't (see GalleryScene.viewBusy). Moving along the row works.
   const busy = () => pointer().busy || leaving();
   const closeBooklet = () => {
@@ -755,38 +766,48 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     });
   }, { defer: true }));
 
-  // Focus moves only when the control holding it is about to go away: from Back, Booklet or Listen
-  // (hidden) to the caption when the case closes. The caption stays usable while the case is open (it puts the disc
-  // in the player then), so opening leaves focus on it. Anywhere else focus stays put. Focus returns
-  // to the caption only if the control got focus by keyboard; otherwise closing lets it go. How Back got
-  // focus is noted when it gets it (backByKeyboard): any key press, Escape included, makes the
-  // focused element count as keyboard-focused from then on. A memo, so this runs only when the case
-  // opens or closes, not on every pointer change.
+  // Focus moves only when the control holding it is about to go away, and only if it got focus by
+  // keyboard (otherwise it is let go), to what takes its place. As the case opens: from About to
+  // Close in the same corner, from the arrows to Booklet or Listen on their side, and from the
+  // caption (disabled once the case is open) to Listen. As it closes, the other way: from Close to
+  // About, and from Booklet or Listen to the arrow on their side (the other one at either end of the
+  // row). How Close got focus is noted when it gets it (backByKeyboard): any key press, Escape
+  // included, makes the focused element count as keyboard-focused from then on. A memo, so this
+  // runs only when the case opens or closes, not on every pointer change, and a computation, so
+  // focus is read before the controls go inert or disabled, which drops it.
   const isOpen = createMemo(() => pointer().opened >= 0);
-  createEffect(on(isOpen, (open) => {
+  createComputed(on(isOpen, (open) => {
     const focused = document.activeElement;
+    const byKeyboard = Boolean(focused?.matches(':focus-visible'));
+    if (open) {
+      const target = !byKeyboard ? null : focused === aboutLink ? backButton : focused === prevArrow ? bookletButton
+        : focused === nextArrow || focused === captionButton ? listenButton : null;
+      if (target) requestAnimationFrame(() => target.focus({ preventScroll: true }));
+      return;
+    }
     requestAnimationFrame(() => {
-      if (!open && focused === backButton) {
-        if (backByKeyboard) captionButton.focus({ preventScroll: true });
+      if (focused === backButton) {
+        if (backByKeyboard) aboutLink.focus({ preventScroll: true });
         else backButton.blur();
-      } else if (!open && (focused === bookletButton || focused === listenButton) && focused.matches(':focus-visible')) {
-        captionButton.focus({ preventScroll: true });
+      } else if ((focused === bookletButton || focused === listenButton) && byKeyboard) {
+        const arrow = focused === bookletButton ? (prevArrow.disabled ? nextArrow : prevArrow) : (nextArrow.disabled ? prevArrow : nextArrow);
+        arrow.focus({ preventScroll: true });
       }
     });
   }, { defer: true }));
 
-  // The same for the player view: from the caption (inactive in it) or Listen to Play when the disc
-  // goes in by keyboard, and from the transport row or the store links (inert once the disc comes
-  // out) back to the caption, if they had keyboard focus; otherwise focus is let go. Which it was is
-  // noted before the controls change (a computation runs before the DOM updates), and the caption
-  // takes focus once the disc is back in its case.
+  // The same for the player view: from Listen to Play when the disc goes in by keyboard, and from
+  // the transport row or the store links (inert once the disc comes out), if they had keyboard
+  // focus, to Booklet or Listen on their side (Listen from the transport row) once the disc is back
+  // in its case and those return. Which it was is noted before the controls change (a computation
+  // runs before the DOM updates).
   let playAfterInsert = false;
-  let captionAfterEject = false;
+  let afterEject: HTMLButtonElement | null = null;
   createComputed(on(listening, (listen) => {
     const focused = document.activeElement as HTMLElement | null;
     const byKeyboard = Boolean(focused?.matches(':focus-visible'));
-    if (listen) playAfterInsert = (focused === captionButton || focused === listenButton) && byKeyboard;
-    else if (focused?.closest('.transport, .case-action')) captionAfterEject = byKeyboard;
+    if (listen) playAfterInsert = focused === listenButton && byKeyboard;
+    else if (byKeyboard && focused?.closest('.transport, .case-action')) afterEject = focused.closest('.is-left') ? bookletButton : listenButton;
   }, { defer: true }));
   createEffect(on(seated, (landed) => {
     if (!landed || !playAfterInsert) return;
@@ -794,14 +815,15 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     requestAnimationFrame(() => playButton.focus({ preventScroll: true }));
   }, { defer: true }));
   createEffect(on(() => pointer().discOut, (out) => {
-    if (out || !captionAfterEject) return;
-    captionAfterEject = false;
+    const target = afterEject;
+    if (out || !target) return;
+    afterEject = null;
     const started = performance.now();
-    const focusCaption = () => {
-      if (getComputedStyle(captionButton).visibility === 'visible') captionButton.focus({ preventScroll: true });
-      else if (performance.now() - started < 1500) requestAnimationFrame(focusCaption);
+    const focusTarget = () => {
+      if (getComputedStyle(target).visibility === 'visible') target.focus({ preventScroll: true });
+      else if (performance.now() - started < 1500) requestAnimationFrame(focusTarget);
     };
-    requestAnimationFrame(focusCaption);
+    requestAnimationFrame(focusTarget);
   }, { defer: true }));
 
   // The corner button says what it does, in the words the bubble uses over the scene: Close on an
@@ -991,9 +1013,9 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
         </p>
         <Show when={previews.failed()}><p class="transport-note" role="status">Song previews couldn't be loaded. Try again in a moment.</p></Show>
       </div>
-      {/* The caption, with controls level with it either side. The caption is a button that opens the
-          album (Tab reaches it between the arrows), and once it is open puts its disc in the player;
-          in the player it only names the album. Either side: the arrows while the row is browsed,
+      {/* The caption, with controls level with it either side. On the row it opens the album in front
+          (Tab reaches it between the arrows); in the other views it only names it, Booklet and Listen
+          doing the rest. Either side: the arrows while the row is browsed,
           Booklet and Listen while a case is open, Apple Music and Buy the CD once the disc has
           landed in the player (with the transport row). Each pair fades out before the next fades
           in. */}
@@ -1002,17 +1024,17 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
           inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) setBookletOpen(true); }} {...cursor.button}>Booklet</button>
         <a class="case-action store-link is-left" classList={{ 'is-shown': seated() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
           inert={seated() && selected().appleMusic ? undefined : true} {...cursor.button}>Apple Music</a>
-        <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
+        <button class="album-arrow is-prev" ref={prevArrow} classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
           disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
-          <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} disabled={listening()}
-            aria-label={`${pointer().opened < 0 ? 'Open' : listening() ? '' : 'Listen to'} ${selected().title} by ${selected().artist} (${selected().year})`.trim()}
-            onClick={() => { if (!busy()) (pointer().opened < 0 ? scene?.open() : scene?.insert()); }} {...cursor.button}>
+          <button class="album-name" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} disabled={pointer().opened >= 0}
+            aria-label={pointer().opened < 0 ? `Open ${selected().title} by ${selected().artist} (${selected().year})` : undefined}
+            onClick={() => { if (!busy()) scene?.open(); }} {...cursor.button}>
             <span class="eyebrow">{selected().artist}<span class="eyebrow-separator">/</span>{selected().year}</span>
             <span class="album-title">{selected().title}</span>
           </button>
         </div>
-        <button class="album-arrow is-next" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
+        <button class="album-arrow is-next" ref={nextArrow} classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
           disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
         <button class="case-action is-right" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={listenButton}
           inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) scene?.insert(); }} {...cursor.button}>Listen</button>
@@ -1025,7 +1047,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
         inert={aboutOpen() ? undefined : true} {...cursor.surface}>
         <div class="about-body">
           <p>
-            Discography is a small experiment in browsing music as physical CDs: each album in its
+            Discography is an experiment in browsing music as physical CDs: each album in its
             plastic jewel case, with the booklet folded inside.
           </p>
           <p>

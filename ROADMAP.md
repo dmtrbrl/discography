@@ -91,6 +91,20 @@ cleanup throughout), and its router now holds the page's state.
   version jumped on every Back and Forward too (a decision from the first review, revised).
 - **Jumps to the view already shown**: the browser's Back from the about page or the booklet lands
   on the view still under it, so only the page or the booklet goes; no intro replays.
+- **The caption opens the album on the row only**: in the other views it was a button too (on an
+  open case it put the disc in the player), which Booklet and Listen made redundant. There it is
+  disabled now: it only names the album, and still takes clicks, doing nothing, so a click on the
+  title of an open case doesn't count as a click beside it. Keyboard focus moves to what takes the
+  place of a control going away. As a case opens: About to Close, the arrows to Booklet or Listen
+  on their side, the caption (disabled then) to Listen. As it closes, and after an eject: Close to
+  About in the same corner, Booklet or Listen to the arrow on their side, the transport row or a
+  store link to Booklet or Listen on their side after an eject. Focus is read before Booklet and
+  Listen go inert as the case closes (inert dropped it, so that hand-over never worked before).
+- **The plain dot over disabled buttons**: over the disabled caption, and the first album's Prev or
+  the last one's Next, the bubble is the plain dot, as over the plain wordmark, with no label (a
+  click does nothing there). Before, the caption showed the system cursor, and the disabled arrows
+  showed no cursor at all: Solid's delegated handlers skip disabled buttons, so the bubble's move
+  handler never ran over them. It is a native listener on buttons now.
 - **No input during a view change**: while the intro or a jump plays, a case opens or closes, or
   the disc goes into the player or back (`viewBusy()`, reported as `busy` with the pointer state),
   Back, Escape, Enter, Space, the wordmark, the caption, Booklet, Listen, clicks and drags on the
