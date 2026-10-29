@@ -37,13 +37,24 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 /* Where the bubble cursor is on (mouse only), it replaces the system cursor. */
 .has-bubble, .has-bubble * { cursor: none !important; }
 .bubble { position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none; will-change: transform; }
-.bubble-body { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: var(--ink); color: var(--bg-center); opacity: 0; transform: scale(0); transition: transform .35s cubic-bezier(.32,.72,0,1), opacity .2s ease, background-color .25s ease; }
+.bubble-body { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: var(--ink); color: var(--bg-center); opacity: 0; transform: scale(0); transition: transform .35s cubic-bezier(.32,.72,0,1), opacity .2s ease, background-color .25s ease, box-shadow .25s ease; }
 .bubble-body.is-shown { opacity: 1; transform: scale(.14); }
 .bubble-body.is-shown.is-active { transform: scale(.3); }
 .bubble-body.is-shown.is-active.is-pressed { transform: scale(.26); }
 .bubble-body.is-shown.has-label { transform: scale(1); }
 .bubble-body.is-shown.has-label.is-pressed { transform: scale(.9); }
 .bubble-body.is-shown.is-button { transform: scale(.526); }
+/* Over the player's buttons, which light up themselves: a thin ring round the button instead of a
+   dot over it (76 px at .34 is 26 px, the 4.5 px line 1.5 px), in the beige of the symbols so it shows
+   on the dark player, and the label as a tag above the ring. */
+.bubble-body.is-shown.is-ring { transform: scale(.34); background: transparent; box-shadow: inset 0 0 0 4.5px var(--bg-center); }
+.bubble-body.is-shown.is-ring.is-pressed { transform: scale(.3); }
+.bubble-tag { position: absolute; left: 0; bottom: 18px; padding: 6px 11px 7px; border-radius: 999px; background: var(--ink); color: var(--bg-center); font: 500 12px 'DM Sans', sans-serif; letter-spacing: .01em; white-space: nowrap; opacity: 0; transform: translate(-50%, 4px); transition: opacity .2s ease, transform .35s cubic-bezier(.32,.72,0,1); }
+.bubble-tag.is-shown { opacity: 1; transform: translate(-50%, 0); }
+/* The player's buttons for the keyboard and screen readers: invisible, and no target for the pointer
+   (the scene handles it); a focused one sits over its button, ringed in the screen's beige. */
+.player-control { position: fixed; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0; background: none; pointer-events: none; }
+.player-control:focus-visible { outline-color: var(--bg-center); outline-offset: 3px; border-radius: 4px; }
 /* Holds a white clone of the text button under the bubble, clipped to the dot. */
 .bubble-copy { position: fixed; z-index: 6; pointer-events: none; clip-path: circle(0 at 0 0); }
 .bubble-copy * { color: #fff !important; opacity: 1 !important; }
@@ -167,4 +178,4 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   h1, .album-title { font-size: 32px; }
   .eyebrow { font-size: 15px; }
 }
-@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .menu, .artist > *, .home-body, .curtain, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .album-arrow, .menu-label, .preloader, .preloader-fill, .tracklist { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .menu, .artist > *, .home-body, .curtain, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .menu-label, .preloader, .preloader-fill, .tracklist { transition: none; } }

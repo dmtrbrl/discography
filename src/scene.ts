@@ -5,9 +5,12 @@ import type { Album } from './band';
 
 // All visual and motion tuning. The disc radius is 1 unit.
 const C = {
-  discThickness: 0.01, edgeBleed: 0.005, edgeBevel: 1, seamOverlap: 0.008,
+  discThickness: 0.01, edgeBleed: 0.005, seamOverlap: 0.008,
+  // The disc's print ends at discPrintEdge of its radius; outside it, and where art is missing, the
+  // disc shows discFallback.
+  discPrintEdge: 0.978, discFallback: '#0c0c0e',
   // Radii as a fraction of the disc: centre hole, clear clamping zone, then the mirror band up to the print.
-  holeSize: 0.127, hubSize: 0.31, labelInner: 0.345, mirrorBandShade: 0.2,
+  holeSize: 0.127, hubSize: 0.31, labelInner: 0.345, mirrorBandShade: 0.2, discScanInset: 0.012,
   plasticTint: '#b9bcc0', plasticOpacity: 0.08, plasticEdge: 0.45, plasticRings: [[0.2, 0.0035, 0.1], [0.14, 0.004, 0.12]],
   frontRough: 0.42, frontMetal: 0.48, frontClearcoat: 0.8, texGrain: 0.59, texPrint: 0.35, texScratches: 0.36, texGloss: 1,
   backColor: '#83888f', backRough: 0.2, backMetal: 1, backClearcoat: 0.5, backBand: 0.035, backBandOpacity: 0.88,
@@ -19,7 +22,6 @@ const C = {
   // through the centre, and how much the colours wash out toward silver.
   diffractionStrength: 1.1, diffractionSaturation: 0.8, diffractionFocus: 1.5, diffractionSpacing: 1600,
   diffractionLights: [[-0.3, 0.75, 0.6, 1], [0.7, -0.2, 0.7, 0.6]],
-  edgeColor: '#e4e7ec', edgeRoughness: 0.16, edgeMetalness: 0.2,
   // Jewel case in millimetres; a disc radius (60 mm) is one unit. A standard case is 142 × 125 ×
   // 10.4 mm, hinged on the left. Back to front: base plate, back insert, black tray, disc, booklet,
   // lid plate. The insert's ends fold forward into the two spines.
@@ -33,7 +35,7 @@ const C = {
   lidTabInset: 16, lidTabRadius: 5, lidStopY: [16, 40], trayClipSpread: 37, trayClipRadius: 4.5,
   // The case plastic (makeCasePlastic). Its reflection: a long, soft strip light running left to
   // right, above and in front (caseSheenDir, world space), seen as a soft band with no ends.
-  // Strength and angular half-width in radians. The disc print and rim reflect the same light
+  // Strength and angular half-width in radians. The disc print reflects the same light
   // (discSheen) instead of the direct lights, so the open case is lit like the closed one. Cut edges get a little extra opacity, so they read
   // as thicker plastic; wear adds scratches and smudges.
   caseSheen: 0.12, caseSheenWidth: 0.1, caseSheenDir: [0, 0.75, 0.66], discSheen: 0.18,
@@ -62,18 +64,37 @@ const C = {
   wheelNoiseFloor: 0.3, wheelStepThreshold: 6, wheelEventCap: 24, wheelEnvelopeTau: 550, wheelRiseFactor: 1.2, wheelTickGap: 34, wheelTickRatio: 1,
   wheelPauseGap: 130, wheelIdleReset: 150, wheelMinStepTick: 90, wheelMinStepFlick: 190, wheelSustainDelay: 480, wheelSustainRatio: 0.8,
   renderRadius: 5, loadTimeout: 12000, artResolution: 1024, mapResolution: 1024, maxPixels: 8e6, slowFrame: 0.022, verySlowFrame: 0.04,
-  // CD player, in millimetres: a slim, lidless top-loader in glossy graphite with silver trim, only a
-  // little larger than the disc. A glossy top pane sits playerFrame inside the edge, cut round a
-  // metal ring (playerRing wide) that slopes down into the well; the disc drops onto the turntable
-  // and rests playerDiscDrop below the top. No controls: the front is one screen across the face
-  // (playerScreenMargin in from its edges) showing the track, and the left side a band of speaker
-  // holes (playerGrilleRows rows, playerGrillePitch apart).
+  // CD player, in millimetres: a slim, lidless top-loader in glossy graphite, only a little larger
+  // than the disc. A glossy top pane with a matte black edge sits playerFrame inside the body's edge,
+  // cut round a metal ring (playerRing wide) that slopes down into the well; the disc drops onto the
+  // turntable and rests playerDiscDrop below the top. The front has a screen showing the track and
+  // four buttons; the left side a 3.5 mm headphone jack and a band of speaker holes
+  // (playerGrilleRows rows, playerGrillePitch apart).
   playerSize: 146, playerHeight: 18, playerCorner: 7, playerBevel: 1, playerFrame: 1.4, playerRing: 2.2, wellRadius: 62, wellDepth: 10, wellZ: 0, playerDiscDrop: 4,
   playerEnvLift: 1.4, playerAmbient: 0.9, playerColor: '#3a3c41', playerRough: 0.38, playerTop: '#2c2e32', playerTopBack: '#5a5d64', playerTopSheen: 0.12,
-  playerChrome: '#e2e4e8', playerTrim: '#cfd2d7', playerRingColor: '#c6c9ce', playerWell: '#2e3034', playerHoles: '#101113',
-  // The screen: margin (mm), colour, canvas pixels a millimetre, and how fast a long title scrolls.
-  playerScreenMargin: 3, playerScreenColor: '#ff9d45', playerScreenResolution: 14, playerScreenScroll: 9,
+  playerChrome: '#e2e4e8', playerTrim: '#141517', playerWell: '#18191c', playerHoles: '#101113',
+  // The ring round the well and the jack's collar: polished dark metal, darker than the body.
+  playerMetal: '#1c1d20',
+  // Wear on the body and top: fine scratches and wipe marks that catch the light (playerWear), the
+  // wear map repeating every playerWearScale millimetres.
+  playerWear: 2.5, playerWearScale: 90, playerTurntableGrain: 14, playerTurntableBump: 1.5, playerTurntableSpeckle: 0.22, playerTurntableTone: 1.15,
+  // The screen: text in playerScreenColor (the page's background), shown through a fine matrix of
+  // dots playerScreenDot millimetres apart, the unlit dots faintly showing (playerScreenUnlit);
+  // margin (mm), canvas pixels a millimetre, and how fast a long title scrolls.
+  playerScreenColor: '#ebe3d4', playerScreenDot: 0.3, playerScreenUnlit: 0.06,
+  playerScreenMargin: 3, playerScreenResolution: 14, playerScreenScroll: 9,
   playerGrilleRows: 4, playerGrillePitch: 2.4, playerGrilleHole: 0.7,
+  // Along the left side, in millimetres from its middle toward the front (the corners begin at
+  // ±playerSize / 2 - playerCorner): the jack's centre and the speaker band's ends. On the front,
+  // from the corner, the screen (playerScreenMargin in from the face's edges) and, playerScreenGap
+  // after it, the buttons (previous, play, pause, next) up to playerScreenMargin from the right end,
+  // each playerButtonWidth by playerButtonHeight, playerButtonGap apart, which a click presses
+  // playerButtonPress in. Their symbols are printed in playerPrint, half see-through
+  // (playerPrintOpacity). Under the pointer a button's symbol shows in full, easing over
+  // playerButtonHover seconds (a time constant).
+  playerJackAt: -61, playerGrilleFrom: -50, playerGrilleTo: 62, playerScreenGap: 5,
+  playerButtonWidth: 9, playerButtonHeight: 7, playerButtonGap: 2.6, playerButtonPress: 0.4, playerPrintOpacity: 0.5, playerButtonHover: 0.08,
+  playerButtonColor: '#45474d', playerPrint: '#ebe3d4',
   // The player stands level, turned playerYaw degrees on its stand so a corner faces the camera (as
   // in the product photo), at playerScale of the scene's size. On wide screens it sits
   // playerShift of the half-width left of centre, leaving the right for the tracklist; on narrow
@@ -96,13 +117,16 @@ const C = {
 } as const;
 
 // overDisc: the pointer is over the open case's disc. listening: the player view is wanted (from
-// insert() until eject()); discOut: the disc is out of its case (until the eject has finished).
-export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; listening: boolean; discOut: boolean }
+// insert() until eject()); discOut: the disc is out of its case (until the eject has finished);
+// overButton: the player's button under the pointer, if any.
+export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; listening: boolean; discOut: boolean; overButton: PlayerButton | null }
 
 export interface SceneOptions {
   onProgress?: (loaded: number, total: number) => void;
   onReady?: () => void;
   onPointer?: (state: PointerState) => void;
+  // A click on one of the player's buttons.
+  onPlayerButton?: (button: PlayerButton) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
@@ -254,7 +278,7 @@ const lensDistance = (fov: number) => (C.cameraDistance * Math.tan(THREE.MathUti
 const PLAYER_SCRATCH = {
   trayPosition: new THREE.Vector3(), trayQuaternion: new THREE.Quaternion(), trayScale: new THREE.Vector3(),
   seatPosition: new THREE.Vector3(), seatQuaternion: new THREE.Quaternion(), seatScale: new THREE.Vector3(),
-  matrix: new THREE.Matrix4(), axis: new THREE.Vector3(),
+  matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), corner: new THREE.Vector3(),
 };
 
 // Pixel ratio multipliers, stepped down while frames keep running long.
@@ -416,24 +440,6 @@ function latheParts(parts: Point[][], segments: number) {
   const geometry = mergeGeometries(pieces);
   pieces.forEach((piece) => piece.dispose());
   return geometry;
-}
-
-// Solid outer rim: flat top and bottom, a straight side wall and small rounded corners.
-function makeEdgeGeometry() {
-  const half = C.discThickness / 2;
-  // The rim's faces tuck under the artwork and data rings so no background shows at the seam.
-  const inner = 1 - C.edgeBleed - C.seamOverlap;
-  const round = half * 0.5 * C.edgeBevel;
-  const side: Point[] = [];
-  for (let n = 0; n <= 8; n++) {
-    const angle = -Math.PI / 2 + (n / 8) * (Math.PI / 2);
-    side.push([1 - round + Math.cos(angle) * round, -half + round + Math.sin(angle) * round]);
-  }
-  for (let n = 0; n <= 8; n++) {
-    const angle = (n / 8) * (Math.PI / 2);
-    side.push([1 - round + Math.cos(angle) * round, half - round + Math.sin(angle) * round]);
-  }
-  return latheParts([[[inner, -half], [1 - round, -half]], side, [[1 - round, half], [inner, half]]], 256);
 }
 
 // The clear centre: one flat ring of plastic, as thick as the disc, from the hole to the artwork.
@@ -612,26 +618,56 @@ outgoingLight += mix(vec3(1.0), diffuseColor.rgb, metalnessFactor) * softBand * 
   return material;
 }
 
+// The player's glossy plastic with wear: the case's wear map (fine scratches and wipe marks, red)
+// catches the light where the surface reflects the room. It is mapped onto each face from the
+// model's own millimetres, repeating every playerWearScale. With `sheen`, the soft reflection
+// (softReflection) is added at that strength, and the marks also show where it falls.
+function withPlayerWear(material: THREE.MeshPhysicalMaterial, key: string, wear: THREE.Texture, sheen = 0) {
+  const glsl = (value: number) => value.toFixed(4);
+  material.customProgramCacheKey = () => key;
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.playerWearMap = { value: wear };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWearPosition;\nvarying vec3 vWearNormal;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWearPosition = position;\nvWearNormal = normal;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D playerWearMap;\nvarying vec3 vWearPosition;\nvarying vec3 vWearNormal;')
+      .replace('#include <opaque_fragment>', `${sheen ? softReflection() : 'float softBand = 0.0;'}
+outgoingLight += vec3(softBand * ${glsl(sheen)});
+vec3 wearFacing = abs(vWearNormal);
+vec2 wearUv = wearFacing.y > 0.5 ? vWearPosition.xz : wearFacing.x > wearFacing.z ? vWearPosition.zy : vWearPosition.xy;
+float wearMark = texture2D(playerWearMap, wearUv / ${glsl(C.playerWearScale)}).r;
+float wearLight = dot(reflectedLight.indirectSpecular, vec3(0.3333)) + softBand;
+outgoingLight += vec3(wearMark * ${glsl(C.playerWear)} * (0.04 + wearLight));
+#include <opaque_fragment>`);
+  };
+  return material;
+}
+
 // Clear polycarbonate for the centre: plain see-through plastic with a slight tint. Real
 // refraction (transmission) would show a blurred copy of the artwork and render the scene twice.
 // Plain opacity would also fade the reflections, so edges seen side-on (Fresnel) and specular
 // highlights stay opaque. That outlines the hole and rim and keeps the glints, like real plastic.
 // Like the case, it reflects the soft strip light rather than the direct lights.
-function makePlastic({ roughness, opacity, rings: ringList = [] }: { roughness: number; opacity: number; rings?: readonly (readonly [number, number, number])[] }) {
+// `side` is DoubleSide for open sheets; a closed solid takes FrontSide (see makeDisc).
+function makePlastic({ roughness, opacity, rings: ringList = [], side = THREE.DoubleSide }: { roughness: number; opacity: number; rings?: readonly (readonly [number, number, number])[]; side?: THREE.Side }) {
   const material = new THREE.MeshPhysicalMaterial({
     color: C.plasticTint, roughness, metalness: 0, transparent: true, opacity, depthWrite: false,
-    clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1, side: THREE.DoubleSide, forceSinglePass: true,
+    clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 1, side, forceSinglePass: true,
   });
   // Faint moulded rings (stacking ring, hole lip) as soft bands of extra opacity.
   const rings = ringList.map(([radius, width, amount]) => `plasticAlpha += ${amount.toFixed(3)} * exp(-pow((plasticRadius - ${radius.toFixed(4)}) / ${width.toFixed(4)}, 2.0));`).join('\n');
   material.customProgramCacheKey = () => 'plastic';
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float plasticRadius;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nplasticRadius = length(position.xz);');
+      .replace('#include <common>', '#include <common>\nvarying vec2 plasticPlane;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nplasticPlane = position.xz;');
+    // The radius is taken per pixel: interpolated from the corners of the hub's long thin triangles,
+    // it bent the fine rings into ticks and dashes that read as scratches.
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float plasticRadius;')
+      .replace('#include <common>', '#include <common>\nvarying vec2 plasticPlane;')
       .replace('#include <opaque_fragment>', `${softReflection()}
+float plasticRadius = length(plasticPlane);
 outgoingLight += vec3(softBand * ${C.caseSheen.toFixed(4)});
 float plasticFresnel = pow(1.0 - abs(dot(normal, geometryViewDir)), 3.0);
 float plasticGlint = dot(reflectedLight.indirectSpecular, vec3(0.3333)) + softBand * ${C.caseSheen.toFixed(4)};
@@ -938,7 +974,6 @@ function makeSharedResources(renderer: THREE.WebGLRenderer) {
   const geometries = {
     front: planarRing(C.hubSize, 1 - C.edgeBleed),
     back: planarRing(C.hubSize, 1 - C.edgeBleed),
-    edge: makeEdgeGeometry(),
     hub: makeHubGeometry(),
     pick: new THREE.CircleGeometry(1, 24),
     baseShell: makeBaseShellGeometry(),
@@ -1016,11 +1051,14 @@ function makeArtTexture(image: Picture, anisotropy: number, scan = false) {
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.arc(size / 2, size / 2, (size / 2) * Math.max(C.holeSize, C.hubSize), 0, Math.PI * 2, true);
   ctx.clip('evenodd');
-  ctx.fillStyle = '#0c0c0e';
+  ctx.fillStyle = C.discFallback;
   ctx.fillRect(0, 0, size, size);
   if (scan) {
     const disc = findDiscInScan(image);
-    ctx.drawImage(image, disc.x, disc.y, disc.size, disc.size, 0, 0, size, size);
+    // A small inset removes the scanner background and uneven cut edge. Keep the crop centred on
+    // the detected disc, so no white crescent appears as it rotates on the player.
+    const inset = disc.size * C.discScanInset;
+    ctx.drawImage(image, disc.x + inset, disc.y + inset, disc.size - inset * 2, disc.size - inset * 2, 0, 0, size, size);
   } else {
     const ratio = (image.naturalWidth || image.width) / (image.naturalHeight || image.height);
     const width = ratio > 1 ? size * ratio : size;
@@ -1035,6 +1073,13 @@ function makeArtTexture(image: Picture, anisotropy: number, scan = false) {
     ctx.fillStyle = `rgba(6, 6, 10, ${C.mirrorBandShade})`;
     ctx.fill('evenodd');
   }
+  // The print stops short of the edge (discPrintEdge), which is the fallback colour all round: a
+  // scan's last pixels can hold scanner background, which a spinning disc smears into a white ring.
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.arc(size / 2, size / 2, (size / 2) * C.discPrintEdge, 0, Math.PI * 2, true);
+  ctx.fillStyle = C.discFallback;
+  ctx.fill('evenodd');
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = anisotropy;
@@ -1313,14 +1358,6 @@ diffuseColor *= sampledDiffuseColor;
   return material;
 }
 
-// The disc's clear rim, with a faint thin-film shimmer.
-function makeEdgeMaterial() {
-  return withSoftReflection(new THREE.MeshPhysicalMaterial({
-    color: C.edgeColor, roughness: C.edgeRoughness, metalness: C.edgeMetalness, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.1,
-    iridescence: 1, iridescenceIOR: 1.6, iridescenceThicknessRange: [300, 900], side: THREE.DoubleSide,
-  }), 'cd-edge', C.discSheen);
-}
-
 function makeDisc(shared: SharedResources, seed: number): Disc {
   const { geometries, materials } = shared;
   // Each disc has its own materials so its shade can differ from the others'.
@@ -1336,21 +1373,22 @@ function makeDisc(shared: SharedResources, seed: number): Disc {
   }), 'cd-front', C.discSheen), shade), blur);
   const front = new THREE.Mesh(geometries.front, frontMaterial);
   const backMaterial = withShade(makeBackMaterial(shared, seed), shade);
-  const edgeMaterial = withShade(makeEdgeMaterial(), shade);
-  const hubMaterial = withShade(makePlastic({ roughness: 0.05, opacity: C.plasticOpacity, rings: C.plasticRings }), shade);
+  // The hub is a closed ring, so only its faces toward the viewer are drawn: drawn from both sides in
+  // one pass, its top and bottom, a hair apart, blended in triangle order into a radial pattern that
+  // read as scratches and turned with the disc.
+  const hubMaterial = withShade(makePlastic({ roughness: 0.05, opacity: C.plasticOpacity, rings: C.plasticRings, side: THREE.FrontSide }), shade);
   const back = new THREE.Mesh(geometries.back, backMaterial);
-  const edge = new THREE.Mesh(geometries.edge, edgeMaterial);
   const hub = new THREE.Mesh(geometries.hub, hubMaterial);
   front.position.z = C.discThickness / 2 + 6e-4;
   back.position.z = -C.discThickness / 2 - 6e-4;
   back.rotation.y = Math.PI;
-  for (const mesh of [edge, hub]) mesh.rotation.x = Math.PI / 2;
-  spin.add(front, back, edge, hub);
+  hub.rotation.x = Math.PI / 2;
+  spin.add(front, back, hub);
   // The flat, invisible pick disc stays outside the spin group so hit tests ignore spin and flip.
   const pick = new THREE.Mesh(geometries.pick, materials.pick);
   group.add(pick);
   return {
-    group, spin, pick, shade, blur, materials: [frontMaterial, backMaterial, edgeMaterial, hubMaterial], frontMaterial, art: null, disposed: false,
+    group, spin, pick, shade, blur, materials: [frontMaterial, backMaterial, hubMaterial], frontMaterial, art: null, disposed: false,
     hover: 0, spinX: 0, spinY: 0, resetTween: null, placed: false,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -1403,11 +1441,11 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
 }
 
 // The CD player (makePlayer). Built in millimetres like the case: y up, centred on the body, the
-// button face +z and the port face -x; turned on its stand so the corner between them faces the
-// camera. Modelled rather than painted: a white body with a glossy top pane edged in chrome, a
-// chrome ring down into the well, the pickup slot and sled, a turntable with clamp balls, square
-// buttons, a display with segment digits, a speaker grille and two ports, and its shadow on the
-// surface it stands on.
+// screen face +z and the speaker side -x; turned on its stand so the corner between them faces the
+// camera. Modelled rather than painted: a graphite body with a glossy top pane edged in silver, a
+// silver ring down into the well, the pickup slot and sled, a turntable with clamp balls, the
+// screen, a headphone jack, a speaker grille and four buttons, and its shadow on the surface it
+// stands on.
 const PLAYER = (() => {
   const half = C.playerSize / 2;
   const top = C.playerHeight / 2;
@@ -1416,19 +1454,40 @@ const PLAYER = (() => {
   return { half, top, seat, floor: top - C.wellDepth, flat: half - C.playerCorner };
 })();
 
-function roundedRect(width: number, height: number, radius: number) {
-  const shape = new THREE.Shape();
-  const x = width / 2, y = height / 2;
-  shape.moveTo(-x + radius, -y);
-  shape.lineTo(x - radius, -y);
-  shape.quadraticCurveTo(x, -y, x, -y + radius);
-  shape.lineTo(x, y - radius);
-  shape.quadraticCurveTo(x, y, x - radius, y);
-  shape.lineTo(-x + radius, y);
-  shape.quadraticCurveTo(-x, y, -x, y - radius);
-  shape.lineTo(-x, -y + radius);
-  shape.quadraticCurveTo(-x, -y, -x + radius, -y);
+// A rounded rectangle centred on (cx, cy), drawn into `shape` (a Path for a hole).
+function roundedRect(width: number, height: number, radius: number, cx = 0, cy = 0, shape: THREE.Path = new THREE.Shape()) {
+  const [left, right, bottom, top] = [cx - width / 2, cx + width / 2, cy - height / 2, cy + height / 2];
+  shape.moveTo(left + radius, bottom);
+  shape.lineTo(right - radius, bottom);
+  shape.quadraticCurveTo(right, bottom, right, bottom + radius);
+  shape.lineTo(right, top - radius);
+  shape.quadraticCurveTo(right, top, right - radius, top);
+  shape.lineTo(left + radius, top);
+  shape.quadraticCurveTo(left, top, left, top - radius);
+  shape.lineTo(left, bottom + radius);
+  shape.quadraticCurveTo(left, bottom, left + radius, bottom);
   return shape;
+}
+
+const roundedShape = (width: number, height: number, radius: number, cx = 0, cy = 0) => roundedRect(width, height, radius, cx, cy) as THREE.Shape;
+
+export type PlayerButton = 'previous' | 'play' | 'pause' | 'next';
+const PLAYER_BUTTONS: PlayerButton[] = ['previous', 'play', 'pause', 'next'];
+
+// The buttons' printed transport symbols, about 3 mm across, centred, x to the right.
+function playerMark(kind: PlayerButton): THREE.Shape[] {
+  const polygon = (...points: Point[]) => new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x, y)));
+  const bar = (x: number, width = 0.55) => roundedShape(width, 2.3, 0.12, x, 0);
+  switch (kind) {
+    case 'play':
+      return [polygon([-0.85, -1.2], [1.2, 0], [-0.85, 1.2])];
+    case 'pause':
+      return [bar(-0.6, 0.65), bar(0.6, 0.65)];
+    case 'next':
+      return [polygon([-1.2, -1.1], [0.55, 0], [-1.2, 1.1]), bar(0.95)];
+    case 'previous':
+      return [polygon([1.2, -1.1], [-0.55, 0], [1.2, 1.1]), bar(-0.95)];
+  }
 }
 
 // The well as a hole in the top's plane (x right, y to the back), grown by `grow` millimetres.
@@ -1442,26 +1501,25 @@ function wellHole(grow = 0) {
 // upward, so the shape's y runs to the back (-z).
 function makePlayerBodyGeometry() {
   const bevel = C.playerBevel;
-  const shape = roundedRect(C.playerSize - bevel * 2, C.playerSize - bevel * 2, C.playerCorner - bevel);
+  const shape = roundedShape(C.playerSize - bevel * 2, C.playerSize - bevel * 2, C.playerCorner - bevel);
   shape.holes.push(wellHole(bevel));
   const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: C.playerHeight - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 20,
+    depth: C.playerHeight - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 96,
   });
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, -PLAYER.top + bevel, 0);
   return geometry;
 }
 
-// The top pane: a glossy white sheet just proud of the body, a hair inside its edge, cut round the
-// chrome ring. Its edges (material 1) are satin silver, the fine bright line round the top in the
-// photos. Seen from the front and above, a glossy pane mirrors the bright room toward its back and
+// The top pane: a glossy graphite sheet just proud of the body, a hair inside its edge, cut round
+// the metal ring. Its edges (material 1) are matte black, the fine line round the top. Seen from the front and above, a glossy pane mirrors the bright room toward its back and
 // the floor toward its front, so its vertex colours shade it from back to front.
 function makePlayerTopGeometry() {
   const inset = C.playerFrame;
-  const shape = roundedRect(C.playerSize - inset * 2, C.playerSize - inset * 2, Math.max(1, C.playerCorner - inset));
+  const shape = roundedShape(C.playerSize - inset * 2, C.playerSize - inset * 2, Math.max(1, C.playerCorner - inset));
   shape.holes.push(wellHole(C.playerRing));
   // Square edges: a rounded edge showed at the back, seen almost edge on, as a dotted sub-pixel line.
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: 1.15, bevelEnabled: false, curveSegments: 20 });
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: 1.15, bevelEnabled: false, curveSegments: 96 });
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, PLAYER.top - 0.4, 0);
   const position = geometry.attributes.position;
@@ -1475,12 +1533,13 @@ function makePlayerTopGeometry() {
   return geometry;
 }
 
-// The chrome ring round the well: from the top pane's edge it rounds over and slopes down into
+// The metal ring round the well: from the top pane's edge it rounds over and slopes down into
 // the well, as a lathe (top outside to bottom inside, so its normals face up and in).
 function makeWellRingGeometry() {
   const r = C.wellRadius, top = PLAYER.top, w = C.playerRing;
   // The lip lies on the pane (whose surface is 0.75 mm above the body's top) and covers its cut edge.
-  const profile: Point[] = [[r + w + 0.8, top + 0.76], [r + w, top + 1.05], [r + w - 1, top + 0.95], [r + 0.9, top - 0.4], [r + 0.2, top - 2.2], [r, top - 3.2]];
+  // It ends just inside the well's wall (makePlayer), which it would otherwise flicker against.
+  const profile: Point[] = [[r + w + 0.8, top + 0.76], [r + w, top + 1.05], [r + w - 1, top + 0.95], [r + 0.9, top - 0.4], [r - 0.1, top - 2.2], [r - 0.5, top - 3.4]];
   return new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 128);
 }
 
@@ -1495,6 +1554,28 @@ function makeSpindleGeometry() {
     [pin + 1.2, seat], [pin, seat + 0.2], [pin, seat + 1.4], [pin * 0.8, seat + 2.4], [pin * 0.4, seat + 2.9], [0, seat + 3],
   ];
   return new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 64);
+}
+
+// The turntable's matte surface as a colour map around white, for the lathe's UVs (u round it, v
+// along its profile, so rows are rings): a fine speckle, soft mottling, and faint turning rings.
+// The colour is multiplied by it, so it darkens a little on average (playerTurntableTone makes up).
+function makeTurntableGrainCanvas(size: number) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const image = ctx.createImageData(size, size);
+  const ring = new Float32Array(size).map((_, y) => (valueNoise(0, y * 3.7) - 0.5) * 0.08);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const mottle = (valueNoise(Math.floor(x / 16), Math.floor(y / 16)) + valueNoise(Math.floor(x / 16) + 1, Math.floor(y / 16) + 7)) / 2;
+      const value = 0.86 + (valueNoise(x, y) - 0.5) * C.playerTurntableSpeckle + (mottle - 0.5) * 0.06 + ring[y];
+      const n = (y * size + x) * 4;
+      image.data[n] = image.data[n + 1] = image.data[n + 2] = clamp(value, 0, 1) * 255;
+      image.data[n + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  return canvas;
 }
 
 // Canvas helper for the contact shadow: a canvas `width` × `height` millimetres at `scale` pixels a
@@ -1514,72 +1595,88 @@ interface Player {
   seat: THREE.Matrix4;
   // The turntable and its clamp balls, which turn with the disc.
   spindle: THREE.Group;
-  // The screen's canvas and texture (drawPlayerScreen), and whether its title is scrolling.
-  screen: { ctx: CanvasRenderingContext2D; texture: THREE.CanvasTexture; scrolls: boolean };
+  // The screen (drawPlayerScreen): its canvas and texture, the patterns that cut what it shows into
+  // dots and show the unlit ones, and whether its title is scrolling.
+  screen: { ctx: CanvasRenderingContext2D; dots: CanvasPattern; unlit: CanvasPattern; texture: THREE.CanvasTexture; scrolls: boolean };
+  // The buttons: each one's cap for picking, its symbol's material, which lights under the pointer
+  // (hover, 0 to 1), and the group that moves into the face (position.z, millimetres) as it is
+  // pressed (press, 0 to 1, run by `tween`).
+  buttons: { kind: PlayerButton; cap: THREE.Mesh; mark: THREE.MeshStandardMaterial; group: THREE.Group; hover: number; press: number; tween: Tween | null }[];
   resources: { dispose(): void }[];
 }
 
-function makePlayer(anisotropy: number): Player {
+// `grain` is the case tray's stipple (a normal map), for the turntable.
+function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
   const resources: { dispose(): void }[] = [];
   const keep = <T extends { dispose(): void }>(resource: T) => {
     resources.push(resource);
     return resource;
   };
   const group = new THREE.Group();
-  // Glossy graphite plastic, silver trim. The scene's lights are tuned for discs and cases; the
+  // Glossy graphite plastic, a matte black edge round the top. The scene's lights are tuned for discs and cases; the
   // player takes a little more of the room's light (playerEnvLift) so its finish reads.
-  const body = keep(new THREE.MeshPhysicalMaterial({ color: C.playerColor, roughness: C.playerRough, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: C.playerEnvLift }));
+  const wearMap = keep(new THREE.CanvasTexture(makeCaseWearCanvas(512)));
+  wearMap.wrapS = wearMap.wrapT = THREE.RepeatWrapping;
+  wearMap.anisotropy = anisotropy;
+  const body = keep(withPlayerWear(new THREE.MeshPhysicalMaterial({ color: C.playerColor, roughness: C.playerRough, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: C.playerEnvLift }), 'player-body', wearMap));
   const chrome = keep(new THREE.MeshPhysicalMaterial({ color: C.playerChrome, roughness: 0.12, metalness: 1, side: THREE.DoubleSide }));
   group.add(new THREE.Mesh(keep(makePlayerBodyGeometry()), body));
-  const top = keep(withSoftReflection(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: C.playerEnvLift }), 'player-top', C.playerTopSheen));
-  // The pane's edge: glossy light silver, the fine line round the top.
-  const trim = keep(new THREE.MeshPhysicalMaterial({ color: C.playerTrim, roughness: 0.1, metalness: 0.9, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.5 }));
+  const top = keep(withPlayerWear(new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: C.playerEnvLift }), 'player-top', wearMap, C.playerTopSheen));
+  // The pane's edge: matte black, the fine line round the top.
+  const trim = keep(new THREE.MeshStandardMaterial({ color: C.playerTrim, roughness: 0.8, metalness: 0, envMapIntensity: C.playerEnvLift }));
   group.add(new THREE.Mesh(keep(makePlayerTopGeometry()), [top, trim]));
-  // The ring round the well: thin polished light silver.
-  const ringMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerRingColor, roughness: 0.06, metalness: 1, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.6, side: THREE.DoubleSide }));
-  group.add(new THREE.Mesh(keep(makeWellRingGeometry()), ringMetal));
+  // The ring round the well, and the jack's collar: thin polished dark metal.
+  const darkMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerMetal, roughness: 0.18, metalness: 1, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: C.playerEnvLift, side: THREE.DoubleSide }));
+  group.add(new THREE.Mesh(keep(makeWellRingGeometry()), darkMetal));
 
-  // The well: its floor with the pickup slot cut in it toward the back, the slot's cavity with two
-  // rails and the sled carrying the lens, and the turntable.
-  const [slotWidth, slotFrom, slotTo] = [18, 18, 54];
+  // The well, as on most top-loaders: a matte black floor with one opening toward the back, where
+  // the pickup's lens shows on its black sled; the rails it runs on stay out of sight below.
+  const [slotWidth, slotFrom, slotTo] = [13, 21, 50];
   const floorShape = new THREE.Shape();
   floorShape.absarc(0, -C.wellZ, C.wellRadius + C.playerBevel, 0, Math.PI * 2, false);
-  const slot = new THREE.Path();
-  slot.moveTo(-slotWidth / 2, slotFrom - C.wellZ);
-  slot.lineTo(-slotWidth / 2, slotTo - C.wellZ);
-  slot.lineTo(slotWidth / 2, slotTo - C.wellZ);
-  slot.lineTo(slotWidth / 2, slotFrom - C.wellZ);
-  slot.closePath();
-  floorShape.holes.push(slot);
-  const satin = keep(new THREE.MeshStandardMaterial({ color: C.playerWell, roughness: 0.6, envMapIntensity: C.playerEnvLift }));
-  const floor = new THREE.Mesh(keep(new THREE.ShapeGeometry(floorShape, 48)), satin);
+  floorShape.holes.push(roundedRect(slotWidth, slotTo - slotFrom, 2, 0, (slotFrom + slotTo) / 2 - C.wellZ, new THREE.Path()));
+  const matte = keep(new THREE.MeshStandardMaterial({ color: C.playerWell, roughness: 0.85, envMapIntensity: C.playerEnvLift }));
+  const floor = new THREE.Mesh(keep(new THREE.ShapeGeometry(floorShape, 96)), matte);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = PLAYER.floor;
-  // The cavity is a box seen from inside (back faces), so its walls and bottom show through the slot.
+  // The well's wall, in the floor's black, as a lathe so it shades round (the body's cut edge, flat
+  // faceted, stays just behind it), from the floor up under the ring.
+  const wellWall = keep(new THREE.LatheGeometry([new THREE.Vector2(C.wellRadius - 0.4, PLAYER.top - 3.2), new THREE.Vector2(C.wellRadius - 0.4, PLAYER.floor)], 192));
+  const wall = new THREE.Mesh(wellWall, keep(new THREE.MeshStandardMaterial({ color: C.playerWell, roughness: 0.85, envMapIntensity: C.playerEnvLift, side: THREE.DoubleSide })));
+  wall.position.z = C.wellZ;
+  // The opening's depth is a box seen from inside (back faces), so its walls and bottom show through.
   const slotLength = slotTo - slotFrom;
   const slotZ = C.wellZ - (slotFrom + slotTo) / 2;
-  const cavity = new THREE.Mesh(keep(new THREE.BoxGeometry(slotWidth, 4, slotLength)), keep(new THREE.MeshStandardMaterial({ color: '#3c3e43', roughness: 0.8, side: THREE.BackSide })));
+  const cavity = new THREE.Mesh(keep(new THREE.BoxGeometry(slotWidth, 4, slotLength)), keep(new THREE.MeshStandardMaterial({ color: C.playerHoles, roughness: 0.9, side: THREE.BackSide })));
   cavity.position.set(0, PLAYER.floor - 2, slotZ);
-  const railGeometry = keep(new THREE.CylinderGeometry(0.5, 0.5, slotLength, 12).rotateX(Math.PI / 2));
-  const rails = [-6.5, 6.5].map((x) => {
-    const rail = new THREE.Mesh(railGeometry, chrome);
-    rail.position.set(x, PLAYER.floor - 1.6, slotZ);
-    return rail;
-  });
-  const sledZ = C.wellZ - 32;
-  const sled = new THREE.Mesh(keep(new THREE.BoxGeometry(14, 2, 9)), keep(new THREE.MeshStandardMaterial({ color: '#2b2c30', roughness: 0.4, metalness: 0.5 })));
-  sled.position.set(0, PLAYER.floor - 1.2, sledZ);
-  // The objective lens: a small glossy dome with the violet sheen of its coating, in a ring.
-  const lensRing = new THREE.Mesh(keep(new THREE.TorusGeometry(2, 0.35, 8, 32).rotateX(Math.PI / 2)), chrome);
-  lensRing.position.set(0, PLAYER.floor - 0.1, sledZ);
+  const sledZ = C.wellZ - 33;
+  const sled = new THREE.Mesh(keep(new THREE.BoxGeometry(10, 1.6, 8)), keep(new THREE.MeshStandardMaterial({ color: C.playerWell, roughness: 0.7 })));
+  sled.position.set(0, PLAYER.floor - 1.4, sledZ);
+  // The objective lens: a small glossy dome with the violet sheen of its coating, in a dark ring.
+  const lensRing = new THREE.Mesh(keep(new THREE.TorusGeometry(2, 0.35, 8, 32).rotateX(Math.PI / 2)), darkMetal);
+  lensRing.position.set(0, PLAYER.floor - 0.5, sledZ);
   const lens = new THREE.Mesh(keep(new THREE.SphereGeometry(1.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.5, 1)),
     keep(new THREE.MeshPhysicalMaterial({ color: '#191530', roughness: 0.05, clearcoat: 1, iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [250, 500] })));
-  lens.position.set(0, PLAYER.floor - 0.2, sledZ);
-  // The turntable, graphite like the body, with three steel spring balls round the pin that hold the
+  lens.position.set(0, PLAYER.floor - 0.6, sledZ);
+  // The turntable, in matte graphite without wear, since it shows through the disc's clear centre
+  // (glossy, it glared there). Its surface has a fine grain in its colour (makeTurntableGrainCanvas)
+  // and the tray's moulded stipple as bumps only (the tray's roughness map would make it glossy),
+  // repeating playerTurntableGrain times round it. Three steel spring balls round the pin hold the
   // disc, turning with it.
   const spindle = new THREE.Group();
   spindle.position.z = C.wellZ;
-  spindle.add(new THREE.Mesh(keep(makeSpindleGeometry()), body));
+  const turntableGrain = keep(grain.clone());
+  turntableGrain.wrapS = turntableGrain.wrapT = THREE.RepeatWrapping;
+  turntableGrain.repeat.set(C.playerTurntableGrain, C.playerTurntableGrain / 3);
+  const turntableMap = keep(new THREE.CanvasTexture(makeTurntableGrainCanvas(256)));
+  turntableMap.colorSpace = THREE.SRGBColorSpace;
+  turntableMap.wrapS = turntableMap.wrapT = THREE.RepeatWrapping;
+  turntableMap.repeat.set(4, 1);
+  turntableMap.anisotropy = anisotropy;
+  const turntable = keep(new THREE.MeshStandardMaterial({
+    color: new THREE.Color(C.playerColor).multiplyScalar(C.playerTurntableTone), map: turntableMap, roughness: 0.8, metalness: 0, envMapIntensity: C.playerEnvLift, normalMap: turntableGrain, normalScale: new THREE.Vector2(C.playerTurntableBump, C.playerTurntableBump),
+  }));
+  spindle.add(new THREE.Mesh(keep(makeSpindleGeometry()), turntable));
   const ballGeometry = keep(new THREE.SphereGeometry(0.8, 16, 8));
   const pin = C.holeSize * 60 - 0.2;
   for (let n = 0; n < 3; n++) {
@@ -1588,7 +1685,7 @@ function makePlayer(anisotropy: number): Player {
     ball.position.set(Math.cos(angle) * (pin - 0.3), PLAYER.seat + 1.1, Math.sin(angle) * (pin - 0.3));
     spindle.add(ball);
   }
-  group.add(floor, cavity, ...rails, sled, lensRing, lens, spindle);
+  group.add(floor, wall, cavity, sled, lensRing, lens, spindle);
 
   // Under it, its shadow on the surface it stands on (a blurred canvas, the one texture; it is light,
   // not shape): a dark, tight band where the base meets the surface, inside a wide soft falloff.
@@ -1613,37 +1710,102 @@ function makePlayer(anisotropy: number): Player {
   shadow.renderOrder = -1;
   group.add(shadow);
 
-  // The front (+z): one screen across the whole face, a glossy black pane with a fine bevel, just
-  // proud of the face. What it shows is drawn into a canvas (drawPlayerScreen), since track names
-  // need a real font; it lights the pane through its emissive map.
-  const front = PLAYER.half;
-  const [screenWidth, screenHeight] = playerScreenSize();
+  // Holes, seams and printing lie a hair off their face with a polygon offset, so none loses the
+  // depth test against it.
+  const decal = { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
+  const holes = keep(new THREE.MeshStandardMaterial({ color: C.playerHoles, roughness: 0.8, ...decal }));
+  // The printing glows a little, so it reads as the page's beige rather than grey in the room's light.
+  const print = keep(new THREE.MeshStandardMaterial({
+    color: C.playerPrint, emissive: C.playerPrint, emissiveIntensity: 0.45, roughness: 0.55, transparent: true, opacity: C.playerPrintOpacity, depthWrite: false, ...decal,
+  }));
+
+  // The front (+z), x to the right, y up, z out of the face. From the corner: the screen, a glossy
+  // black pane with a fine bevel, just proud of the face, and the buttons. What the screen shows is
+  // drawn into a canvas (drawPlayerScreen), since track names need a real font, on an unlit plane:
+  // a grid of whole dots inside the pane's bevel.
+  const front = new THREE.Group();
+  front.position.z = PLAYER.half;
+  group.add(front);
+  const [screenWidth, screenHeight, screenX] = playerScreenSize();
+  const dot = C.playerScreenDot;
+  const [dotColumns, dotRows] = [Math.floor((screenWidth - 1.6) / dot), Math.floor((screenHeight - 1.6) / dot)];
+  const cell = Math.max(2, Math.round(dot * C.playerScreenResolution));
   const screenCanvas = document.createElement('canvas');
-  screenCanvas.width = Math.round(screenWidth * C.playerScreenResolution);
-  screenCanvas.height = Math.round(screenHeight * C.playerScreenResolution);
+  [screenCanvas.width, screenCanvas.height] = [dotColumns * cell, dotRows * cell];
+  const ctx = screenCanvas.getContext('2d')!;
+  // One dot, as a tile, nearly filling it so the text keeps its brightness: opaque to cut the text
+  // into dots, and faint for the unlit ones.
+  const dotPattern = (style: string) => {
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = cell;
+    const tileCtx = tile.getContext('2d')!;
+    tileCtx.fillStyle = style;
+    tileCtx.beginPath();
+    tileCtx.arc(cell / 2, cell / 2, cell * 0.48, 0, Math.PI * 2);
+    tileCtx.fill();
+    return ctx.createPattern(tile, 'repeat')!;
+  };
+  const unlit = new THREE.Color(C.playerScreenColor);
   const screenMap = keep(new THREE.CanvasTexture(screenCanvas));
   screenMap.colorSpace = THREE.SRGBColorSpace;
   screenMap.anisotropy = anisotropy;
-  const pane = new THREE.Mesh(keep(new THREE.ExtrudeGeometry(roundedRect(screenWidth, screenHeight, 1.2), { depth: 0.2, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.15, bevelSegments: 2, curveSegments: 6 })),
+  const pane = new THREE.Mesh(keep(new THREE.ExtrudeGeometry(roundedShape(screenWidth, screenHeight, 1.2), { depth: 0.2, bevelEnabled: true, bevelThickness: 0.15, bevelSize: 0.15, bevelSegments: 2, curveSegments: 6 })),
     keep(new THREE.MeshPhysicalMaterial({ color: '#050506', roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02 })));
-  pane.position.set(0, 0, front);
-  const screen = new THREE.Mesh(keep(new THREE.PlaneGeometry(screenWidth - 1.2, screenHeight - 1.2)), keep(new THREE.MeshBasicMaterial({ map: screenMap, transparent: true, toneMapped: false, depthWrite: false })));
-  screen.position.set(0, 0, front + 0.4);
-  group.add(pane, screen);
+  pane.position.x = screenX;
+  const screen = new THREE.Mesh(keep(new THREE.PlaneGeometry(dotColumns * dot, dotRows * dot)), keep(new THREE.MeshBasicMaterial({ map: screenMap, transparent: true, toneMapped: false, depthWrite: false })));
+  screen.position.set(screenX, 0, 0.4);
+  front.add(pane, screen);
 
-  // The left side (-x): a band of speaker holes across the face, all one dark grey, lifted a little
-  // off the face with a polygon offset so none loses the depth test against it.
-  const holes = keep(new THREE.MeshStandardMaterial({ color: C.playerHoles, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-  const [columns, rows] = [Math.floor((PLAYER.flat * 2 - 8) / C.playerGrillePitch) + 1, C.playerGrilleRows];
+  // The buttons: rounded graphite caps standing proud of a dark seam, their symbols printed on.
+  const [buttonWidth, buttonHeight, buttonGap] = [C.playerButtonWidth, C.playerButtonHeight, C.playerButtonGap];
+  const seamShape = roundedShape(buttonWidth + 1.2, buttonHeight + 1.2, 2);
+  seamShape.holes.push(roundedRect(buttonWidth, buttonHeight, 1.5, 0, 0, new THREE.Path()));
+  const seamGeometry = keep(new THREE.ShapeGeometry(seamShape, 6));
+  const capGeometry = keep(new THREE.ExtrudeGeometry(roundedShape(buttonWidth - 0.6, buttonHeight - 0.6, 1.3), {
+    depth: 0.5, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.3, bevelSegments: 3, curveSegments: 8,
+  }));
+  const capMaterial = keep(new THREE.MeshPhysicalMaterial({ color: C.playerButtonColor, roughness: 0.42, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.35, envMapIntensity: C.playerEnvLift }));
+  const buttonsTo = PLAYER.flat - C.playerScreenMargin;
+  const buttons = PLAYER_BUTTONS.map((kind, n) => {
+    const x = buttonsTo - buttonWidth / 2 - (PLAYER_BUTTONS.length - 1 - n) * (buttonWidth + buttonGap);
+    const seam = new THREE.Mesh(seamGeometry, holes);
+    seam.position.set(x, 0, 0.02);
+    const button = new THREE.Group();
+    button.position.x = x;
+    const cap = new THREE.Mesh(capGeometry, capMaterial);
+    // Each symbol has its own copy of the printing, so it can light up alone.
+    const markMaterial = keep(print.clone());
+    const mark = new THREE.Mesh(keep(new THREE.ShapeGeometry(playerMark(kind), 4)), markMaterial);
+    mark.position.z = 0.82;
+    button.add(cap, mark);
+    front.add(seam, button);
+    return { kind, cap, mark: markMaterial, group: button, hover: 0, press: 0, tween: null };
+  });
+
+  // The left side (-x), built in its own plane: x toward the front, y up, z out of the side. From
+  // the back: the headphone jack and a band of speaker holes.
+  const side = new THREE.Group();
+  side.position.x = -PLAYER.half;
+  side.rotation.y = -Math.PI / 2;
+  group.add(side);
+  const columns = Math.floor((C.playerGrilleTo - C.playerGrilleFrom) / C.playerGrillePitch) + 1;
+  const rows = C.playerGrilleRows;
   const grille = new THREE.InstancedMesh(keep(new THREE.CircleGeometry(C.playerGrilleHole, 16)), holes, columns * rows);
-  const placement = new THREE.Matrix4().makeRotationY(-Math.PI / 2);
   const spot = new THREE.Matrix4();
   for (let n = 0; n < columns * rows; n++) {
-    const along = ((n % columns) - (columns - 1) / 2) * C.playerGrillePitch;
+    const along = (C.playerGrilleFrom + C.playerGrilleTo) / 2 + ((n % columns) - (columns - 1) / 2) * C.playerGrillePitch;
     const up = (Math.floor(n / columns) - (rows - 1) / 2) * C.playerGrillePitch;
-    grille.setMatrixAt(n, spot.makeTranslation(-PLAYER.half - 0.2, up, along).multiply(placement));
+    grille.setMatrixAt(n, spot.makeTranslation(along, up, 0.2));
   }
-  group.add(grille);
+  side.add(grille);
+
+  // The jack: a polished dark collar standing 0.4 mm proud round the dark 3.5 mm socket.
+  const collar = new THREE.Mesh(keep(new THREE.LatheGeometry(
+    ([[3.1, 0], [3, 0.25], [2.7, 0.4], [2.15, 0.4], [1.9, 0.2], [1.75, 0]] as Point[]).map(([x, y]) => new THREE.Vector2(x, y)), 48).rotateX(Math.PI / 2)), darkMetal);
+  const socket = new THREE.Mesh(keep(new THREE.CircleGeometry(1.75, 32)), holes);
+  socket.position.z = 0.02;
+  collar.position.x = socket.position.x = C.playerJackAt;
+  side.add(collar, socket);
 
   // The player's space is millimetres, so the disc on the seat is scaled up to its 60 mm radius.
   const seat = new THREE.Matrix4().compose(
@@ -1652,14 +1814,20 @@ function makePlayer(anisotropy: number): Player {
     new THREE.Vector3(1, 1, 1).multiplyScalar(1 / MM),
   );
   group.rotation.y = THREE.MathUtils.degToRad(C.playerYaw);
-  const ctx = screenCanvas.getContext('2d')!;
-  return { group, seat, spindle, screen: { ctx, texture: screenMap, scrolls: false }, resources };
+  const screenState = {
+    ctx,
+    dots: dotPattern('#fff'), unlit: dotPattern(`rgba(${unlit.toArray().map((value) => Math.round(value * 255)).join(', ')}, ${C.playerScreenUnlit})`),
+    texture: screenMap, scrolls: false,
+  };
+  return { group, seat, spindle, screen: screenState, buttons, resources };
 }
 
-// The screen's size in millimetres: the face between the rounded corners, less a margin, and most
-// of its height.
-function playerScreenSize(): Point {
-  return [PLAYER.flat * 2 - C.playerScreenMargin * 2, C.playerHeight - C.playerBevel * 2 - C.playerScreenMargin * 2];
+// The screen's width and height in millimetres, and its centre's x on the front: from the corner
+// end of the face (less a margin) to playerScreenGap before the buttons, and most of its height.
+function playerScreenSize(): [number, number, number] {
+  const buttons = PLAYER_BUTTONS.length * C.playerButtonWidth + (PLAYER_BUTTONS.length - 1) * C.playerButtonGap;
+  const [from, to] = [-PLAYER.flat + C.playerScreenMargin, PLAYER.flat - C.playerScreenMargin - buttons - C.playerScreenGap];
+  return [to - from, C.playerHeight - C.playerBevel * 2 - C.playerScreenMargin * 2, (from + to) / 2];
 }
 
 // What the screen shows. Stopped: the album and the number of tracks. Playing or paused: the play
@@ -1668,9 +1836,10 @@ function playerScreenSize(): Point {
 interface ScreenState { album?: Album; track: number | null; seconds: number; playing: boolean }
 
 function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
-  const { ctx, texture } = player.screen;
+  const { ctx, dots, unlit, texture } = player.screen;
   const { width, height } = ctx.canvas;
   const unit = height / 10;
+  ctx.globalCompositeOperation = 'source-over';
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = C.playerScreenColor;
   ctx.textBaseline = 'middle';
@@ -1709,15 +1878,19 @@ function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
     ctx.fillText(left, x, middle);
     x += ctx.measureText('00').width + unit * 4;
   }
+  ctx.font = sans;
+  const titleWidth = ctx.measureText(title).width;
   ctx.font = mono;
-  const rightWidth = ctx.measureText(right).width;
+  // Stopped, the number of tracks gives way to an album name that would not fit beside it.
+  const spacing = unit * 5;
+  if (state.track === null && titleWidth > width - pad * 2 - x - ctx.measureText(right).width - spacing) right = '';
+  const rightWidth = right ? ctx.measureText(right).width + spacing : 0;
   ctx.textAlign = 'right';
   ctx.fillText(right, width - pad, middle);
   ctx.textAlign = 'left';
   // The title fits between, or scrolls there, faded at its ends.
-  const room = width - pad - rightWidth - unit * 5 - x;
+  const room = width - pad - rightWidth - x;
   ctx.font = sans;
-  const titleWidth = ctx.measureText(title).width;
   player.screen.scrolls = titleWidth > room;
   ctx.save();
   ctx.beginPath();
@@ -1743,6 +1916,14 @@ function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
     ctx.fillText(title, x, middle);
   }
   ctx.restore();
+  // Seen through the dots, over the faint unlit ones.
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = dots;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalCompositeOperation = 'destination-over';
+  ctx.fillStyle = unlit;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalCompositeOperation = 'source-over';
   texture.needsUpdate = true;
 }
 
@@ -1752,6 +1933,7 @@ export class GalleryScene {
   private onProgress: SceneOptions['onProgress'];
   private onReady: SceneOptions['onReady'];
   private onPointer: SceneOptions['onPointer'];
+  private onPlayerButton: SceneOptions['onPlayerButton'];
   private pointerState: string;
   private ready: boolean;
   // Not private: nothing reads it, which noUnusedLocals rejects for a private field.
@@ -1820,6 +2002,9 @@ export class GalleryScene {
   private playing: boolean;
   private spinRate: number;
   private overDisc: boolean;
+  private overButton: PlayerButton | null;
+  // The button whose stand-in on the page has keyboard focus (focusButton).
+  private focusedButton: PlayerButton | null;
   // What the player's screen shows (drawPlayerScreen).
   private screenState: ScreenState;
   // How far the camera has gone from the gallery's to the player view's (see setLens).
@@ -1835,7 +2020,7 @@ export class GalleryScene {
   // onPointer({ hovered, active, opened, dragging }) reports what the pointer is over, for a custom cursor.
   // fogColor should match the page background, so distant cases fade into it. startIndex and
   // openOnReveal restore a gallery from a link: that case in front, already open as it appears.
-  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false }: SceneOptions = {}) {
+  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false }: SceneOptions = {}) {
     this.element = element;
     this.startIndex = startIndex;
     this.openOnReveal = openOnReveal;
@@ -1847,12 +2032,15 @@ export class GalleryScene {
     this.playing = false;
     this.spinRate = 0;
     this.overDisc = false;
+    this.overButton = null;
+    this.focusedButton = null;
     this.screenState = { track: null, seconds: 0, playing: false };
     this.lens = 0;
     this.onIndexChange = onIndexChange;
     this.onProgress = onProgress;
     this.onReady = onReady;
     this.onPointer = onPointer;
+    this.onPlayerButton = onPlayerButton;
     this.pointerState = '';
     this.ready = false;
     this.albums = [];
@@ -1927,7 +2115,7 @@ export class GalleryScene {
     this.shared = makeSharedResources(this.renderer);
     Object.values(this.shared.textures).forEach((texture) => this.renderer.initTexture(texture));
     // The player stays hidden until a disc goes in. Its pose is fixed; resize places, turns and sizes it.
-    this.player = makePlayer(this.shared.anisotropy);
+    this.player = makePlayer(this.shared.anisotropy, this.shared.textures.trayNormal);
     this.player.group.visible = false;
     this.playerRest = new THREE.Vector3();
     this.scene.add(this.player.group);
@@ -2275,6 +2463,7 @@ export class GalleryScene {
     if (!this.inPlayer) return;
     this.inPlayer = false;
     this.playing = false;
+    this.overButton = null;
     this.animateListen(0);
     this.updateCursor();
   }
@@ -2334,6 +2523,56 @@ export class GalleryScene {
   private pickDisc() {
     const item = this.cases[this.opened];
     return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.disc.pick, false).length);
+  }
+
+  // The player's button under the pointer, once the player is in place.
+  private pickButton(): PlayerButton | null {
+    if (!this.inPlayer || this.listen < 0.999) return null;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = this.raycaster.intersectObjects(this.player.buttons.map((button) => button.cap), false)[0];
+    return this.player.buttons.find((button) => button.cap === hit?.object)?.kind ?? null;
+  }
+
+  // Where a player button is on the page, in client pixels (its cap's bounds), once the player is in
+  // place; for the focusable stand-ins the page lays over the buttons.
+  playerButtonRect(kind: PlayerButton) {
+    const button = this.player.buttons.find((item) => item.kind === kind);
+    if (!button || !this.inPlayer || this.listen < 0.999) return null;
+    const geometry = button.cap.geometry;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    const box = geometry.boundingBox!;
+    button.cap.updateWorldMatrix(true, false);
+    const canvas = this.renderer.domElement.getBoundingClientRect();
+    let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (let corner = 0; corner < 8; corner++) {
+      const point = PLAYER_SCRATCH.corner.set(corner & 1 ? box.max.x : box.min.x, corner & 2 ? box.max.y : box.min.y, corner & 4 ? box.max.z : box.min.z)
+        .applyMatrix4(button.cap.matrixWorld).project(this.camera);
+      const x = canvas.left + (point.x + 1) / 2 * canvas.width;
+      const y = canvas.top + (1 - point.y) / 2 * canvas.height;
+      [left, top, right, bottom] = [Math.min(left, x), Math.min(top, y), Math.max(right, x), Math.max(bottom, y)];
+    }
+    return { left, top, width: right - left, height: bottom - top };
+  }
+
+  // A button's stand-in has keyboard focus (or none does): its symbol lights as under the pointer.
+  focusButton(kind: PlayerButton | null) {
+    this.focusedButton = kind;
+    this.request();
+  }
+
+  // A click presses the button in and lets it spring back, and tells the page.
+  pressButton(kind: PlayerButton) {
+    const button = this.player.buttons.find((item) => item.kind === kind);
+    if (!button) return;
+    this.killTween(button.tween);
+    if (!this.reducedMotion) {
+      button.tween = this.tween(button, { press: 1 }, 0.07, ease.power3Out, () => {
+        button.tween = this.tween(button, { press: 0 }, 0.22, ease.power3Out, () => {
+          button.tween = null;
+        });
+      });
+    }
+    this.onPlayerButton?.(kind);
   }
 
   // Turns a case back to its front.
@@ -2405,8 +2644,11 @@ export class GalleryScene {
   }
 
   private updateCursor() {
-    if (!this.press) this.element.style.cursor = this.inPlayer ? 'default' : this.hovered >= 0 ? 'pointer' : 'grab';
-    const state: PointerState = { hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc, listening: this.inPlayer, discOut: this.listening >= 0 };
+    if (!this.press) this.element.style.cursor = this.inPlayer ? (this.overButton ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
+    const state: PointerState = {
+      hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc,
+      listening: this.inPlayer, discOut: this.listening >= 0, overButton: this.overButton,
+    };
     const key = Object.values(state).join();
     if (key === this.pointerState) return;
     this.pointerState = key;
@@ -2438,6 +2680,7 @@ export class GalleryScene {
     if (this.press) return;
     this.pointerMoved = false;
     this.hovered = -1;
+    this.overButton = null;
     this.updateCursor();
     this.request();
   }
@@ -2592,6 +2835,13 @@ export class GalleryScene {
   }
 
   private onClick(event: MouseEvent) {
+    // In the player view only the player's buttons take clicks.
+    if (this.ready && this.inPlayer) {
+      this.updatePointer(event);
+      const button = this.pickButton();
+      if (button) this.pressButton(button);
+      return;
+    }
     if (!this.ready || this.listening >= 0) return;
     if (performance.now() < this.suppressClickUntil) {
       event.preventDefault();
@@ -2759,11 +3009,13 @@ export class GalleryScene {
       this.pointerMoved = false;
       const hit = this.listening >= 0 ? -1 : this.pick();
       const overDisc = hit >= 0 && hit === this.opened && this.pickDisc();
-      if (hit !== this.hovered || overDisc !== this.overDisc) {
+      const overButton = this.pickButton();
+      if (hit !== this.hovered || overDisc !== this.overDisc || overButton !== this.overButton) {
         // Only the mouse's own movement nudges a case, not a case gliding under a still pointer.
         if (hit >= 0 && hit !== this.hovered && !this.press && moved) this.swipe(hit);
         this.hovered = hit;
         this.overDisc = overDisc;
+        this.overButton = overButton;
         this.updateCursor();
         this.forceFrames = Math.max(this.forceFrames, 2);
       }
@@ -2834,6 +3086,15 @@ export class GalleryScene {
     const target = this.playing && !this.reducedMotion ? (C.spinRpm / 60) * Math.PI * 2 : 0;
     this.spinRate += (target - this.spinRate) * (1 - Math.exp(-dt / (target > this.spinRate ? C.spinUp : C.spinDown)));
     if (target === 0 && this.spinRate < 0.02) this.spinRate = 0;
+    // The symbol of the button under the pointer, or with keyboard focus, lights up; the others dim back.
+    for (const button of this.player.buttons) {
+      const hover = button.kind === this.overButton || button.kind === this.focusedButton ? 1 : 0;
+      button.hover = this.reducedMotion ? hover : button.hover + (hover - button.hover) * (1 - Math.exp(-dt / C.playerButtonHover));
+      if (Math.abs(hover - button.hover) < 0.002) button.hover = hover;
+      else this.forceFrames = Math.max(this.forceFrames, 2);
+      button.group.position.z = -button.press * C.playerButtonPress;
+      button.mark.opacity = C.playerPrintOpacity + (1 - C.playerPrintOpacity) * button.hover;
+    }
     const item = this.cases[this.listening];
     if (!item) return;
     // Clockwise seen from the label, as a disc turns, blurred over the arc it turns in spinBlur.
