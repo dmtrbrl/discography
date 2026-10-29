@@ -80,14 +80,26 @@ a.wordmark { pointer-events: auto; }
 /* Back and GitHub are centred on the masthead: the middle of their capitals (cap top to baseline)
    matches the wordmark's, measured from screenshots. Matching whole ink centres, as first done,
    counted the wordmark's descenders (g, p, y) and left them 3 to 4 px low. */
-.corner-button { position: absolute; left: 32px; top: 36.75px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
+.corner-button { position: absolute; left: 32px; top: 36.75px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; text-decoration: none; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
 /* Close or Eject; the old word fades out before the new one fades in, as the caption does. */
 .back-label { transition: opacity .2s ease; }
 .back-label.is-switching { opacity: 0; }
 /* Visible at once when shown (only the fade is delayed), so it can take focus straight away. */
 .corner-button.is-shown { opacity: 1; visibility: visible; transition-duration: .3s, 0s; transition-delay: .5s, 0s; }
-.github-link { left: auto; right: 32px; translate: 8px 0; text-decoration: none; }
-.github-link.is-shown { transition-delay: .3s, .3s, 0s; }
+.github-link { left: auto; right: 32px; }
+.github-link.is-shown { transition-delay: .3s, 0s; }
+/* The about page: a column of text in the middle and the credit at the bottom, where the caption is,
+   as on the old title screen. Over the row, which fades out meanwhile; under the top bar and the
+   bubble, so both keep working. */
+.about { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; overflow-y: auto; padding: 104px 24px 0; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
+.about.is-shown { opacity: 1; visibility: visible; transition: opacity .5s ease .2s, visibility 0s; }
+.about-body { max-width: 30em; margin: auto 0; font: 400 19px/1.45 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); text-wrap: pretty; }
+.about-body p { margin: 0 0 .9em; }
+.about-body p:last-child { margin-bottom: 0; }
+.about-body a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.about-credit { margin: 40px 0 0; padding-bottom: 39px; font: 400 12px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 40%, var(--bg)); }
+.about-credit a { padding: 4px 10px; margin: 0 -10px; color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.about-credit a:hover { color: var(--ink); }
 /* The wordmark stays above the booklet (a way back to the gallery's start), level with its heading
    row; on phones the heading goes below it. */
 body:has(.booklet-overlay) .masthead { z-index: 9; }
@@ -147,6 +159,9 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .transport-track-title { overflow: hidden; text-overflow: ellipsis; }
   .masthead { top: 22px; --wordmark-size: 24px; }
   .booklet-overlay { padding-top: 64px; }
+  .about { padding: 76px 22px 0; }
+  .about-body { font-size: 17px; }
+  .about-credit { margin-top: 32px; padding-bottom: 24px; font-size: 11px; }
   /* Links at 16 px (18 on desktop); Back and GitHub 1.1 px lower, which keeps the middle of their
      box, and so of their capitals, level with the wordmark's as measured at 18 px. */
   .corner-button, .case-action { font-size: 16px; }
@@ -161,6 +176,10 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
 @media (max-height: 500px) and (orientation: landscape) {
   .masthead { top: 14px; --wordmark-size: 22px; }
   .booklet-overlay { padding-top: 44px; }
+  /* Taller than the screen here, so it scrolls: the text fades out under the top bar. */
+  .about { padding-top: 52px; mask-image: linear-gradient(to bottom, transparent 36px, #000 52px); }
+  .about-body { font-size: 15px; line-height: 1.4; }
+  .about-credit { margin-top: 24px; padding-bottom: 14px; }
   /* The player sits lower here (playerRaiseShort) and the row closer under it, at the same height. */
   .transport { margin-top: 12px; }
   .corner-button { font-size: 15px; }
@@ -172,4 +191,4 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .eyebrow { font-size: 13px; }
   h1, .album-title { font-size: 24px; }
 }
-@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .preloader-fill, .booklet-overlay, .back-label { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .preloader-fill, .booklet-overlay, .back-label, .about { transition: none; } }

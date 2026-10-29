@@ -71,6 +71,18 @@ cleanup throughout), and its router now holds the page's state.
   out and in over 0.2 s like the caption. "Back" didn't say where it went. Elsewhere in this file
   "Back" still names this button. It and GitHub now only fade in and out; they used to slide 8 px
   in from the left as well, the only slide among the page's controls.
+- **About page** (`#/about`): what the project is, four short paragraphs (no album count, so the
+  text holds whatever the collection has; a link to LeafThrough, which turns the booklets), and
+  "Made by Dmytro Barylo" at the bottom in the old title screen's credit style. "About" sits in the top-left corner
+  on the row only; Close or Eject take that place in the other views, and Close (or Escape, or the
+  wordmark) leaves the page. It is the gallery's own route (`path={[aboutPath, ...]}`), so nothing
+  is rebuilt: the row fades out (the stage's `is-hidden`) and the text fades in, and the row comes
+  back exactly as it was. It counts as a view one deep, so Close returns through the history. A
+  jump to `#/about` from another view restarts the gallery on the row of the album in front,
+  hidden, behind the page. On landscape phones the text is smaller and scrolls under a fade below
+  the top bar if it must.
+- **Jumps to the view already shown**: the browser's Back from the about page or the booklet lands
+  on the view still under it, so only the page or the booklet goes; no intro replays.
 - **No input during a view change**: while the intro or a jump plays, a case opens or closes, or
   the disc goes into the player or back (`viewBusy()`, reported as `busy` with the pointer state),
   Back, Escape, Enter, Space, the wordmark, the caption, Booklet, Listen, clicks and drags on the

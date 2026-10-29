@@ -4,13 +4,15 @@ import { A, HashRouter, Navigate, Route, useLocation, useNavigate, useParams } f
 import type { Accessor } from 'solid-js';
 import { GalleryScene, PLAYER_BUTTONS } from './scene';
 import type { PlayerButton, PointerState } from './scene';
-import { galleryLink, galleryModes, galleryPath, loadBand, moveQueryToHash } from './band';
+import { aboutPath, galleryLink, galleryModes, galleryPath, loadBand, moveQueryToHash } from './band';
 import type { Album, Band, GalleryLink, GalleryMode, Theme } from './band';
 import { LeafThrough } from 'leafthrough';
 import type { PageSource } from 'leafthrough';
 import './style.css';
 
 const repository = 'https://github.com/dmtrbrl/discography';
+const website = 'https://dmytrobarylo.com';
+const leafthrough = 'https://github.com/dmtrbrl/leafthrough';
 
 // Bubble cursor (mouse only): a dot on the pointer (no lag). Over something interactive it grows a
 // little, and once the pointer has rested for labelDelay it opens like a tooltip and says what a
@@ -556,6 +558,9 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   let bookletButton!: HTMLButtonElement;
   let listenButton!: HTMLButtonElement;
   const [bookletOpen, setBookletOpen] = createSignal(false);
+  // The page about the project (#/about), over the row: the gallery fades out and stays as it was.
+  const [aboutOpen, setAboutOpen] = createSignal(false);
+  let aboutLink!: HTMLAnchorElement;
   // A jump (see Gallery) is under way: the view is leaving, and the page's controls fade with it.
   const [leaving, setLeaving] = createSignal(false);
   // The view is changing (a jump, the intro, a case opening or closing, the disc going in or out):
@@ -630,6 +635,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   const buyLink = () => selected().buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${selected().artist} ${selected().title} CD`)}&i=popular`;
   // What a click does, for the bubble cursor.
   const bubbleLabel = () => {
+    if (aboutOpen()) return '';
     const { hovered, active: front, opened, dragging, overDisc, overBooklet, overButton } = pointer();
     // In the player: its buttons, and the landed disc, which a click ejects (as Back does).
     if (listening()) return overButton ? BUTTON_LABELS[overButton] : overDisc ? 'Eject' : '';
@@ -679,7 +685,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   // on its way to the route it came from.
   createEffect(() => {
     const mode: GalleryMode | null = bookletOpen() ? 'booklet' : listening() ? 'listen' : pointer().opened >= 0 ? 'open' : null;
-    const path = galleryPath(albums[active()].id, mode);
+    const path = aboutOpen() ? aboutPath : galleryPath(albums[active()].id, mode);
     if (revealed() && !leaving()) props.onPath(path);
   });
 
@@ -696,22 +702,34 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     if (to) stageFade.onfinish = () => stageFade?.cancel();
   }
   onCleanup(() => stageFade?.cancel());
+  // #/about is the row as it is, the album in front, under the page about the project, which shows
+  // as the jump starts (the gallery, hidden by then, starts again behind it).
   createEffect(on(props.jump, (link) => {
     if (!link) return;
     linked = link;
-    const index = indexOf(link.album);
-    const open = link.mode !== null;
-    const listen = link.mode === 'listen';
+    const index = link.about ? active() : indexOf(link.album);
+    const open = !link.about && link.mode !== null;
+    const listen = !link.about && link.mode === 'listen';
     if (!revealed() || !scene) {
       scene?.show(index, open, listen);
       return;
     }
+    // The view under the booklet or the about page (the browser's Back from them): only they go.
+    if (!leaving() && index === active() && open === pointer().opened >= 0 && listen === listening()) {
+      batch(() => {
+        setBookletOpen(link.mode === 'booklet');
+        setAboutOpen(link.about);
+      });
+      return;
+    }
     (document.activeElement as HTMLElement | null)?.blur();
-    if (bookletOpen()) fadeStage(0, 0);
+    if (bookletOpen() || aboutOpen()) fadeStage(0, 0);
     else if (!listening()) fadeStage(0, 600);
     setLeaving(true);
+    setAboutOpen(link.about);
     scene.show(index, open, listen, () => {
-      fadeStage(1, 700);
+      if (link.about) stageFade?.cancel();
+      else fadeStage(1, 700);
       batch(() => {
         setActive(index);
         setBookletOpen(link.mode === 'booklet');
@@ -791,17 +809,38 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   }, { defer: true }));
   onCleanup(() => clearTimeout(backTimer));
 
-  // The corner button (Close or Eject): from the player to the open case, from the open case to the row.
+  // The corner button (Close or Eject): from the player to the open case, from the open case or the
+  // about page to the row.
   function back() {
     if (busy()) return;
-    if (listening()) scene?.eject();
+    if (aboutOpen()) closeAbout();
+    else if (listening()) scene?.eject();
     else scene?.close();
+  }
+
+  // The about page opens from its link in the corner, where Close then takes over, and closes with
+  // Close, Escape or the wordmark. Focus follows from one to the other if it got there by keyboard.
+  const aboutShown = () => revealed() && pointer().opened < 0 && !aboutOpen() && !bookletOpen() && !leaving();
+  function openAbout() {
+    if (busy()) return;
+    const byKeyboard = aboutLink.matches(':focus-visible');
+    setAboutOpen(true);
+    if (byKeyboard) requestAnimationFrame(() => backButton.focus({ preventScroll: true }));
+  }
+  function closeAbout() {
+    const byKeyboard = document.activeElement === backButton && backByKeyboard;
+    setAboutOpen(false);
+    if (byKeyboard) requestAnimationFrame(() => aboutLink.focus({ preventScroll: true }));
   }
 
   // The scene owns the motion and reports the case in front back through setActive.
   function onKeyDown(event: KeyboardEvent) {
     if (bookletOpen()) {
       if (event.key === 'Escape') { event.preventDefault(); closeBooklet(); }
+      return;
+    }
+    if (aboutOpen()) {
+      if (event.key === 'Escape') { event.preventDefault(); closeAbout(); }
       return;
     }
     if (event.altKey || event.metaKey || event.ctrlKey || !scene) return;
@@ -836,6 +875,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     batch(() => {
       setRevealed(true);
       if (linked.mode === 'booklet') setBookletOpen(true);
+      if (linked.about) setAboutOpen(true);
     });
     scene?.reveal();
   }
@@ -876,22 +916,29 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
 
   return (
     <main class="app-shell">
-      <div class="stage" classList={{ 'is-hidden': !revealed(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label="Interactive album gallery" {...cursor.surface} />
+      <div class="stage" classList={{ 'is-hidden': !revealed() || aboutOpen(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label="Interactive album gallery" {...cursor.surface} />
       <header class="masthead" classList={{ 'is-hidden': !revealed() }}>
         {/* From the player or the booklet, back to the gallery's start (a jump, see Gallery). An open
-            case only closes, as with Back. Neither resets the gallery. On the row a click would do
-            nothing, so there it is plain text: no link, no bubble, and the pointer reaches the row. */}
-        <Show when={pointer().opened >= 0 || bookletOpen()} fallback={<span class="wordmark">Discography</span>}>
+            case or the about page only closes, as with Close. Neither resets the gallery. On the row
+            a click would do nothing, so there it is plain text: no link, no bubble, and the pointer
+            reaches the row. */}
+        <Show when={pointer().opened >= 0 || bookletOpen() || aboutOpen()} fallback={<span class="wordmark">Discography</span>}>
           <A class="wordmark" classList={{ 'has-bubble': canBubble && !bookletOpen() }} href="/" {...cursor.button}
             onClick={(event) => {
               if (busy()) return event.preventDefault();
               if (listening() || bookletOpen()) return;
               event.preventDefault();
-              scene?.close();
+              if (aboutOpen()) closeAbout();
+              else scene?.close();
             }}>Discography</A>
         </Show>
       </header>
-      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0 && !leaving(), 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
+      {/* The left corner: About on the row, Close or Eject in the other views (one fades out as the
+          other fades in). */}
+      <a class="corner-button about-link" classList={{ 'is-shown': aboutShown(), 'has-bubble': canBubble }} href="#/about" ref={aboutLink}
+        tabIndex={aboutShown() ? 0 : -1} aria-hidden={!aboutShown()} onClick={(event) => { event.preventDefault(); openAbout(); }} {...cursor.button}>About</a>
+      <button class="corner-button back-button" classList={{ 'is-shown': (pointer().opened >= 0 || aboutOpen()) && !leaving(), 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back}
+        tabIndex={pointer().opened >= 0 || aboutOpen() ? 0 : -1} aria-hidden={pointer().opened < 0 && !aboutOpen()} {...cursor.button}>
         <span class="back-label" classList={{ 'is-switching': backSwitching() }}>{backLabel()}</span>
       </button>
       <a class="corner-button github-link" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} href={repository} target="_blank" rel="noopener" {...cursor.button}>GitHub</a>
@@ -933,7 +980,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
           Booklet and Listen while a case is open, Apple Music and Buy the CD once the disc has
           landed in the player (with the transport row). Each pair fades out before the next fades
           in. */}
-      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed(), 'is-leaving': leaving() }}>
+      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed(), 'is-leaving': leaving() || aboutOpen() }}>
         <button class="case-action is-left" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
           inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) setBookletOpen(true); }} {...cursor.button}>Booklet</button>
         <a class="case-action store-link is-left" classList={{ 'is-shown': seated() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
@@ -955,12 +1002,42 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
         <a class="case-action store-link is-right" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener"
           inert={seated() ? undefined : true} {...cursor.button}>Buy the CD</a>
       </footer>
+      {/* The about page: what the project is (no album count, so it holds whatever the collection
+          has), and a credit at the bottom, as on the old title screen. Over the row, which fades out meanwhile and comes back as it was. */}
+      <section class="about" classList={{ 'is-shown': aboutOpen(), 'has-bubble': canBubble }} aria-label="About Discography"
+        inert={aboutOpen() ? undefined : true} {...cursor.surface}>
+        <div class="about-body">
+          <p>
+            Discography is a small experiment in browsing music as physical CDs: each album in its
+            plastic jewel case, with the booklet folded inside.
+          </p>
+          <p>
+            Flick through the row of albums, turn a case over to read its back and spines, open it,
+            leaf through the booklet, and put the disc on the player to hear 30-second song previews.
+          </p>
+          <p>
+            Everything is drawn in the browser with three.js from the real artwork: official covers,
+            scans of the printed discs, back inserts and booklets. The plastic, its scratches and the
+            sheen of the discs were tuned against photos of real CDs rather than made to look stylised.
+            The booklets turn with <a href={leafthrough} target="_blank" rel="noopener" classList={{ 'has-bubble': canBubble }} {...cursor.button}>LeafThrough</a>,
+            a library I made for flipping through pages on the web.
+          </p>
+          <p>
+            Covers, booklet scans and disc designs belong to their rights holders. Song previews come
+            from Apple Music.
+          </p>
+        </div>
+        <p class="about-credit">
+          Made by <a href={website} target="_blank" rel="noopener" classList={{ 'has-bubble': canBubble }} {...cursor.button}>Dmytro Barylo</a>
+        </p>
+      </section>
       <Show when={bookletOpen() && albums[active()]} keyed>{(album) => <BookletViewer album={album} leaving={leaving()} onClose={closeBooklet} />}</Show>
     </main>
   );
 }
 
-// The gallery's route: #/, #/<album>, or #/<album>/open, /listen or /booklet. The gallery writes it
+// The gallery's route: #/, #/<album>, or #/<album>/open, /listen or /booklet, and #/about (the same
+// route, so the gallery stays as it is under the about page). The gallery writes it
 // as it changes. Browsing the row replaces the history entry, so it doesn't fill the browser's
 // history; each view (the open case, then the player or the booklet) adds one, and leaving a view
 // in the page (Back, Escape, Close) goes back to the entry it came from. Every other change of the
@@ -970,14 +1047,16 @@ function Gallery(props: { band: Band }) {
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams<{ album?: string; mode?: string }>();
-  const link = untrack(() => galleryLink(params));
+  const link = untrack(() => galleryLink(params, location.pathname));
   // The route the gallery shows. While `returning`, it is going back to it through the history, and
   // a change written meanwhile waits in `queued`.
   let known = location.pathname;
   let returning = false;
   let queued: string | null = null;
-  // How deep a view is: 0 for the row, 1 for the open case, 2 for the player or the booklet.
+  // How deep a view is: 0 for the row, 1 for the open case or the about page, 2 for the player or
+  // the booklet.
   const depth = (path: string) => {
+    if (path === aboutPath) return 1;
     const mode = path.split('/')[2];
     return !mode ? 0 : mode === 'open' ? 1 : 2;
   };
@@ -1006,7 +1085,7 @@ function Gallery(props: { band: Band }) {
       known = path;
       returning = false;
       queued = null;
-      setJump(galleryLink(params));
+      setJump(galleryLink(params, path));
     } else if (returning) {
       returning = false;
       const next = queued;
@@ -1034,7 +1113,7 @@ function Root() {
     <Switch>
       <Match when={view()?.band} keyed>{(band) => (
         <HashRouter>
-          <Route path="/:album?/:mode?" matchFilters={{ album: band.albums.map((album) => album.id), mode: galleryModes }} component={() => <Gallery band={band} />} />
+          <Route path={[aboutPath, '/:album?/:mode?']} matchFilters={{ album: band.albums.map((album) => album.id), mode: galleryModes }} component={() => <Gallery band={band} />} />
           <Route path="*" component={() => <Navigate href="/" />} />
         </HashRouter>
       )}</Match>

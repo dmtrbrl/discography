@@ -90,12 +90,14 @@ const bandsUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}bands/${p
 // while its disc is in the player, or /booklet while its booklet is out. The page keeps it up to
 // date, so a link restores the gallery as it was. In the hash, a link needs nothing from the server
 // but the page itself (GitHub Pages has no single-page fallback).
+// #/about is the page about the project, shown over the gallery (the gallery stays as it was).
 export const galleryModes = ['open', 'listen', 'booklet'] as const;
 export type GalleryMode = (typeof galleryModes)[number];
-export type GalleryLink = { album: string | null; mode: GalleryMode | null };
+export type GalleryLink = { album: string | null; mode: GalleryMode | null; about: boolean };
+export const aboutPath = '/about';
 
-export function galleryLink(params: { album?: string; mode?: string }): GalleryLink {
-  return { album: params.album ?? null, mode: (params.mode as GalleryMode | undefined) ?? null };
+export function galleryLink(params: { album?: string; mode?: string }, path: string): GalleryLink {
+  return { album: params.album ?? null, mode: (params.mode as GalleryMode | undefined) ?? null, about: path === aboutPath };
 }
 
 export function galleryPath(album: string, mode: GalleryMode | null = null): string {
