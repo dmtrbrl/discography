@@ -26,23 +26,75 @@ decision changes.
 
 ## Booklet in the scene (29 October 2026, prototype in review)
 
+Detailed implementation and tuning reference: [BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md).
+It covers the roll geometry, object lifecycle, shared camera, landing corrections, current
+parameters, rejected approaches and regression checks.
+
 The booklet is no longer an overlay with its own LeafThrough canvas. LeafThrough 0.1.5's
 `LeafThroughObject` draws it in the gallery's own scene, with our renderer, camera, lights and
 environment, so it is a third view beside the open case and the player, built the same way.
 
-- **Out of the case** (`openBooklet()`, `updateBooklet` in `scene.ts`, the `read` amount 0 to 1
-  like `listen`): lift the exposed right edge, then draw the booklet continuously to the right
-  (the open lid's −x, toward the hinge), away from the left-hand stops. It slides 112 mm through
-  the top and bottom holders. The bend stays just outside the rightmost pair as paper feeds
-  through it: a rounded 14 mm transition to a 22° slope. On phones the slope also accounts for
-  the case's partly open angle, keeping the paper above the raised disc half. The former path
-  slid right, reversed left over the stops and lifted unevenly; that was rejected in review.
-- **Level before turning** (same review): once the trailing edge is free, lift 2 mm clear of
-  the holders, then raise that edge to the height of the leading edge while the extraction curl
-  relaxes. Only after the whole booklet is level does it travel to the middle and turn over.
-  The case stays still through this stage, then pans out of view. The turn still leans
-  `bookletTwist` (10°) from upright and flexes up to `bookletFlex` (40°), with a small settling
-  sway. `readDuration` is 2.9 s, `unreadDuration` 2.3 s; closing follows the same path backwards.
+- **Out of the case** (`openBooklet()`, `updateBooklet` in `scene.ts`, `read` 0 to 1):
+  the booklet feeds over an imaginary cylinder beside the case spine, like paper drawn over a
+  roll. The cylinder diameter is 284 mm, two closed jewel-case widths (broadened again after visual
+  review to soften the bend). Each vertex follows a
+  straight entry, a circular surface, and a straight exit: curvature travels through the same
+  page stack, with its front and back attached. It straightens with the **front cover facing us**.
+  A rigid object moving on a circular trajectory was explicitly rejected in review; so was the
+  earlier extract → level → carry → separate flip sequence.
+- **Edge lift, carry and return** (same review): gently lift the exposed edge into a short
+  14 mm / 22° entry bend just beyond the holders; on phones the entry angle also clears the
+  partly raised disc half. The remaining paper stays flat and compressed under the holders.
+  A single continuous ease feeds the paper over the cylinder, while carrying and turning overlap after the
+  trailing edge is free. The shader expresses each sheet about the centre's tangent, becoming
+  the original formed page geometry again at the end, without swapping objects. Closing plays
+  the same roll backwards. After matching the case transition to Listen, `readDuration` is 2.4 s and `unreadDuration`
+  1.9 s. It reaches reading size during the roll, with no zoom after it has turned over. Flight bounds
+  keep the curved stack within the viewport. The case only pans upward, at constant depth,
+  as it does for the player/list view. Per-frame tray-overlap corrections made the case shake;
+  both those corrections and the subsequent depth retreat were rejected and removed. The
+  latest increase to a 355 mm cylinder was also reverted in review; the radius is back to
+  the previous 142 mm (284 mm diameter). Flight bounds use the roll path, with room for the
+  formed stack's bulge. The immediate `seatInBooklet` on closing
+  from commit `df861ee` is preserved.
+- **Motion tuning** (same review): the Listen-style two-wave experiment was reverted at the
+  user's request. The booklet uses a continuous roll and carry,
+  with case-transition durations subsequently aligned to Listen (2.4 s / 1.9 s). The requested **75° curl of the paper itself** is
+  controlled separately (`bookletBendAngle`) from the 284 mm travel diameter; changing one
+  does not tighten or widen the other. The case keeps its constant-depth upward-only exit.
+  The experimental Booklet motion dashboard, playback/scrubbing controls, browser-persisted
+  overrides and associated dev-only API were removed at the user's request. Further tuning
+  proceeds through prompts; all defaults remain in C at the top of `scene.ts`.
+- **Placement/clearance regression fixed** (same review): restoring the continuous timing had
+  retained an incompatible placement change. Paper still under the holders now follows its
+  own bend centre; the wider travel blends in only during carry. Screen fitting no longer
+  pushes the booklet backwards through the case. It fits the paper's scale/vertical position,
+  alternates that with clearance above the tray and below the lid/lips using a continuous
+  apron beside their edges, and leaves the box at constant depth. The apron includes a margin
+  for solid edges between bound samples. On phones, the box's upward pan is gated by actual
+  extraction clearance, so its tilted lid cannot sweep through the still-retained paper. Bounds include the formed stack's bulge, sampled
+  across the width and height; all scratch storage is reused. No two-wave timing, box retreat,
+  or delayed post-turn zoom was reintroduced.
+- **Case appearance and exit match Listen** (same review): both use `viewPan`, the same
+  power3InOut curve and full 0.5-duration pan interval, with the same 2.4 s open / 1.9 s return
+  duration. The booklet starts its case pan once the paper clears the holders; multiplying a
+  shorter pan by extraction progress had made the case abrupt. The case also shares Listen's
+  lens throughout the booklet view: the former fixed camera made the case appear larger.
+  An extra return to the gallery lens during landing caused a perspective change and was
+  removed in review. Listen and Booklet retain the same camera viewpoint; return follows
+  the same path. Case depth and scale stay fixed. `scripts/check-case-transition.mjs`
+  compares projected case geometry at matching pan positions, verifies the shared lens
+  throughout, and checks both durations against Listen.
+- **Landing ease, angle and size** (same review): the continuous roll and carry use a
+  quintic smootherstep ease, with zero velocity and acceleration at both ends. The reading
+  pose accounts for the raised Listen camera, preserving the intended projected page height
+  and viewing angle. Framing caps the projected stack height at its final reading height,
+  preventing the desktop zoom overshoot and subsequent shrink. It compensates vertical
+  projection at the paper's actual flight depth, including landscape lens shift, so landing
+  no longer dips below its final screen position then rises back. The same padded bounds
+  define the ceiling and final pose, preserving the reader handoff. GPU checks include
+  projected zoom after extraction, landing centre and angle, handoff scale, clearance, and
+  exact reverse playback at all three sizes. The case keeps its Listen-matched pan.
 - **A booklet from the beginning** (same review): each case contains a `LeafThroughObject`,
   with the actual number of printed sides (`bookletPageCount` in the collection metadata),
   cover and back artwork, and blank interior sheets. The paper has the same grain, wrinkles
@@ -111,13 +163,21 @@ single layout on phones (the next page shows at the right edge under the current
 Verified in headless Chrome at 1440 × 900, 390 × 844 and 844 × 390: open and close from the case,
 the arrow keys, the live region, the centring sampled per frame against `turning` (End and Home),
 the bubble's label over each side of an open spread and of each closed cover, a `/booklet` link, the wordmark from the booklet and the browser's
-Back to it, frames of the path frozen at fixed `read` values; no console errors or warnings. The
+Back to it, frames of the rolling path frozen at fixed `read` values; no console errors or warnings. The
 `willReadFrequently` warning is gone too: the former cover-edge sampling was removed with the
 box model. GPU sampling of the actual formed page shaders at 1440 × 900, 390 × 844 and 844 × 390
 found no intersections with the holders or tray; the resting stack stays between 2.4 and 3.13 mm
 inside the lid (its inside face is at 3.7 mm). `scripts/check-booklet.mjs` checks the initial sheet
 count, zero early interior-image requests, the shared model, manual first page turn, outside
-clicks, Escape, Close, reopening, and restoration of the case lighting, including reduced motion. `npm run build` passes.
+clicks, Escape, Close, reopening, and restoration of the case lighting, including reduced motion. `scripts/check-booklet-roll.mjs`
+uses WebGL transform feedback on the actual page shader to check the travelling bend, holder/tray
+clearance, a steady and reversible paper/case trajectory, and a flat handoff to the reader at all three sizes.
+After the placement fix, the full 201-pose GPU clearance check passes again at all three sizes,
+including the lid plate, flanges, stops, holders and tray. The reverse
+pass compares the paper's position, orientation, scale, bend and compression as well as the box
+path. The box stays at constant depth. Real-time Chrome playback measured 16.7 ms median and
+95th-percentile frame intervals at 1440 × 900 and 390 × 844; placement cost was 0.1 ms median,
+0.5 ms at the 95th percentile (0.4 ms on portrait mobile). The dashboard was subsequently removed without changing these placement calculations. `npm run build` passes.
 
 ## Hash routes and jumps (29 October 2026)
 
