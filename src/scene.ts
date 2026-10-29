@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { LeafThroughObject } from 'leafthrough';
+import type { PageSource } from 'leafthrough';
 import type { Album } from './band';
 
 // All visual and motion tuning. The disc radius is 1 unit.
@@ -26,7 +28,7 @@ const C = {
   // 10.4 mm, hinged on the left. Back to front: base plate, back insert, black tray, disc, booklet,
   // lid plate. The insert's ends fold forward into the two spines.
   caseWidth: 142, caseHeight: 125, caseDepth: 10.4, lidPlate: 1.5, lidFlange: 8, basePlate: 1, caseWall: 1, hingeInset: 1,
-  bookletSize: 120, bookletThickness: 0.8, bookletInset: 5, insertWidth: 138, insertHeight: 118, spineWidth: 6.5,
+  bookletSize: 120, bookletThickness: 1.2, bookletInset: 5, insertWidth: 138, insertHeight: 118, spineWidth: 6.5,
   trayWidth: 136, trayHeight: 121, trayDepth: 5, discOffsetX: 6, discTurn: 25, hingeStrip: 14, hingeRibs: 18,
   // Moulded details, from photos of open and empty cases (mm). Lid: half-round tabs on the top and
   // bottom flanges hold the booklet's edges, lidTabInset in from each side of the booklet, and two
@@ -133,6 +135,38 @@ const C = {
   // fades the gallery out meanwhile, and in again with the intro), then the intro plays into the new
   // view (show()). The cases don't shrink back first: seen, that read as the gallery resetting.
   leaveDuration: 0.6, leaveDrop: 4.4,
+  // The booklet view (read): lift its exposed right edge, then draw it bookletSlide mm to the
+  // right (the open lid's -x, toward the hinge), away from the stops on the left. The paper stays
+  // flat under the top and bottom tabs and curves up just beyond the rightmost pair: a rounded
+  // bend bookletCurlSpan mm long, then a shallow bookletCurl degree slope. The bend stays beside
+  // those tabs as the paper slides through, so it also clears the tray beyond the hinge. Only once
+  // the trailing edge clears the holders does it level out: the raised leading edge stays put
+  // while the trailing edge rises to meet it. Then it lifts bookletLift; the row pans up out of view
+  // as for the player (insertPan), and the booklet glides to the middle of the screen, turning over
+  // to its cover about an axis leaning bookletTwist degrees from upright, bending up to bookletFlex
+  // degrees across its width as it turns and settling flat, tipped back bookletTilt degrees and
+  // bookletRaise of the half-height up. It is
+  // as large as its open spread fits: bookletFitWidth of the screen's width and bookletFitHeight of
+  // its height. There it stays on the cover until a page is turned; the spread then
+  // glides to stay centred as it opens and closes (bookletCentreFollow, a rate a second). On
+  // screens narrowWidth px wide or less it shows one page at a time instead, as wide as fits
+  // bookletFitNarrow of the screen's width. Closing turns it back to the cover and plays the path
+  // backwards.
+  readDuration: 2.9, unreadDuration: 2.3, bookletSlide: 112, bookletCurl: 22, bookletCurlSpan: 14, bookletFlex: 40, bookletTwist: 10, bookletLift: 0.35, bookletTilt: 8, bookletRaise: 0.03,
+  bookletFitWidth: 0.84, bookletFitHeight: 0.64, bookletFitNarrow: 0.82, bookletCentreFollow: 7,
+  // The same page stack in the lid and the reader. Hold its resting bulge down under the tabs;
+  // it relaxes to full depth once free. Interior artwork is only requested on opening.
+  bookletCompression: 0.14, bookletWrinkles: 0.25, bookletBulge: 1, bookletReleaseLift: 2,
+  // The booklet view's own light, as LeafThrough lights its own scene: a directional light from
+  // bookletSunAt in the magazine's frame (LeafThrough's default for a spread), bookletSun strong,
+  // fading in as the booklet comes out. It casts the pages' shadows, on each other and on a floor
+  // under them (bookletFloorShadow opacity, LeafThrough's default), within bookletShadowReach page
+  // widths of the spine (across, up and down) on a bookletShadowMap px map.
+  // Match the library demo's directional/hemisphere balance once reading. The gallery's fill
+  // lights and environment fade out as the row leaves, so they don't wash out the spine's fold.
+  bookletSun: 2, bookletTravelSun: 1, bookletSunAt: [-3.5, 1.3, 4.1], bookletAmbient: 1.5, bookletAmbientSingle: 1.7,
+  bookletAmbientSky: '#ffffff', bookletAmbientGround: '#a1aeaf', bookletSingleShadow: 0.4,
+  bookletFloorShadow: 0.15, bookletShadowReach: [1.3, 0.9], bookletShadowMap: 2048,
   // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
   // one, 500 falling to about 200 across the disc, were tried and rejected, and 200 later read as too
   // busy, see ROADMAP.md), and how long it takes to
@@ -149,8 +183,12 @@ const C = {
 // until eject() starts), the only time the player's screen shows anything and its buttons work;
 // discOut: the disc is out of its case (until the eject has finished); overButton: the player's
 // button under the pointer, if any; busy: the view is changing (see viewBusy), when nothing that
-// would change it again works.
-export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; seated: boolean; discOut: boolean; overButton: PlayerButton | null; busy: boolean }
+// would change it again works. reading: the booklet view is wanted (from openBooklet() until closeBooklet());
+// bookletOut: the booklet is out of its case (until it is back in the lid); overPage: the side of the
+// booklet's spine the pointer is over, on its pages ('prev' left, where a click turns back, 'next'
+// right), or null.
+export type PageSide = 'prev' | 'next';
+export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; seated: boolean; discOut: boolean; overButton: PlayerButton | null; busy: boolean; reading: boolean; bookletOut: boolean; overPage: PageSide | null }
 
 export interface SceneOptions {
   onProgress?: (loaded: number, total: number) => void;
@@ -158,14 +196,18 @@ export interface SceneOptions {
   onPointer?: (state: PointerState) => void;
   // A click on one of the player's buttons.
   onPlayerButton?: (button: PlayerButton) => void;
-  onBooklet?: (index: number) => void;
+  // The inside pages of case `index`'s booklet (the scene adds its cover and back page), and which
+  // of them show once it is out: the first and last visible page and how many there are.
+  bookletPages?: (index: number) => Promise<PageSource[]>;
+  onPage?: (first: number, last: number, count: number) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
   startIndex?: number;
   openOnReveal?: boolean;
-  // Also from the URL: the open case's disc is already in the player.
+  // Also from the URL: the open case's disc is already in the player, or its booklet out.
   listenOnReveal?: boolean;
+  readOnReveal?: boolean;
 }
 
 type Easing = (t: number) => number;
@@ -223,8 +265,13 @@ interface JewelCase extends Push {
   pick: THREE.Mesh;
   disc: Disc;
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
-  // The booklet's four edges (+x, -x, +y, -y), coloured from the matching side of the cover.
-  bookletEdges: THREE.MeshStandardMaterial[];
+  bookletModel: LeafThroughObject;
+  bookletSources: PageSource[];
+  bookletCompression: THREE.IUniform<number>;
+  bookletReady: boolean;
+  bookletLoaded: boolean;
+  // How the whole page stack bends, including its shadow passes.
+  bend: THREE.IUniform<THREE.Vector3>;
   plastic: THREE.MeshPhysicalMaterial;
   disposed: boolean;
   open: number;
@@ -237,8 +284,9 @@ interface JewelCase extends Push {
   placed: boolean;
   // How far the disc's reflections are turned back with the body (radians; see layout).
   envTurn: number;
-  // Where the disc sits in the body, to put it back after the player.
+  // Where the disc sits in the body, to put it back after the player, and the booklet in the lid.
   discRest: THREE.Matrix4;
+  bookletRest: THREE.Matrix4;
 }
 
 interface SharedTextures {
@@ -318,6 +366,14 @@ const PLAYER_SCRATCH = {
 
 // Reused by layout for the disc's turned reflections (see envTurn).
 const TURN_SCRATCH = { group: new THREE.Quaternion(), turn: new THREE.Quaternion(), axis: new THREE.Vector3(0, 1, 0) };
+
+// Reused by updateBooklet every frame.
+const BOOKLET_SCRATCH = {
+  restPosition: new THREE.Vector3(), restQuaternion: new THREE.Quaternion(), restScale: new THREE.Vector3(),
+  readPosition: new THREE.Vector3(), readQuaternion: new THREE.Quaternion(), backUp: new THREE.Quaternion(), turn: new THREE.Quaternion(),
+  matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), twist: new THREE.Vector3(), tilt: new THREE.Vector3(1, 0, 0),
+  ray: new THREE.Ray(),
+};
 
 // Points over a disc of radius 1 in its plane (rings out to the rim), for keeping it out of the player.
 const DISC_SAMPLES = [0.35, 0.7, 1].flatMap((radius) => Array.from({ length: 36 }, (_, n) =>
@@ -1023,6 +1079,7 @@ function makeSharedResources(renderer: THREE.WebGLRenderer) {
     lidShell: makeLidShellGeometry(),
     tray: makeTrayGeometry(),
     insert: makeInsertGeometry(),
+    // Picking bounds; the visible booklet is LeafThrough's formed page stack.
     booklet: new THREE.BoxGeometry(C.bookletSize * MM, C.bookletSize * MM, C.bookletThickness * MM),
     casePick: new THREE.PlaneGeometry(C.caseWidth * MM, C.caseHeight * MM),
   };
@@ -1369,6 +1426,63 @@ function withShade<T extends THREE.Material>(material: T, shade: THREE.IUniform<
   return material;
 }
 
+// Bends the booklet like paper along its width (x), in the vertex shader. bend (a { value }
+// uniform): x, where the extraction bend starts; y, its angle toward -z on the -x side (the
+// right edge of the open lid); z, the flight's curvature across the whole sheet. The extraction
+// bend rounds into a straight slope, so pulling more paper out doesn't roll it into a cylinder.
+// The sheet keeps its length along the bend, and its normals turn with it.
+function withBend<T extends THREE.Material>(material: T, bend: THREE.IUniform<THREE.Vector3>, compression: THREE.IUniform<number>): T {
+  const compile = material.onBeforeCompile;
+  const key = material.customProgramCacheKey;
+  material.customProgramCacheKey = () => `${key.call(material)}-bent`;
+  material.onBeforeCompile = (shader, renderer) => {
+    compile.call(material, shader, renderer);
+    shader.uniforms.bookletBend = bend;
+    shader.uniforms.bookletCompression = compression;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+uniform vec3 bookletBend;
+uniform float bookletCompression;
+// s along a stretch of constant curvature k that starts at (from.x, from.y) (x and z) at angle
+// from.z: where it ends, and its angle there.
+vec3 bendSpan(vec3 from, float k, float s) {
+  float a = from.z + k * s;
+  if (abs(k) < 1e-4) return vec3(from.x + s * cos(from.z), from.y - s * sin(from.z), a);
+  return vec3(from.x + (sin(a) - sin(from.z)) / k, from.y + (cos(a) - cos(from.z)) / k, a);
+}
+// Where the sheet's line at x lies (x, z) once bent, and its angle.
+vec3 bookletBent(float x) {
+  if (x >= bookletBend.x) return bendSpan(vec3(0.0), bookletBend.z, x);
+  float span = ${C.bookletCurlSpan * MM};
+  float s = x - bookletBend.x;
+  vec3 start = bendSpan(vec3(0.0), bookletBend.z, bookletBend.x);
+  float curvature = bookletBend.z + bookletBend.y / span;
+  if (s >= -span) return bendSpan(start, curvature, s);
+  return bendSpan(bendSpan(start, curvature, -span), bookletBend.z, s + span);
+}`)
+      // LeafThrough has already formed each individual sheet. Bend that result in the closed
+      // booklet's frame, then put it back in page coordinates for the normal model transform.
+      .replace('#include <project_vertex>', `
+{
+  float size = ${(C.bookletSize * MM).toFixed(6)};
+  float halfDepth = ${C.bookletThickness * MM / 2};
+  vec3 paper = vec3((transformed.x - 0.5) * size, transformed.y * size, transformed.z * size * bookletCompression - halfDepth);
+  vec3 bent = bookletBent(paper.x);
+  paper = vec3(bent.x + sin(bent.z) * paper.z, paper.y, bent.y + cos(bent.z) * paper.z);
+  transformed = vec3(paper.x / size + 0.5, paper.y / size, (paper.z + halfDepth) / size);
+}
+#include <project_vertex>`)
+      .replace('#include <defaultnormal_vertex>', `
+{
+  float a = bookletBent((sheetP.x - 0.5) * ${(C.bookletSize * MM).toFixed(6)}).z;
+  objectNormal.z /= bookletCompression;
+  objectNormal = vec3(objectNormal.x * cos(a) + objectNormal.z * sin(a), objectNormal.y, -objectNormal.x * sin(a) + objectNormal.z * cos(a));
+}
+#include <defaultnormal_vertex>`);
+  };
+  return material;
+}
+
 // Motion blur for a spinning disc's print: the colour map is averaged over an arc of `blur`
 // radians around the centre (UVs are centred on the disc), with a per-pixel jitter so the samples
 // don't show as copies. At rest (blur 0) it takes the usual single sample.
@@ -1441,11 +1555,37 @@ function makeDisc(shared: SharedResources, seed: number): Disc {
 // A jewel case holding the disc. The layout moves `group`, a drag turns `spin`, and `body` slides
 // right as the lid opens so the open case stays centred on the spin pivot. The lid rotates about
 // the hinge line. Prints start in the album colour until their artwork is set.
-function makeCase(shared: SharedResources, album: Album, seed: number): JewelCase {
+function makeCase(shared: SharedResources, album: Album, seed: number, renderer: THREE.WebGLRenderer, camera: THREE.Camera, onChange: () => void): JewelCase {
   const { geometries, materials } = shared;
   const print = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: album.color || '#3b3a36', roughness: C.printRough, side });
+  const bend = { value: new THREE.Vector3() };
   const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: print(THREE.DoubleSide) };
-  const bookletEdges = [0, 1, 2, 3].map(() => print(THREE.FrontSide));
+  const bookletCompression = { value: C.bookletCompression as number };
+  const blank = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
+  const pageCount = Math.max(4, album.bookletPageCount ?? ((album.bookletScans?.length ?? 1) + 1) * 2);
+  const bookletSources: PageSource[] = Array.from({ length: pageCount }, () => blank);
+  bookletSources[0] = makeFallbackArt(album, seed);
+  bookletSources[pageCount - 1] = makeBookletBackCanvas(album);
+  const bookletModel = new LeafThroughObject({ renderer, camera }, {
+    pages: bookletSources, preload: pageCount, layout: 'spread', pageAspect: 1, loop: false,
+    paper: { wrinkles: C.bookletWrinkles, bulge: C.bookletBulge },
+    lighting: { sun: { position: [...C.bookletSunAt] } },
+    interaction: { keyboard: false },
+  });
+  bookletModel.enabled = false;
+  // update() rebuilds the sheets when real artwork arrives. Hook their materials again, including
+  // the shadow pass, without depending on LeafThrough's private engine or geometry internals.
+  const bendSheets = () => bookletModel.traverse((node) => {
+    if (!(node instanceof THREE.Mesh) || node.userData.bookletBent) return;
+    node.userData.bookletBent = true;
+    const sheetMaterials = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of [...sheetMaterials, node.customDepthMaterial, node.customDistanceMaterial]) {
+      if (material) withBend(material, bend, bookletCompression);
+    }
+    node.castShadow = node.receiveShadow = Boolean(bookletModel.userData.out);
+  });
+  bendSheets();
+  bookletModel.addEventListener('change', () => { bendSheets(); onChange(); });
   const plastic = makeCasePlastic(shared, seed);
   const group = new THREE.Group();
   const spin = new THREE.Group();
@@ -1468,18 +1608,21 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
     lid,
   );
   lid.position.x = CASE.hingeX * MM;
-  // Box faces run +x, -x, +y, -y, +z, -z: the edges, the cover, and the booklet's back page. White
-  // paper edges caught the light as thin white lines along the cover when the case turned, so the
-  // edges take the cover's colours instead (setBookletEdges).
-  const booklet = new THREE.Mesh(geometries.booklet, [...bookletEdges, prints.cover, prints.bookletBack]);
+  // Invisible bounds for picking; the actual object is already a stack of formed paper sheets.
+  const booklet = new THREE.Mesh(geometries.booklet, materials.pick);
+  booklet.add(bookletModel);
+  bookletModel.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
+  bookletModel.scale.setScalar(C.bookletSize * MM);
   booklet.position.set((CASE.bookletX - CASE.hingeX) * MM, 0, CASE.booklet * MM);
+  booklet.updateMatrix();
+  const bookletRest = booklet.matrix.clone();
   lid.add(booklet, new THREE.Mesh(geometries.lidShell, plastic));
   // The flat, invisible pick plane stays outside the spin group so hit tests ignore spin.
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, pick, disc, prints, bookletEdges, plastic, disposed: false,
-    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletCompression, bookletReady: false, bookletLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
 }
@@ -1978,7 +2121,8 @@ export class GalleryScene {
   private onReady: SceneOptions['onReady'];
   private onPointer: SceneOptions['onPointer'];
   private onPlayerButton: SceneOptions['onPlayerButton'];
-  private onBooklet: SceneOptions['onBooklet'];
+  private bookletPages: SceneOptions['bookletPages'];
+  private onPage: SceneOptions['onPage'];
   private pointerState: string;
   private ready: boolean;
   // Not private: nothing reads it, which noUnusedLocals rejects for a private field.
@@ -2034,6 +2178,7 @@ export class GalleryScene {
   private startIndex: number;
   private openOnReveal: boolean;
   private listenOnReveal: boolean;
+  private readOnReveal: boolean;
   // During a jump (show()): the player's drop out of view, 0 to 1, and what to call once the new
   // view has started.
   private leaveTween: Tween | null = null;
@@ -2081,17 +2226,52 @@ export class GalleryScene {
   private rimLight!: THREE.DirectionalLight;
   // The ambient light, raised in the player view so the player and the disc in it read bright.
   private ambientLight!: THREE.AmbientLight;
+  private keyLight!: THREE.DirectionalLight;
+  private fillLight!: THREE.DirectionalLight;
+  private stripLight!: THREE.RectAreaLight;
+  private bookletAmbient!: THREE.HemisphereLight;
+  // The booklet view. Not private: its tween animates it through tween(), which takes a plain
+  // object. 0 is the booklet in its lid, 1 out in the middle of the screen.
+  read = 0;
+  private readTween: Tween | null = null;
+  // The case whose booklet is out of it (from openBooklet() until it is back in the lid), and whether the
+  // booklet view is wanted (from openBooklet() until closeBooklet()).
+  private reading = -1;
+  private inBooklet = false;
+  // The same LeafThrough object that sits in the lid, reparented from the moving booklet bounds
+  // to the scene once it lands (bookletShown). bookletShift:
+  // the point of it held in the middle, across, in page widths (0.5 the cover's middle while closed,
+  // 0 the spine while open, -0.5 the back page's middle), and where it is going. closingBooklet: turning back to the cover
+  // before the path back. bookletRequest drops pages that arrive for an earlier booklet.
+  private magazine: LeafThroughObject | null = null;
+  private magazineReady = false;
+  private bookletShown = false;
+  private bookletShift = 0.5;
+  private bookletTarget = 0.5;
+  private closingBooklet = false;
+  private bookletRequest = 0;
+  // The booklet's page size in the booklet view (scene units), and whether it shows one page at a
+  // time (narrow screens), set by resize.
+  private bookletPage = 1;
+  private bookletSingle = false;
+  private overPage: PageSide | null = null;
+  // The press on the stage began on the booklet's pages, so its click is LeafThrough's.
+  // The booklet view's light and the floor its shadows fall on, posed with the magazine.
+  private bookletRig!: THREE.Group;
+  private bookletSun!: THREE.DirectionalLight;
+  private bookletFloor!: THREE.Mesh<THREE.PlaneGeometry, THREE.ShadowMaterial>;
 
   // onProgress(loaded, total) reports artwork loading; onReady fires once everything is loaded and
   // compiled. The gallery then stays hidden until reveal(), so the page can clear its loading screen first.
   // onPointer({ hovered, active, opened, dragging }) reports what the pointer is over, for a custom cursor.
   // fogColor should match the page background, so distant cases fade into it. startIndex and
   // openOnReveal restore a gallery from a link: that case in front, already open as it appears.
-  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, onBooklet, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false }: SceneOptions = {}) {
+  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, bookletPages, onPage, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false, readOnReveal = false }: SceneOptions = {}) {
     this.element = element;
     this.startIndex = startIndex;
     this.openOnReveal = openOnReveal;
     this.listenOnReveal = listenOnReveal;
+    this.readOnReveal = readOnReveal;
     this.listen = 0;
     this.listenTween = null;
     this.listening = -1;
@@ -2110,7 +2290,8 @@ export class GalleryScene {
     this.onReady = onReady;
     this.onPointer = onPointer;
     this.onPlayerButton = onPlayerButton;
-    this.onBooklet = onBooklet;
+    this.bookletPages = bookletPages;
+    this.onPage = onPage;
     this.pointerState = '';
     this.ready = false;
     this.albums = [];
@@ -2159,6 +2340,13 @@ export class GalleryScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = C.exposure;
+    // Only the booklet's pages cast and take shadows (see addLights). Every lit material samples the
+    // shadow map, so it is drawn once in the first frame: before it exists, the sampler has no depth
+    // texture to read and every draw is a WebGL error.
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     element.appendChild(this.renderer.domElement);
 
@@ -2244,13 +2432,15 @@ export class GalleryScene {
   }
 
   // Jumps to a view, as a link to it would open the page: case `index` in front, open, or with its
-  // disc in the player too. The current view leaves first (the player drops out of view), then the
+  // disc in the player or its booklet out too. The current view leaves first (the player or the
+  // booklet drops out of view), then the
   // gallery starts again there with the intro, and onShown is called, so the page can fade it in
   // as on the first reveal. Before the gallery is revealed it only changes where the intro will start.
-  show(index: number, open = false, listen = false, onShown?: () => void) {
+  show(index: number, open = false, listen = false, read = false, onShown?: () => void) {
     this.startIndex = clamp(Math.round(index), 0, Math.max(0, this.cases.length - 1));
-    this.openOnReveal = open || listen;
+    this.openOnReveal = open || listen || read;
     this.listenOnReveal = listen;
+    this.readOnReveal = read && !listen;
     if (this.destroyed) return;
     if (!this.ready && !this.leaveTween) {
       this.position = this.lastPosition = this.startIndex;
@@ -2265,11 +2455,14 @@ export class GalleryScene {
     this.dragging = false;
     this.spinning = -1;
     this.inPlayer = this.seated = this.playing = false;
+    this.inBooklet = this.closingBooklet = false;
+    this.overPage = null;
+    if (this.magazine) this.magazine.enabled = false;
     this.hovered = -1;
     this.overDisc = this.overBooklet = false;
     this.overButton = null;
     this.tweens.clear();
-    this.indexTween = this.listenTween = this.introTween = null;
+    this.indexTween = this.listenTween = this.introTween = this.readTween = null;
     this.cases.forEach((item) => { item.openTween = item.resetTween = null; });
     this.inertia = this.flow = 0;
     this.target = -1;
@@ -2285,7 +2478,8 @@ export class GalleryScene {
   // Puts everything back as it was before the first intro, at the jump's start, and plays the intro.
   private restart() {
     if (this.listening >= 0) this.returnDisc();
-    this.listen = this.spinRate = this.leave = 0;
+    if (this.reading >= 0) this.returnBooklet();
+    this.listen = this.spinRate = this.leave = this.read = 0;
     this.gallery.position.y = 0;
     this.player.group.visible = false;
     // Cases ease toward where they should be; unplaced, they go straight there, so the old view
@@ -2317,17 +2511,39 @@ export class GalleryScene {
     this.ambientLight = new THREE.AmbientLight('#ffffff', C.ambientIntensity);
     this.scene.add(this.ambientLight);
     const key = new THREE.DirectionalLight(C.keyColor, C.keyIntensity);
+    this.keyLight = key;
     key.position.set(C.keyX, C.keyY, 6);
     const fill = new THREE.DirectionalLight('#ffffff', C.fillIntensity);
+    this.fillLight = fill;
     fill.position.set(-5, -2, 4);
     const rim = new THREE.DirectionalLight(C.rimColor, C.rimIntensity);
     this.rimLight = rim;
     rim.position.set(0, 3, -6);
     const strip = new THREE.RectAreaLight('#ffffff', C.topStripIntensity, 6, 0.4);
+    this.stripLight = strip;
     strip.position.set(0, 3.2, 3);
     strip.lookAt(0, 0, 0);
     this.scene.add(key, fill, rim, strip);
 
+    // The booklet view's light and floor (C.bookletSun), in the magazine's units (updateBooklet
+    // poses the rig like the magazine). The light always casts shadows, even while dark: turning
+    // that on and off, or hiding it, would recompile every material. The shadow map is only drawn
+    // while a booklet is out.
+    const sun = new THREE.DirectionalLight('#ffffff', 0);
+    sun.position.set(...C.bookletSunAt);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(C.bookletShadowMap, C.bookletShadowMap);
+    sun.shadow.bias = -0.001;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ opacity: 0 }));
+    floor.position.z = -0.002;
+    floor.receiveShadow = true;
+    floor.visible = false;
+    this.bookletRig = new THREE.Group();
+    this.bookletAmbient = new THREE.HemisphereLight(C.bookletAmbientSky, C.bookletAmbientGround, 0);
+    this.bookletRig.add(sun, sun.target, floor, this.bookletAmbient);
+    this.bookletSun = sun;
+    this.bookletFloor = floor;
+    this.scene.add(this.bookletRig);
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     const source = new THREE.CanvasTexture(makeEnvironmentCanvas());
     source.mapping = THREE.EquirectangularReflectionMapping;
@@ -2340,6 +2556,12 @@ export class GalleryScene {
 
   setAlbums(albums: Album[]) {
     this.cases[this.listening]?.disc.group.removeFromParent();
+    this.cases[this.reading]?.booklet.removeFromParent();
+    this.disposeMagazine();
+    this.reading = -1;
+    this.inBooklet = false;
+    this.read = 0;
+    this.readTween = null;
     this.listening = -1;
     this.inPlayer = this.seated = this.playing = false;
     this.listen = this.spinRate = 0;
@@ -2355,7 +2577,7 @@ export class GalleryScene {
         material.map?.dispose();
         material.dispose();
       });
-      item.bookletEdges.forEach((material) => material.dispose());
+      item.bookletModel.dispose();
       this.gallery.remove(item.group);
     });
     this.albums = albums;
@@ -2371,7 +2593,17 @@ export class GalleryScene {
     this.onProgress?.(0, albums.length);
     const pending: Promise<void>[] = [];
     this.cases = albums.map((album, index) => {
-      const item = makeCase(this.shared, album, seedFrom(album.id ?? index));
+      const item = makeCase(this.shared, album, seedFrom(album.id ?? index), this.renderer, this.camera, () => this.request());
+      item.bookletModel.addEventListener('pagechange', () => {
+        if (this.magazine === item.bookletModel) this.reportPage();
+      });
+      item.bookletModel.addEventListener('ready', () => {
+        item.bookletReady = true;
+        if (this.magazine !== item.bookletModel) return;
+        this.renderer.compile(item.bookletModel, this.camera, this.scene);
+        this.magazineReady = true;
+        if (this.read >= 1) this.showPages();
+      });
       item.pick.userData.index = index;
       // The disc's own reference to the environment, so its reflections can turn with its half of
       // the case (layout), at the strength the scene gives the others.
@@ -2430,29 +2662,12 @@ export class GalleryScene {
     material.color.set('#ffffff');
     this.renderer.initTexture(texture);
     material.needsUpdate = true;
-    if (part === 'cover') this.setBookletEdges(item, canvas);
+    if (part === 'cover' || part === 'bookletBack') {
+      item.bookletSources[part === 'cover' ? 0 : item.bookletSources.length - 1] = canvas;
+      item.bookletReady = false;
+      item.bookletModel.update({ pages: item.bookletSources });
+    }
     this.request();
-  }
-
-  // Colours each edge of the booklet with the mean colour of the matching side of the cover (a strip
-  // 2% of its width), as if the print ran round the edge.
-  private setBookletEdges(item: JewelCase, canvas: HTMLCanvasElement) {
-    const ctx = canvas.getContext('2d')!;
-    const size = canvas.width;
-    const strip = Math.max(2, Math.round(size * 0.02));
-    // +x is the cover's right side, -x its left, +y its top, -y its bottom.
-    const areas = [[size - strip, 0, strip, size], [0, 0, strip, size], [0, 0, size, strip], [0, size - strip, size, strip]];
-    areas.forEach(([x, y, width, height], index) => {
-      const data = ctx.getImageData(x, y, width, height).data;
-      let red = 0, green = 0, blue = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        red += data[i];
-        green += data[i + 1];
-        blue += data[i + 2];
-      }
-      const count = data.length / 4;
-      item.bookletEdges[index].color.setRGB(red / count / 255, green / count / 255, blue / count / 255, THREE.SRGBColorSpace);
-    });
   }
 
   private playIntro() {
@@ -2460,6 +2675,7 @@ export class GalleryScene {
     // rather than opening it afterwards.
     if (this.openOnReveal) this.openAtOnce();
     if (this.listenOnReveal && this.openOnReveal) this.insert(true);
+    if (this.readOnReveal && this.openOnReveal) this.openBooklet(true);
     if (this.reducedMotion) {
       this.intro.active = this.intro.others = 1;
       return;
@@ -2516,7 +2732,7 @@ export class GalleryScene {
   }
 
   goTo(index: number, source = 'snap') {
-    if (!this.ready || !this.cases.length || this.listening >= 0) return;
+    if (!this.ready || !this.cases.length || this.listening >= 0 || this.reading >= 0) return;
     const target = clamp(Math.round(index), 0, this.lastIndex);
     const motion = motionFor(source, Math.abs(target - this.position));
     // Moving to another case closes the open one on the way, and turns the front case back to its front.
@@ -2555,7 +2771,7 @@ export class GalleryScene {
 
   // Only the case in front opens; opening it also turns it back from any drag.
   open(index = this.activeIndex()) {
-    if (!this.ready || !this.cases[index] || index !== this.activeIndex() || this.listening >= 0) return;
+    if (!this.ready || !this.cases[index] || index !== this.activeIndex() || this.listening >= 0 || this.reading >= 0) return;
     this.close();
     this.opened = index;
     this.resetSpin(index);
@@ -2571,9 +2787,9 @@ export class GalleryScene {
     this.updateCursor();
   }
 
-  // An open case whose disc is in the player stays open until the disc is back (eject()).
+  // An open case whose disc is in the player, or whose booklet is out, stays open until it is back.
   close() {
-    if (this.opened < 0 || this.listening >= 0) return;
+    if (this.opened < 0 || this.listening >= 0 || this.reading >= 0) return;
     this.animateOpen(this.opened, 0);
     this.opened = -1;
     this.updateCursor();
@@ -2594,7 +2810,7 @@ export class GalleryScene {
   // Not while the case is still opening (a double click, a caption clicked twice, Enter pressed twice).
   insert(atOnce = false) {
     const item = this.cases[this.opened];
-    if (!this.ready || !item || this.inPlayer || (this.listening >= 0 && this.listening !== this.opened)) return;
+    if (!this.ready || !item || this.inPlayer || this.reading >= 0 || (this.listening >= 0 && this.listening !== this.opened)) return;
     if (!atOnce && !this.fullyOpen(item)) return;
     this.inPlayer = true;
     if (this.listening < 0) {
@@ -2680,6 +2896,197 @@ export class GalleryScene {
     disc.renderOrder = 0;
     item.disc.blur.value = 0;
     this.updateCursor();
+  }
+
+  // Takes the open case's booklet out to the middle of the screen, where LeafThrough turns its
+  // pages; at once restores that view from a link. Not while the case is still opening, nor with its
+  // disc out.
+  openBooklet(atOnce = false) {
+    const item = this.cases[this.opened];
+    if (!this.ready || !item || this.inBooklet || this.listening >= 0 || (this.reading >= 0 && this.reading !== this.opened)) return;
+    if (!atOnce && !this.fullyOpen(item)) return;
+    this.inBooklet = true;
+    this.closingBooklet = false;
+    if (this.reading < 0) {
+      this.reading = this.opened;
+      this.magazine = item.bookletModel;
+      this.magazineReady = item.bookletLoaded && item.bookletReady;
+      item.bookletModel.userData.out = true;
+      item.bookletModel.traverse((node) => {
+        if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = true;
+      });
+      // Out of the case the booklet hangs off the scene; updateBooklet moves it from the lid to the middle.
+      this.scene.add(item.booklet);
+      item.booklet.renderOrder = 1000;
+      item.booklet.castShadow = true;
+      this.loadBooklet(this.reading);
+    }
+    this.hovered = -1;
+    this.overDisc = this.overBooklet = false;
+    // Still out (closed again while it turned back to the cover): it only takes input again.
+    if (this.bookletShown && this.magazine) this.magazine.enabled = true;
+    else this.animateRead(1, atOnce);
+    this.updateCursor();
+  }
+
+  // Turns the booklet back to its cover, then puts it back in the lid.
+  closeBooklet() {
+    if (!this.inBooklet) return;
+    this.inBooklet = false;
+    this.overPage = null;
+    const magazine = this.magazine;
+    if (magazine) magazine.enabled = false;
+    if (this.bookletShown && magazine && magazine.page !== 0) {
+      this.closingBooklet = true;
+      magazine.goTo(0, { animate: !this.reducedMotion });
+      this.request();
+    } else this.putBookletBack();
+    this.updateCursor();
+  }
+
+  // The side of the booklet's spine the pointer is over, on pages LeafThrough would take a press on:
+  // the pointer's ray met with the pages' plane (the magazine's z = 0) in the magazine's own units,
+  // where the spine is x = 0.
+  private pageSide(): PageSide | null {
+    const magazine = this.magazine;
+    if (!magazine?.covers(this.move.x, this.move.y)) return null;
+    const { ray, matrix } = BOOKLET_SCRATCH;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    ray.copy(this.raycaster.ray).applyMatrix4(matrix.copy(magazine.matrixWorld).invert());
+    const along = -ray.origin.z / ray.direction.z;
+    return ray.origin.x + ray.direction.x * along < 0 ? 'prev' : 'next';
+  }
+
+  // From the page's controls: a page either way, or straight to one.
+  turnPage(delta: number) {
+    if (!this.inBooklet || !this.bookletShown || !this.magazine) return;
+    if (delta > 0) this.magazine.next();
+    else this.magazine.prev();
+  }
+
+  turnTo(page: number) {
+    if (!this.inBooklet || !this.bookletShown || !this.magazine) return;
+    this.magazine.goTo(page, { animate: !this.reducedMotion });
+  }
+
+  private animateRead(to: number, atOnce = false) {
+    this.killTween(this.readTween);
+    this.readTween = null;
+    const done = () => {
+      this.readTween = null;
+      if (to === 0) this.returnBooklet();
+      else this.showPages();
+      this.updateCursor();
+    };
+    if (atOnce || this.reducedMotion) {
+      this.read = to;
+      done();
+      this.request(3);
+      return;
+    }
+    const duration = (to ? C.readDuration : C.unreadDuration) * Math.max(0.2, Math.abs(to - this.read));
+    this.readTween = this.tween(this, { read: to }, duration, ease.linear, done);
+  }
+
+  // Fill the existing booklet's blank sheets with its interior scans, with an extra blank side
+  // when needed to put the back cover on the back. No interior images are fetched before opening.
+  private loadBooklet(index: number) {
+    const item = this.cases[index];
+    const album = this.albums[index];
+    if (item.bookletLoaded) return;
+    const request = ++this.bookletRequest;
+    (this.bookletPages?.(index) ?? Promise.resolve([])).catch(() => []).then((inside) => {
+      if (request !== this.bookletRequest || this.destroyed || this.reading !== index) return;
+      // A print's map is the canvas it was drawn from (setPrint).
+      const cover = item.prints.cover.map?.image as HTMLCanvasElement | undefined;
+      const back = (item.prints.bookletBack.map?.image as HTMLCanvasElement | undefined) ?? makeBookletBackCanvas(album);
+      const pages: PageSource[] = [...(cover ? [cover] : []), ...inside];
+      // A transparent page is unprinted paper.
+      if (pages.length % 2 === 0) pages.push(Object.assign(document.createElement('canvas'), { width: 2, height: 2 }));
+      pages.push(back);
+      // Keep the physical stack; only replace the blank interior artwork. The spread geometry
+      // remains the same during extraction. Single-page layout is applied once it lands on phones.
+      item.bookletLoaded = true;
+      item.bookletReady = false;
+      item.bookletModel.update({ pages, preload: pages.length });
+      item.bookletModel.traverse((node) => {
+        if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = true;
+      });
+      this.request();
+    });
+  }
+
+  // The booklet has landed and its pages are in: release the same page object from its flight
+  // bounds and enable reading. It stays on its cover until the reader turns a page.
+  private showPages() {
+    const item = this.cases[this.reading];
+    const magazine = this.magazine;
+    if (!item || !magazine || !this.magazineReady || !this.inBooklet || this.bookletShown) return;
+    this.bookletShown = true;
+    this.bookletShift = this.bookletTarget = 0.5;
+    this.scene.add(magazine);
+    if (this.bookletSingle) magazine.update({ layout: 'single' });
+    item.booklet.visible = false;
+    magazine.visible = true;
+    magazine.enabled = true;
+    this.reportPage();
+    this.updateCursor();
+    this.request(3);
+  }
+
+  // Put the page object back under its flight bounds, on its cover, for the path back to the lid.
+  private putBookletBack() {
+    this.closingBooklet = false;
+    const item = this.cases[this.reading];
+    if (item) {
+      item.booklet.visible = true;
+      item.booklet.add(item.bookletModel);
+      item.bookletModel.update({ layout: 'spread' });
+    }
+    this.bookletShown = false;
+    this.animateRead(0);
+  }
+
+  private returnBooklet() {
+    const item = this.cases[this.reading];
+    this.reading = -1;
+    this.disposeMagazine();
+    if (item) {
+      const { booklet } = item;
+      item.lid.add(booklet);
+      item.bookletRest.decompose(booklet.position, booklet.quaternion, booklet.scale);
+      booklet.renderOrder = 0;
+      booklet.castShadow = false;
+      booklet.visible = true;
+      item.bend.value.set(0, 0, 0);
+      item.bookletCompression.value = C.bookletCompression;
+      item.bookletModel.userData.out = false;
+      booklet.add(item.bookletModel);
+      item.bookletModel.goTo(0);
+      if (item.bookletModel.layout !== 'spread') item.bookletModel.update({ layout: 'spread' });
+      item.bookletModel.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
+      item.bookletModel.quaternion.identity();
+      item.bookletModel.scale.setScalar(C.bookletSize * MM);
+      item.bookletModel.traverse((node) => {
+        if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = false;
+      });
+    }
+    this.onPage?.(0, 0, 0);
+    this.updateCursor();
+  }
+
+  private disposeMagazine() {
+    this.bookletRequest += 1;
+    if (this.magazine) this.magazine.enabled = false;
+    this.magazine = null;
+    this.magazineReady = this.bookletShown = this.closingBooklet = false;
+  }
+
+  private reportPage() {
+    const magazine = this.magazine;
+    if (!magazine) return;
+    const pages = magazine.visiblePages;
+    this.onPage?.(pages[0] ?? 0, pages[pages.length - 1] ?? 0, magazine.pageCount);
   }
 
   // Whether the open case has finished opening: until then its disc and booklet don't answer, so
@@ -2871,18 +3278,22 @@ export class GalleryScene {
     return hit.object.userData.index as number;
   }
 
-  // The view is changing: the intro or a jump plays, a case opens or closes, or the disc goes into
-  // the player or back. Clicks and drags that would change it again wait until it has finished
+  // The view is changing: the intro or a jump plays, a case opens or closes, the disc goes into
+  // the player or back, or the booklet comes out or goes back. Clicks and drags that would change it again wait until it has finished
   // (moving along the row doesn't count).
   private viewBusy() {
-    return Boolean(this.introTween || this.leaveTween || this.listenTween || this.cases.some((item) => item.openTween));
+    return Boolean(this.introTween || this.leaveTween || this.listenTween || this.readTween || this.closingBooklet || this.cases.some((item) => item.openTween));
   }
 
   private updateCursor() {
-    if (!this.press) this.element.style.cursor = this.inPlayer ? (this.overButton || this.overDisc ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
+    if (!this.press) {
+      this.element.style.cursor = this.inPlayer ? (this.overButton || this.overDisc ? 'pointer' : 'default')
+        : this.reading >= 0 ? (this.overPage ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
+    }
     const state: PointerState = {
       hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc, overBooklet: this.overBooklet,
       listening: this.inPlayer, seated: this.seated, discOut: this.listening >= 0, overButton: this.overButton, busy: this.viewBusy(),
+      reading: this.inBooklet, bookletOut: this.reading >= 0, overPage: this.overPage,
     };
     const key = Object.values(state).join();
     if (key === this.pointerState) return;
@@ -2916,16 +3327,21 @@ export class GalleryScene {
     this.pointerMoved = false;
     this.hovered = -1;
     this.overButton = null;
+    this.overPage = null;
     this.updateCursor();
     this.request();
   }
 
   private onPointerDown(event: PointerEvent) {
+    // In the booklet view a press on the pages is LeafThrough's.
+    if (this.reading >= 0) {
+      return;
+    }
     if (!this.ready || event.button !== 0 || !event.isPrimary || !this.cases.length || this.listening >= 0 || this.viewBusy()) return;
     const point = this.updatePointer(event);
     const hit = this.pick();
     // While a case is open a drag does nothing, on the case or beside it: it neither turns a case
-    // nor scrubs the row. A click beside the case still closes it.
+    // nor scrubs the row.
     const locked = this.opened >= 0;
     this.press = {
       id: event.pointerId,
@@ -3070,6 +3486,9 @@ export class GalleryScene {
   }
 
   private onClick(event: MouseEvent) {
+    if (this.reading >= 0) {
+      return;
+    }
     // In the player view only the player's buttons take clicks, and the landed disc, which ejects.
     if (this.ready && this.inPlayer) {
       this.updatePointer(event);
@@ -3085,11 +3504,7 @@ export class GalleryScene {
     }
     this.updatePointer(event);
     const hit = this.pick();
-    // A click beside the cases closes the open one.
-    if (hit < 0) {
-      this.close();
-      return;
-    }
+    if (hit < 0 || (this.opened >= 0 && hit !== this.opened)) return;
     this.resetWheel();
     if (hit !== this.activeIndex()) {
       this.pressCase(hit);
@@ -3097,11 +3512,11 @@ export class GalleryScene {
       return;
     }
     // A click opens the front case; an open case closes from the page's Back button, Escape,
-    // Space or a click beside it, so clicks inside it stay free for the disc and booklet. A click
-    // on the disc in the open case puts it in the player.
+    // or Space, so clicks inside it stay free for the disc and booklet. A click
+    // on the disc in the open case puts it in the player, one on the booklet takes it out.
     if (hit !== this.opened) this.open(hit);
     else if (this.pickDisc()) this.insert();
-    else if (this.pickBooklet()) this.onBooklet?.(this.opened);
+    else if (this.pickBooklet()) this.openBooklet();
   }
 
   private resetWheel() {
@@ -3198,6 +3613,17 @@ export class GalleryScene {
     this.playerRest.set(0, halfHeight * (short ? C.playerRaiseShort : C.playerRaise), 0);
     this.setLens(this.lens);
     this.player.group.scale.setScalar(MM * C.playerScale * clamp(halfWidth / 1.4, 0.4, 1) * (short ? C.playerScaleShort : 1));
+    // The booklet's page, as large as its open spread fits, or on phones its single page.
+    this.bookletSingle = narrow;
+    this.bookletPage = Math.min(narrow ? halfWidth * 2 * C.bookletFitNarrow : halfWidth * C.bookletFitWidth, halfHeight * 2 * C.bookletFitHeight);
+    const layout = narrow ? 'single' : 'spread';
+    if (this.bookletShown && this.magazine && this.magazine.layout !== layout) this.magazine.update({ layout });
+    // The shadow camera isn't scaled with the rig, so its frustum is in scene units.
+    const [across, upDown] = C.bookletShadowReach;
+    const page = this.bookletPage;
+    const shadowCamera = this.bookletSun.shadow.camera;
+    Object.assign(shadowCamera, { left: -across * page, right: across * page, top: upDown * page, bottom: -upDown * page, near: 0.5 * page, far: 12 * page });
+    shadowCamera.updateProjectionMatrix();
     const stats = this.frameStats;
     const dpr = window.devicePixelRatio || 1;
     if (dpr !== stats.dpr || Math.abs(width * height - stats.area) > stats.area * 0.2) {
@@ -3254,17 +3680,19 @@ export class GalleryScene {
     if (this.pointerMoved || (this.pointerInside && !this.press)) {
       const moved = this.pointerMoved;
       this.pointerMoved = false;
-      const hit = this.listening >= 0 ? -1 : this.pick();
+      const hit = this.listening >= 0 || this.reading >= 0 ? -1 : this.pick();
       const overButton = this.pickButton();
       const overDisc = this.seated ? !overButton && this.pickSeatedDisc() : hit >= 0 && hit === this.opened && this.pickDisc();
       const overBooklet = hit >= 0 && hit === this.opened && !overDisc && this.pickBooklet();
-      if (hit !== this.hovered || overDisc !== this.overDisc || overBooklet !== this.overBooklet || overButton !== this.overButton) {
+      const overPage = this.pageSide();
+      if (hit !== this.hovered || overDisc !== this.overDisc || overBooklet !== this.overBooklet || overButton !== this.overButton || overPage !== this.overPage) {
         // Only the mouse's own movement nudges a case, not a case gliding under a still pointer.
         if (hit >= 0 && hit !== this.hovered && !this.press && moved) this.swipe(hit);
         this.hovered = hit;
         this.overDisc = overDisc;
         this.overBooklet = overBooklet;
         this.overButton = overButton;
+        this.overPage = overPage;
         this.updateCursor();
         this.forceFrames = Math.max(this.forceFrames, 2);
       }
@@ -3312,6 +3740,10 @@ export class GalleryScene {
 
     const residual = this.layout(dt);
     this.updatePlayer(dt);
+    for (const item of this.cases) {
+      if (item.bookletModel.tick(now)) this.forceFrames = Math.max(this.forceFrames, 2);
+    }
+    this.updateBooklet(dt);
     this.renderer.render(this.scene, this.camera);
     if (this.forceFrames > 0) this.forceFrames -= 1;
     const busy = this.press || this.inertia !== 0 || this.settle !== 0 || this.flow !== 0 || this.tweens.size || residual > 0.001 || this.forceFrames > 0 || this.spinRate > 0;
@@ -3325,8 +3757,11 @@ export class GalleryScene {
   private updatePlayer(dt: number) {
     const t = this.listen;
     const pan = ease.power3InOut(clamp((t - 0.2) / 0.5, 0, 1));
-    this.gallery.position.y = pan * C.insertPan;
-    if (this.ready) this.gallery.visible = pan < 0.999;
+    // The booklet view pans the row away the same way, without the player's lens.
+    // Keep the case still until the booklet has slid completely past its holders.
+    const away = Math.max(pan, ease.power3InOut(clamp((this.read - 0.6) / 0.3, 0, 1)));
+    this.gallery.position.y = away * C.insertPan;
+    if (this.ready) this.gallery.visible = away < 0.999;
     this.setLens(pan);
     const player = this.player.group;
     player.visible = pan > 0.001;
@@ -3399,6 +3834,133 @@ export class GalleryScene {
     if (lift > 0) disc.position.addScaledVector(axis, lift * player.scale.x);
   }
 
+  // The booklet view (see C.read*): as `read` goes from 0 to 1 the booklet slides out from under
+  // the lid's tabs and lifts off it, bending like paper, held where it was as the row pans away
+  // (updatePlayer), then glides to the middle of the screen, turning over from its back page to its
+  // cover and settling flat.
+  // The same magazine lies where it lands, closed on the cover in the same place, and keeps
+  // its open spread centred. On a jump both drop out of view like the player.
+  private updateBooklet(dt: number) {
+    const item = this.cases[this.reading];
+    this.renderer.shadowMap.autoUpdate = Boolean(item);
+    if (!item) {
+      this.bookletSun.intensity = 0;
+      this.bookletAmbient.intensity = 0;
+      this.bookletFloor.visible = false;
+      return;
+    }
+    const t = this.read;
+    const { restPosition, restQuaternion, restScale, readPosition, readQuaternion, backUp, turn, matrix, axis, twist, tilt } = BOOKLET_SCRATCH;
+    const size = this.bookletPage;
+    const drop = ease.power3In(this.leave) * C.leaveDrop;
+    readQuaternion.setFromAxisAngle(tilt, -THREE.MathUtils.degToRad(C.bookletTilt));
+    readPosition.set(0, Math.tan(THREE.MathUtils.degToRad(C.cameraFOV / 2)) * C.cameraDistance * C.bookletRaise, 0);
+
+    const { booklet } = item;
+    if (booklet.visible) {
+      item.lid.updateWorldMatrix(true, false);
+      matrix.multiplyMatrices(item.lid.matrixWorld, item.bookletRest).decompose(restPosition, restQuaternion, restScale);
+      restPosition.y -= this.gallery.position.y;
+      const phase = (from: number, to: number) => clamp((t - from) / (to - from), 0, 1);
+      // Lift the exposed right edge first, then pull continuously right (the open lid's -x).
+      // The bend stays just outside the rightmost tabs in lid space as paper passes under them.
+      const pull = ease.power3InOut(phase(0.08, 0.44)) * C.bookletSlide;
+      axis.set(-1, 0, 0).applyQuaternion(restQuaternion);
+      restPosition.addScaledVector(axis, pull * MM * restScale.x);
+      const pivot = -C.bookletSize / 2 + C.lidTabInset - C.lidTabRadius - 1 + pull;
+      const level = ease.power3InOut(phase(0.46, 0.6));
+      item.bookletCompression.value = C.bookletCompression + (1 - C.bookletCompression) * level;
+      // A partly open case needs a higher lift to pass over its raised disc half.
+      const curlAngle = THREE.MathUtils.degToRad(C.bookletCurl + 180 - this.lidAngle);
+      const curl = ease.power3InOut(phase(0, 0.12)) * (1 - level);
+      // Level the whole booklet before carrying or turning it. Anchor the raised leading edge
+      // while its bend relaxes, bringing the trailing edge up instead of dropping the leading one.
+      const reach = C.bookletSlide + C.lidTabInset - C.lidTabRadius - 1;
+      const tip = (angle: number): Point => angle < 1e-4 ? [reach, 0] : [
+        C.bookletCurlSpan * Math.sin(angle) / angle + (reach - C.bookletCurlSpan) * Math.cos(angle),
+        C.bookletCurlSpan * (1 - Math.cos(angle)) / angle + (reach - C.bookletCurlSpan) * Math.sin(angle),
+      ];
+      const raisedTip = tip(curlAngle);
+      const currentTip = tip(curlAngle * (1 - level));
+      axis.set(1, 0, 0).applyQuaternion(restQuaternion);
+      restPosition.addScaledVector(axis, (currentTip[0] - raisedTip[0]) * MM * restScale.x);
+      axis.set(0, 0, -1).applyQuaternion(restQuaternion);
+      restPosition.addScaledVector(axis, (raisedTip[1] - currentTip[1]) * MM * restScale.x
+        + ease.power3InOut(phase(0.44, 0.46)) * C.bookletReleaseLift * MM * restScale.x
+        + ease.power3InOut(phase(0.6, 0.72)) * C.bookletLift);
+      const carry = ease.power3InOut(phase(0.6, 0.94));
+      const turning = phase(0.66, 0.9);
+      const over = ease.power3InOut(turning);
+      // It bends as it turns over, most at the turn's fastest, and settles with a small sway that
+      // ends flat, as LeafThrough's closed booklet lies.
+      const settle = phase(0.9, 1);
+      const flex = Math.sin(Math.PI * turning) - 0.3 * Math.sin(Math.PI * 2 * settle) * (1 - settle);
+      item.bend.value.set(
+        pivot * MM,
+        curlAngle * curl,
+        (-THREE.MathUtils.degToRad(C.bookletFlex) / (C.bookletSize * MM)) * flex,
+      );
+      booklet.position.lerpVectors(restPosition, readPosition, carry);
+      // An arc toward the camera, so it turns over clear of the case.
+      booklet.position.z += Math.sin(Math.PI * carry) * C.bookletLift;
+      booklet.position.y -= drop;
+      // From the lid's pose to the reading pose seen from the back, turning over on the way about
+      // an axis leaning from upright, so it twists a little as a hand would turn it.
+      twist.set(Math.sin(THREE.MathUtils.degToRad(C.bookletTwist)), Math.cos(THREE.MathUtils.degToRad(C.bookletTwist)), 0);
+      backUp.setFromAxisAngle(twist, Math.PI).premultiply(readQuaternion);
+      booklet.quaternion.slerpQuaternions(restQuaternion, backUp, carry).multiply(turn.setFromAxisAngle(twist, Math.PI * over));
+      booklet.scale.setScalar(restScale.x + (size / (C.bookletSize * MM) - restScale.x) * carry);
+      item.bookletModel.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
+      item.bookletModel.quaternion.identity();
+      item.bookletModel.scale.setScalar(C.bookletSize * MM);
+    }
+
+    // The light comes in as the booklet arrives, and its shadow on the floor as it lands (high above
+    // the floor in flight, its shadow there was large and heavy).
+    const lighting = ease.power3InOut(clamp((t - 0.74) / 0.26, 0, 1));
+    this.bookletSun.intensity = (C.bookletTravelSun + (C.bookletSun - C.bookletTravelSun) * lighting)
+      * ease.power3InOut(clamp((t - 0.3) / 0.6, 0, 1));
+    this.bookletSun.shadow.intensity = this.bookletSingle && this.bookletShown ? C.bookletSingleShadow : 1;
+    this.bookletAmbient.intensity = (this.bookletSingle ? C.bookletAmbientSingle : C.bookletAmbient) * lighting;
+    const landing = ease.power3InOut(clamp((t - 0.75) / 0.25, 0, 1));
+    this.bookletFloor.visible = landing > 0;
+    this.bookletFloor.material.opacity = C.bookletFloorShadow * landing;
+
+    const magazine = this.magazine;
+    if (magazine) this.updateShift(magazine, dt);
+    // The rig, and the magazine with it: its pages lie on its z = 0 plane, where the booklet's back
+    // page was.
+    const rig = this.bookletRig;
+    rig.quaternion.copy(readQuaternion);
+    rig.scale.setScalar(size);
+    axis.set(-this.bookletShift * size, 0, -(C.bookletThickness / C.bookletSize) * size / 2).applyQuaternion(readQuaternion);
+    rig.position.copy(readPosition).add(axis);
+    rig.position.y -= drop;
+    if (!magazine) return;
+    if (this.bookletShown) {
+      magazine.position.copy(rig.position);
+      magazine.quaternion.copy(rig.quaternion);
+      magazine.scale.copy(rig.scale);
+    }
+    // Back on its cover and centred on it again: the booklet takes over for the way back.
+    if (this.closingBooklet && magazine.page === 0 && !magazine.turning && this.bookletShift === 0.5) this.putBookletBack();
+  }
+
+  // Eases bookletShift toward where the magazine should be held in the middle.
+  private updateShift(magazine: LeafThroughObject, dt: number) {
+    // One page at a time, it always lies right of the spine. An open spread is centred as soon as
+    // it opens; a closed one (on its cover or back page) only once the last turn has landed, so it
+    // doesn't slide while a page is still turning.
+    const pages = magazine.visiblePages;
+    if (!this.bookletShown || magazine.layout === 'single') this.bookletTarget = 0.5;
+    else if (pages.length > 1) this.bookletTarget = 0;
+    else if (!magazine.turning) this.bookletTarget = pages[0] === 0 ? 0.5 : -0.5;
+    const target = this.bookletTarget;
+    this.bookletShift += (target - this.bookletShift) * (this.reducedMotion ? 1 : Math.min(1, dt * C.bookletCentreFollow));
+    if (Math.abs(target - this.bookletShift) < 0.001) this.bookletShift = target;
+    else this.forceFrames = Math.max(this.forceFrames, 2);
+  }
+
   // The camera, from the gallery's (0) to the player view's (1). The field of view narrows to
   // playerFOV while the camera backs off, and it moves in front of the player and up until it sees
   // it from playerView degrees above. It stays aimed straight ahead; a lens shift (view offset) moves
@@ -3425,8 +3987,13 @@ export class GalleryScene {
     }
     this.camera.updateProjectionMatrix();
     // Gone by the time the player is well in view.
-    this.rimLight.intensity = C.rimIntensity * clamp(1 - amount * 2.5, 0, 1);
-    this.ambientLight.intensity = C.ambientIntensity + C.playerAmbient * amount;
+    const galleryLight = 1 - ease.power3InOut(clamp((this.read - 0.74) / 0.26, 0, 1));
+    this.keyLight.intensity = C.keyIntensity * galleryLight;
+    this.fillLight.intensity = C.fillIntensity * galleryLight;
+    this.stripLight.intensity = C.topStripIntensity * galleryLight;
+    this.rimLight.intensity = C.rimIntensity * clamp(1 - amount * 2.5, 0, 1) * galleryLight;
+    this.ambientLight.intensity = (C.ambientIntensity + C.playerAmbient * amount) * galleryLight;
+    this.scene.environmentIntensity = C.environmentIntensity * galleryLight;
     const fog = this.scene.fog as THREE.Fog;
     fog.near = 7 + distance - C.cameraDistance;
     fog.far = 14 + distance - C.cameraDistance;
@@ -3604,6 +4171,9 @@ export class GalleryScene {
     this.player.resources.forEach((resource) => resource.dispose());
     const { textures, geometries, materials } = this.shared;
     [...Object.values(textures), ...Object.values(geometries), ...Object.values(materials)].forEach((resource) => resource.dispose());
+    this.bookletFloor.geometry.dispose();
+    this.bookletFloor.material.dispose();
+    this.bookletSun.shadow.dispose();
     this.environment.dispose();
     this.renderer.dispose();
     // Switching artists makes a new scene; free the context now rather than at garbage collection,

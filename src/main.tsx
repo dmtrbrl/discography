@@ -6,7 +6,6 @@ import { GalleryScene, PLAYER_BUTTONS } from './scene';
 import type { PlayerButton, PointerState } from './scene';
 import { aboutPath, galleryLink, galleryModes, galleryPath, loadBand, moveQueryToHash } from './band';
 import type { Album, Band, GalleryLink, GalleryMode, Theme } from './band';
-import { LeafThrough } from 'leafthrough';
 import type { PageSource } from 'leafthrough';
 import './style.css';
 
@@ -472,15 +471,14 @@ function createPreviews(options: {
   };
 }
 
-// The archive stores many booklet pages as two-page spreads. Split them only in memory, preserving
-// the source scans on disk, then let LeafThrough turn the square CD booklet pages.
-function BookletViewer(props: { album: Album; leaving: boolean; onClose: () => void }) {
-  let host!: HTMLDivElement;
-  let reader: LeafThrough | undefined;
-  const [page, setPage] = createSignal(0);
-  const [count, setCount] = createSignal(0);
-  const [loading, setLoading] = createSignal(true);
-  const [error, setError] = createSignal('');
+// The inside pages of an album's booklet, for the scene, which adds the cover and back page its case
+// already shows. The archive stores many booklet pages as two-page spreads: they are split only in
+// memory, preserving the source scans on disk. A scan that fails to load is left out. Kept per
+// album, so the booklet opens again without decoding its scans again.
+const bookletCache = new Map<string, Promise<PageSource[]>>();
+function bookletPages(album: Album) {
+  const cached = bookletCache.get(album.id);
+  if (cached) return cached;
   const loadImage = async (src: string) => {
     const image = new Image();
     image.decoding = 'async';
@@ -488,58 +486,26 @@ function BookletViewer(props: { album: Album; leaving: boolean; onClose: () => v
     await image.decode();
     return image;
   };
-  const square = (image: HTMLImageElement, panel = 0, panels = 1) => {
+  const square = (image: HTMLImageElement, panel: number, panels: number) => {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 1024;
-    const width = image.naturalWidth;
-    const height = image.naturalHeight;
-    const panelWidth = width / panels;
-    const crop = Math.min(panelWidth, height);
-    canvas.getContext('2d')!.drawImage(image, panel * panelWidth + (panelWidth - crop) / 2, (height - crop) / 2, crop, crop, 0, 0, 1024, 1024);
+    const panelWidth = image.naturalWidth / panels;
+    const crop = Math.min(panelWidth, image.naturalHeight);
+    canvas.getContext('2d')!.drawImage(image, panel * panelWidth + (panelWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 0, 0, 1024, 1024);
     return canvas;
   };
-  onMount(() => {
-    let cancelled = false;
-    (async () => {
-      const pages: PageSource[] = [{ src: props.album.cover!, alt: `${props.album.title} front cover` }];
-      const scans = await Promise.all((props.album.bookletScans ?? []).map(loadImage));
-      for (const scan of scans) {
-        const ratio = scan.naturalWidth / scan.naturalHeight;
-        const panels = ratio > 3.4 ? 4 : ratio > 1.45 ? 2 : 1;
-        for (let panel = 0; panel < panels; panel++) {
-          pages.push({ src: square(scan, panel, panels), alt: `${props.album.title} booklet page ${pages.length + 1}` });
-        }
-      }
-      if (props.album.bookletBack) {
-        const back = await loadImage(props.album.bookletBack);
-        const panels = back.naturalWidth / back.naturalHeight > 1.45 ? 2 : 1;
-        const panel = props.album.bookletBackCrop === 'right' ? panels - 1 : 0;
-        pages.push({ src: square(back, panel, panels), alt: `${props.album.title} booklet back` });
-      }
-      if (cancelled) return;
-      reader = new LeafThrough(host, {
-        pages, layout: 'spread', pageAspect: 1, bleed: true,
-        label: `${props.album.title} CD booklet`,
-        paper: { grain: false, showThrough: 0.02, wrinkles: 0.25, bulge: 0.5 },
-      });
-      reader.addEventListener('pagechange', (event) => setPage(event.detail.page));
-      setCount(reader.pageCount);
-      setLoading(false);
-      requestAnimationFrame(() => reader?.element.focus());
-    })().catch(() => { if (!cancelled) { setLoading(false); setError('The booklet could not be opened.'); } });
-    onCleanup(() => { cancelled = true; reader?.dispose(); });
+  const pages = Promise.all((album.bookletScans ?? []).map((src) => loadImage(src).catch(() => null))).then((scans) => {
+    const pages: PageSource[] = [];
+    for (const scan of scans) {
+      if (!scan) continue;
+      const ratio = scan.naturalWidth / scan.naturalHeight;
+      const panels = ratio > 3.4 ? 4 : ratio > 1.45 ? 2 : 1;
+      for (let panel = 0; panel < panels; panel++) pages.push(square(scan, panel, panels));
+    }
+    return pages;
   });
-  return (
-    <div class="booklet-overlay" classList={{ 'is-leaving': props.leaving }} role="dialog" aria-modal="true" aria-label={`${props.album.title} booklet`}>
-      <div class="booklet-heading"><span>{props.album.artist} / {props.album.title}</span><button type="button" onClick={props.onClose}>Close ×</button></div>
-      <div class="booklet-canvas" ref={host} />
-      <div class="booklet-navigation">
-        <button type="button" aria-label="Previous booklet page" disabled={loading() || page() === 0} onClick={() => reader?.prev()}>←</button>
-        <span>{error() || (loading() ? 'Opening booklet…' : `Page ${page() + 1} of ${count()}`)}</span>
-        <button type="button" aria-label="Next booklet page" disabled={loading() || page() >= count() - 1} onClick={() => reader?.next()}>→</button>
-      </div>
-    </div>
-  );
+  bookletCache.set(album.id, pages);
+  return pages;
 }
 
 function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | null; onPath: (path: string) => void }) {
@@ -568,7 +534,6 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   let nextArrow!: HTMLButtonElement;
   let bookletButton!: HTMLButtonElement;
   let listenButton!: HTMLButtonElement;
-  const [bookletOpen, setBookletOpen] = createSignal(false);
   // The page about the project (#/about), over the row: the gallery fades out and stays as it was.
   const [aboutOpen, setAboutOpen] = createSignal(false);
   let aboutLink!: HTMLAnchorElement;
@@ -578,19 +543,21 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   // Close, Escape, Enter, Space, the wordmark, the caption, Booklet and Listen do nothing until it has
   // finished, as clicks on the scene don't (see GalleryScene.viewBusy). Moving along the row works.
   const busy = () => pointer().busy || leaving();
-  const closeBooklet = () => {
-    setBookletOpen(false);
-    requestAnimationFrame(() => bookletButton?.focus({ preventScroll: true }));
-  };
-  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, overBooklet: false, listening: false, seated: false, discOut: false, overButton: null, busy: false });
+  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, overBooklet: false, listening: false, seated: false, discOut: false, overButton: null, busy: false, reading: false, bookletOut: false, overPage: null });
+  // The booklet is out in the middle of the screen (or coming out), where LeafThrough turns its
+  // pages; the arrows turn them. Which pages show (first and last, of count), once it has landed.
+  const bookletOpen = createMemo(() => pointer().reading);
+  const [bookletPage, setBookletPage] = createSignal({ first: 0, last: 0, count: 0 });
+  const pageArrows = () => bookletOpen() && bookletPage().count > 0;
+  const browsing = () => pointer().opened < 0;
   // The disc is in the player (or going in): the transport row shows and the row of cases is out of view.
   const listening = createMemo(() => pointer().listening);
   // The disc has landed on the spindle: only then do the player's screen, its buttons and the
   // transport row under it work.
   const seated = createMemo(() => pointer().seated);
-  // Booklet and Listen: while a case is open with its disc in it, so after an eject only once the
-  // disc is back in the case.
-  const caseActions = createMemo(() => pointer().opened >= 0 && !pointer().discOut);
+  // Booklet and Listen: while a case is open with its disc and booklet in it, so after an eject, or
+  // after the booklet is closed, only once it is back in the case.
+  const caseActions = createMemo(() => pointer().opened >= 0 && !pointer().discOut && !pointer().bookletOut);
   const previews = createPreviews({
     album: selected, shown: listening,
     onPlaying: (playing) => scene?.setPlaying(playing), onDisplay: (track, seconds) => scene?.setDisplay(track, seconds),
@@ -647,12 +614,21 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   // What a click does, for the bubble cursor.
   const bubbleLabel = () => {
     if (aboutOpen()) return '';
-    const { hovered, active: front, opened, dragging, overDisc, overBooklet, overButton } = pointer();
+    const { hovered, active: front, opened, dragging, overDisc, overBooklet, overButton, bookletOut, overPage } = pointer();
+    // On the booklet's pages a click turns them, on (right of the spine) or back (left), while there
+    // are pages that way. Only Close or Escape puts it away.
+    if (bookletOut) {
+      if (!bookletOpen()) return '';
+      const { first, last, count } = bookletPage();
+      if (overPage === 'next') return last < count - 1 ? 'Next' : '';
+      if (overPage === 'prev') return first > 0 ? 'Prev' : '';
+      return '';
+    }
     // In the player: its buttons, and the landed disc, which a click ejects (as Back does).
     if (listening()) return overButton ? BUTTON_LABELS[overButton] : overDisc ? 'Eject' : '';
-    // While a case is open, a click beside it closes it. Over the case the disc goes in the player
+    // Over an open case the disc goes in the player
     // and the booklet opens; elsewhere on the case the bubble stays a plain dot.
-    if (opened >= 0) return hovered === opened ? (overDisc ? 'Listen' : overBooklet ? 'Booklet' : '') : 'Close';
+    if (opened >= 0) return hovered === opened ? (overDisc ? 'Listen' : overBooklet ? 'Booklet' : '') : '';
     if (dragging) return 'Drag';
     if (hovered < 0) return '';
     if (hovered === front) return 'Open';
@@ -702,8 +678,8 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
 
   // A jump: the view leaves and the gallery starts again on the link's view with the intro, fading
   // in as on the first reveal, as if the page had opened there. The steps in between don't play.
-  // The gallery fades out as the view leaves; the player drops out of view first, so then it stays
-  // until the player has gone; behind the booklet, which slides down, it goes at once.
+  // The gallery fades out as the view leaves; the player or the booklet drops out of view first, so
+  // then it stays until they have gone.
   let stageFade: Animation | undefined;
   function fadeStage(to: 0 | 1, duration: number) {
     stageFade?.cancel();
@@ -721,23 +697,24 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     const index = link.about ? active() : indexOf(link.album);
     const open = !link.about && link.mode !== null;
     const listen = !link.about && link.mode === 'listen';
+    const read = !link.about && link.mode === 'booklet';
     if (!revealed() || !scene) {
-      scene?.show(index, open, listen);
+      scene?.show(index, open, listen, read);
       return;
     }
-    // The view under the booklet or the about page (the browser's Back from them): only they go.
+    // The view under the about page (the browser's Back from it): only it goes. The booklet comes
+    // out of the open case or goes back as its own controls would do it.
     if (!leaving() && index === active() && open === pointer().opened >= 0 && listen === listening()) {
-      batch(() => {
-        setBookletOpen(link.mode === 'booklet');
-        setAboutOpen(link.about);
-      });
+      if (read && !bookletOpen()) scene.openBooklet();
+      else if (!read && bookletOpen()) scene.closeBooklet();
+      setAboutOpen(link.about);
       return;
     }
     // One step from the view shown, with nothing over it (mostly the browser's Back or Forward):
     // it plays as the page's own controls would, the case opening or closing, the disc going in or
     // out, the row moving to another album. Further away, or while the view is still changing, it
     // jumps.
-    if (!busy() && !bookletOpen() && !aboutOpen() && link.mode !== 'booklet' && !link.about) {
+    if (!busy() && !pointer().bookletOut && !aboutOpen() && !read && !link.about) {
       const shownOpen = pointer().opened >= 0;
       const shownListen = listening();
       if (index === active()) {
@@ -751,16 +728,15 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       }
     }
     (document.activeElement as HTMLElement | null)?.blur();
-    if (bookletOpen() || aboutOpen()) fadeStage(0, 0);
-    else if (!listening()) fadeStage(0, 600);
+    if (aboutOpen()) fadeStage(0, 0);
+    else if (!listening() && !pointer().bookletOut) fadeStage(0, 600);
     setLeaving(true);
     setAboutOpen(link.about);
-    scene.show(index, open, listen, () => {
+    scene.show(index, open, listen, read, () => {
       if (link.about) stageFade?.cancel();
       else fadeStage(1, 700);
       batch(() => {
         setActive(index);
-        setBookletOpen(link.mode === 'booklet');
         setLeaving(false);
       });
     });
@@ -814,16 +790,41 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     playAfterInsert = false;
     requestAnimationFrame(() => playButton.focus({ preventScroll: true }));
   }, { defer: true }));
-  createEffect(on(() => pointer().discOut, (out) => {
-    const target = afterEject;
-    if (out || !target) return;
-    afterEject = null;
+  // Focuses a control once it has faded in far enough to be visible.
+  const focusWhenShown = (target: HTMLElement) => {
     const started = performance.now();
     const focusTarget = () => {
       if (getComputedStyle(target).visibility === 'visible') target.focus({ preventScroll: true });
       else if (performance.now() - started < 1500) requestAnimationFrame(focusTarget);
     };
     requestAnimationFrame(focusTarget);
+  };
+  createEffect(on(() => pointer().discOut, (out) => {
+    const target = afterEject;
+    if (out || !target) return;
+    afterEject = null;
+    focusWhenShown(target);
+  }, { defer: true }));
+
+  // The same for the booklet: from Booklet (by keyboard) to the next page's arrow once the pages
+  // show, and from the page arrows back to Booklet once the booklet is back in its case.
+  let pagesAfterOpen = false;
+  let bookletAfterClose = false;
+  createComputed(on(bookletOpen, (open) => {
+    const focused = document.activeElement;
+    const byKeyboard = Boolean(focused?.matches(':focus-visible'));
+    if (open) pagesAfterOpen = focused === bookletButton && byKeyboard;
+    else bookletAfterClose = byKeyboard && (focused === prevArrow || focused === nextArrow);
+  }, { defer: true }));
+  createEffect(on(pageArrows, (shown) => {
+    if (!shown || !pagesAfterOpen) return;
+    pagesAfterOpen = false;
+    focusWhenShown(nextArrow);
+  }, { defer: true }));
+  createEffect(on(() => pointer().bookletOut, (out) => {
+    if (out || !bookletAfterClose) return;
+    bookletAfterClose = false;
+    focusWhenShown(bookletButton);
   }, { defer: true }));
 
   // The corner button says what it does, in the words the bubble uses over the scene: Close on an
@@ -848,11 +849,12 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   }, { defer: true }));
   onCleanup(() => clearTimeout(backTimer));
 
-  // The corner button (Close or Eject): from the player to the open case, from the open case or the
-  // about page to the row.
+  // The corner button (Close or Eject): from the player or the booklet to the open case, from the
+  // open case or the about page to the row.
   function back() {
     if (busy()) return;
     if (aboutOpen()) closeAbout();
+    else if (bookletOpen()) scene?.closeBooklet();
     else if (listening()) scene?.eject();
     else scene?.close();
   }
@@ -874,10 +876,18 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
 
   // The scene owns the motion and reports the case in front back through setActive.
   function onKeyDown(event: KeyboardEvent) {
+    // The booklet: the arrow keys turn its pages, Home and End go to its covers, Escape closes it.
     if (bookletOpen()) {
-      if (event.key === 'Escape') { event.preventDefault(); closeBooklet(); }
+      if (event.altKey || event.metaKey || event.ctrlKey || !scene) return;
+      const turn = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (turn) { event.preventDefault(); scene.turnPage(turn); }
+      if (event.key === 'Home') { event.preventDefault(); scene.turnTo(0); }
+      if (event.key === 'End') { event.preventDefault(); scene.turnTo(bookletPage().count - 1); }
+      if (event.key === 'Escape') { event.preventDefault(); back(); }
       return;
     }
+    // On its way back nothing else works yet.
+    if (pointer().bookletOut) return;
     if (aboutOpen()) {
       if (event.key === 'Escape') { event.preventDefault(); closeAbout(); }
       return;
@@ -913,7 +923,6 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     if (revealed()) return;
     batch(() => {
       setRevealed(true);
-      if (linked.mode === 'booklet') setBookletOpen(true);
       if (linked.about) setAboutOpen(true);
     });
     scene?.reveal();
@@ -929,13 +938,15 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       startIndex,
       openOnReveal: linked.mode !== null && albums[startIndex]?.id === linked.album,
       listenOnReveal: linked.mode === 'listen',
+      readOnReveal: linked.mode === 'booklet',
+      bookletPages: (index) => bookletPages(albums[index]),
+      onPage: (first, last, count) => setBookletPage({ first, last, count }),
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
       onPlayerButton: (button) => {
         pressTwin(button);
         previews.button(button);
       },
-      onBooklet: () => setBookletOpen(true),
       onReady: () => {
         setReady(true);
         // Without the fade there is no transitionend to wait for.
@@ -962,7 +973,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
             a click would do nothing, so there it is plain text: no link, no bubble, and the pointer
             reaches the row. */}
         <Show when={pointer().opened >= 0 || bookletOpen() || aboutOpen()} fallback={<span class="wordmark">Discography</span>}>
-          <A class="wordmark" classList={{ 'has-bubble': canBubble && !bookletOpen() }} href="/" {...cursor.button}
+          <A class="wordmark" classList={{ 'has-bubble': canBubble }} href="/" {...cursor.button}
             onClick={(event) => {
               if (busy()) return event.preventDefault();
               if (listening() || bookletOpen()) return;
@@ -1015,17 +1026,18 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       </div>
       {/* The caption, with controls level with it either side. On the row it opens the album in front
           (Tab reaches it between the arrows); in the other views it only names it, Booklet and Listen
-          doing the rest. Either side: the arrows while the row is browsed,
-          Booklet and Listen while a case is open, Apple Music and Buy the CD once the disc has
+          doing the rest. Either side: the arrows while the row is browsed (and to turn the booklet's
+          pages while it is out), Booklet and Listen while a case is open, Apple Music and Buy the CD once the disc has
           landed in the player (with the transport row). Each pair fades out before the next fades
           in. */}
       <footer class="bottom-bar" classList={{ 'is-hidden': !revealed(), 'is-leaving': leaving() || aboutOpen() }}>
         <button class="case-action is-left" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
-          inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) setBookletOpen(true); }} {...cursor.button}>Booklet</button>
+          inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) scene?.openBooklet(); }} {...cursor.button}>Booklet</button>
         <a class="case-action store-link is-left" classList={{ 'is-shown': seated() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
           inert={seated() && selected().appleMusic ? undefined : true} {...cursor.button}>Apple Music</a>
-        <button class="album-arrow is-prev" ref={prevArrow} classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
-          disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
+        <button class="album-arrow is-prev" ref={prevArrow} classList={{ 'is-shown': browsing() || pageArrows(), 'has-bubble': canBubble }} type="button"
+          aria-label={bookletOpen() ? 'Previous booklet pages' : 'Previous album'} disabled={bookletOpen() ? bookletPage().first <= 0 : active() === 0}
+          inert={browsing() || pageArrows() ? undefined : true} onClick={() => (bookletOpen() ? scene?.turnPage(-1) : scene?.step(-1))} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
           <button class="album-name" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} disabled={pointer().opened >= 0}
             aria-label={pointer().opened < 0 ? `Open ${selected().title} by ${selected().artist} (${selected().year})` : undefined}
@@ -1034,8 +1046,9 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
             <span class="album-title">{selected().title}</span>
           </button>
         </div>
-        <button class="album-arrow is-next" ref={nextArrow} classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
-          disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
+        <button class="album-arrow is-next" ref={nextArrow} classList={{ 'is-shown': browsing() || pageArrows(), 'has-bubble': canBubble }} type="button"
+          aria-label={bookletOpen() ? 'Next booklet pages' : 'Next album'} disabled={bookletOpen() ? bookletPage().last >= bookletPage().count - 1 : active() === albums.length - 1}
+          inert={browsing() || pageArrows() ? undefined : true} onClick={() => (bookletOpen() ? scene?.turnPage(1) : scene?.step(1))} {...cursor.button}>→</button>
         <button class="case-action is-right" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={listenButton}
           inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) scene?.insert(); }} {...cursor.button}>Listen</button>
         <a class="case-action store-link is-right" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener"
@@ -1070,7 +1083,8 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
           Made by <a href={website} target="_blank" rel="noopener" classList={{ 'has-bubble': canBubble }} {...cursor.button}>Dmytro Barylo</a>
         </p>
       </section>
-      <Show when={bookletOpen() && albums[active()]} keyed>{(album) => <BookletViewer album={album} leaving={leaving()} onClose={closeBooklet} />}</Show>
+      {/* LeafThrough has no DOM of its own in the scene, so the pages shown are announced here. */}
+      <p class="sr-only" aria-live="polite">{pageArrows() ? `Booklet pages ${bookletPage().first + 1}${bookletPage().last > bookletPage().first ? `–${bookletPage().last + 1}` : ''} of ${bookletPage().count}` : ''}</p>
     </main>
   );
 }

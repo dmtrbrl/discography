@@ -95,7 +95,8 @@
         "booklet-scans/nevermind/02.jpg",
         "booklet-scans/nevermind/03.jpg",
         "booklet-scans/nevermind/04.jpg"
-      ]
+      ],
+      "bookletPageCount": 8
     },
     {
       "id": "californication",
@@ -207,7 +208,8 @@
         "booklet-scans/californication/06.jpg",
         "booklet-scans/californication/07.jpg",
         "booklet-scans/californication/08.jpg"
-      ]
+      ],
+      "bookletPageCount": 16
     },
     {
       "id": "aladdin-sane",
@@ -292,7 +294,8 @@
         "booklet-scans/aladdin-sane/04.jpg",
         "booklet-scans/aladdin-sane/05.jpg",
         "booklet-scans/aladdin-sane/06.jpg"
-      ]
+      ],
+      "bookletPageCount": 12
     },
     {
       "id": "shepherd-moons",
@@ -387,7 +390,8 @@
         "booklet-scans/shepherd-moons/04.jpg",
         "booklet-scans/shepherd-moons/05.jpg",
         "booklet-scans/shepherd-moons/06.jpg"
-      ]
+      ],
+      "bookletPageCount": 12
     },
     {
       "id": "post",
@@ -477,7 +481,8 @@
         "booklet-scans/post/05.jpg",
         "booklet-scans/post/06.jpg",
         "booklet-scans/post/07.jpg"
-      ]
+      ],
+      "bookletPageCount": 10
     },
     {
       "id": "kid-a",
@@ -571,7 +576,8 @@
         "booklet-scans/kid-a/14.jpg",
         "booklet-scans/kid-a/15.jpg"
       ],
-      "bookletBackCrop": "left"
+      "bookletBackCrop": "left",
+      "bookletPageCount": 34
     },
     {
       "id": "the-fat-of-the-land",
@@ -653,7 +659,8 @@
         "booklet-scans/the-fat-of-the-land/04.jpg",
         "booklet-scans/the-fat-of-the-land/05.jpg",
         "booklet-scans/the-fat-of-the-land/06.jpg"
-      ]
+      ],
+      "bookletPageCount": 12
     },
     {
       "id": "silent-shout",
@@ -741,7 +748,8 @@
         "booklet-scans/silent-shout/03.jpg",
         "booklet-scans/silent-shout/04.jpg",
         "booklet-scans/silent-shout/05.jpg"
-      ]
+      ],
+      "bookletPageCount": 12
     },
     {
       "id": "mutter",
@@ -831,7 +839,8 @@
         "booklet-scans/mutter/06.jpg",
         "booklet-scans/mutter/07.jpg",
         "booklet-scans/mutter/08.jpg"
-      ]
+      ],
+      "bookletPageCount": 16
     },
     {
       "id": "crystal-castles",
@@ -939,7 +948,8 @@
       },
       "bookletScans": [
         "booklet-scans/crystal-castles/02.jpg"
-      ]
+      ],
+      "bookletPageCount": 4
     }
   ]
 }

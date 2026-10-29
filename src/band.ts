@@ -49,6 +49,8 @@ export interface AlbumConfig {
   bookletBackCrop?: 'left' | 'right';
   // Archived interior booklet scans; spreads are split into pages when the booklet opens.
   bookletScans?: string[];
+  // Printed sides, including covers, known without downloading/decoding the interior scans.
+  bookletPageCount?: number;
   tracks?: Track[];
   // The album on Apple Music (an iTunes collection ID), for previews and the store link.
   appleMusic?: number;

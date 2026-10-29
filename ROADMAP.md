@@ -15,7 +15,7 @@ decision changes.
 | 0 | CD gallery: motion, CD look, real disc scans, loading screen, performance | Done (initial commit `bb3b070`) |
 | 1 | Jewel cases instead of discs, opening the front case | Done |
 | Pre-2 | Title screen, artist selection and menu, four more artists | Done |
-| 2a | Booklet as a flip book with LeafThrough | First working version for the ten-album collection |
+| 2a | Booklet as a flip book with LeafThrough | In the scene since 29 October 2026 (prototype, in review); was an overlay |
 | 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
 | Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
 | Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
@@ -23,6 +23,101 @@ decision changes.
 | Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
+
+## Booklet in the scene (29 October 2026, prototype in review)
+
+The booklet is no longer an overlay with its own LeafThrough canvas. LeafThrough 0.1.5's
+`LeafThroughObject` draws it in the gallery's own scene, with our renderer, camera, lights and
+environment, so it is a third view beside the open case and the player, built the same way.
+
+- **Out of the case** (`openBooklet()`, `updateBooklet` in `scene.ts`, the `read` amount 0 to 1
+  like `listen`): lift the exposed right edge, then draw the booklet continuously to the right
+  (the open lid's −x, toward the hinge), away from the left-hand stops. It slides 112 mm through
+  the top and bottom holders. The bend stays just outside the rightmost pair as paper feeds
+  through it: a rounded 14 mm transition to a 22° slope. On phones the slope also accounts for
+  the case's partly open angle, keeping the paper above the raised disc half. The former path
+  slid right, reversed left over the stops and lifted unevenly; that was rejected in review.
+- **Level before turning** (same review): once the trailing edge is free, lift 2 mm clear of
+  the holders, then raise that edge to the height of the leading edge while the extraction curl
+  relaxes. Only after the whole booklet is level does it travel to the middle and turn over.
+  The case stays still through this stage, then pans out of view. The turn still leans
+  `bookletTwist` (10°) from upright and flexes up to `bookletFlex` (40°), with a small settling
+  sway. `readDuration` is 2.9 s, `unreadDuration` 2.3 s; closing follows the same path backwards.
+- **A booklet from the beginning** (same review): each case contains a `LeafThroughObject`,
+  with the actual number of printed sides (`bookletPageCount` in the collection metadata),
+  cover and back artwork, and blank interior sheets. The paper has the same grain, wrinkles
+  (`bookletWrinkles`, 0.25), bulge (`bookletBulge`, 1), and nested page structure as the reader.
+  Its resting shape is compressed to `bookletCompression` (0.14) under the holders and relaxes
+  after extraction. The 1.2 mm invisible box is only a picking bound. `withBend` bends the
+  already-formed sheets and their shadow passes together, preserving the paper's own shape.
+  Interior images are requested only when opening, then replace the blank sides; page counts
+  come from the existing local scan dimensions, with spreads counted as separate printed sides.
+- **Reading**: the very same page object moves out of the lid and into the reader, without
+  swapping a thin box for a thick stack. It stays on its first cover until a page is turned;
+  the automatic opening at the first spread was removed in review. The reader keeps
+  the spread centred (`bookletShift`, `bookletCentreFollow`): an open spread as soon as it opens,
+  a closed one (on its cover or back page) only once the last turn has landed. Centring while the
+  page still turned read badly in review (the first version did, and closing forced it at once). Pages: the
+  cover and back page the case already shows (the print canvases), the inside pages from
+  `bookletPages()` in `main.tsx` (scans split into square pages in memory, cached per album, a scan
+  that fails left out), and a blank page when needed so the back page closes the spread as a back
+  cover.
+- **Paper and shadows** (after review, same day): the paper has LeafThrough's grain and its
+  show-through (the other side's ink mixed in, 4% for a spread; it only shows on high-contrast
+  pages), as in the library's demo; the overlay had turned grain off for no recorded reason. The
+  booklet view has its own directional light (`bookletSun`), lit as LeafThrough lights its own
+  scene: from `bookletSunAt` in the magazine's frame (its default for a spread, also passed as
+  `lighting.sun.position`), on a rig posed with the magazine, with a shadow-catching floor under
+  the pages (`bookletFloorShadow`, its default 0.15). Pages shadow each other and the floor as they
+  turn; the flying booklet casts on the floor too, so its shadow is there before the hand-over.
+  The light fades in as the booklet arrives, the floor's shadow only as it lands (in flight, high
+  over the floor, its shadow there was large and heavy). The light always casts shadows, dark outside the
+  booklet view, since switching that (or hiding the light) would recompile every material, and the
+  shadow map is only redrawn while a booklet is out (`shadowMap.autoUpdate`); it is drawn once in the
+  first frame, since every lit material samples it and, before it existed, each draw was a WebGL
+  error (`Mismatch between texture format and sampler type`). Only the booklet casts and takes
+  shadows.
+  Spine review against the live library demo: the shadow/contact pass was already present, but
+  half-strength bulge and the gallery's extra fill lights flattened the fold. Reading now uses
+  the demo's full page bulge, directional intensity 2, and hemisphere fill (white sky, `#a1aeaf`
+  ground, intensity 1.5 for spreads / 1.7 for single pages). Gallery key, fill, rim, strip, ambient,
+  and environment lighting fade away as the booklet arrives and restore on return. Single-page
+  shadow intensity is 0.4, matching the demo. Compression is 0.14 inside the case, preserving
+  clearance with the fuller resting shape. The library supplies the spine shading; no painted
+  shadow was added. Visually compared settled spreads in the live demo and the local viewer.
+- **Back** (`closeBooklet()`): the pages turn back to the cover, the booklet takes the magazine's
+  place again and the path plays backwards. The page object remains in its case for reopening;
+  its resources are disposed when the collection or scene is destroyed.
+- **Phones** (`narrowWidth` or less): LeafThrough's `single` layout, one page `bookletFitNarrow` of
+  the width; a spread was about 160 px tall at 390 × 844.
+- **Page**: Booklet calls the scene; `PointerState` reports `reading`, `bookletOut` and
+  `overPage`. Close and Escape close it; outside clicks do nothing for both the booklet and the
+  open case. The arrows (in their usual places, "Previous/Next booklet pages") and the arrow keys turn pages, Home and End go to the
+  covers. Booklet and Listen come back once the booklet is back in the lid. Keyboard focus goes from
+  Booklet to the next-page arrow and back. A visually hidden live region announces the pages shown,
+  since the object has no DOM. Over the pages the bubble says what a click does: "Next" right of the
+  spine, "Prev" left of it (the scene reports the side, `overPage`, from the pointer's ray in the
+  magazine's frame), nothing when there are no pages that way or beside the booklet. The system
+  cursor is a pointer there.
+- **Routes**: `#/<id>/booklet` opens the case and the booklet at once (`readOnReveal`,
+  `show(index, open, listen, read)`); Back and Forward between `/open` and `/booklet` play the step;
+  the wordmark jumps, the booklet dropping out of view like the player.
+- Removed: `BookletViewer`, the `.booklet-*` styles, the masthead's z-index over the overlay.
+
+To review: the timing and the path (`readDuration`, the phases in `updateBooklet`), the size and
+tilt, the light's strength (`bookletSun`) and the show-through amount, and the
+single layout on phones (the next page shows at the right edge under the current one).
+
+Verified in headless Chrome at 1440 × 900, 390 × 844 and 844 × 390: open and close from the case,
+the arrow keys, the live region, the centring sampled per frame against `turning` (End and Home),
+the bubble's label over each side of an open spread and of each closed cover, a `/booklet` link, the wordmark from the booklet and the browser's
+Back to it, frames of the path frozen at fixed `read` values; no console errors or warnings. The
+`willReadFrequently` warning is gone too: the former cover-edge sampling was removed with the
+box model. GPU sampling of the actual formed page shaders at 1440 × 900, 390 × 844 and 844 × 390
+found no intersections with the holders or tray; the resting stack stays between 2.4 and 3.13 mm
+inside the lid (its inside face is at 3.7 mm). `scripts/check-booklet.mjs` checks the initial sheet
+count, zero early interior-image requests, the shared model, manual first page turn, outside
+clicks, Escape, Close, reopening, and restoration of the case lighting, including reduced motion. `npm run build` passes.
 
 ## Hash routes and jumps (29 October 2026)
 
@@ -44,8 +139,8 @@ cleanup throughout), and its router now holds the page's state.
   with the reveal.
 - **History** (`Gallery` in `main.tsx`): browsing the row replaces the entry; each view adds one
   (the open case, then the player or the booklet), recording the path it came from in
-  `history.state.parent`. Leaving a view in the page (Back, Escape, Close, a click beside the open
-  case) goes back to that entry rather than adding another, so the browser's Back never has to step
+  `history.state.parent`. Leaving a view in the page (Back, Escape, Close) goes back to that
+  entry rather than adding another, so the browser's Back never has to step
   through the same view twice. A change written while that back step is on its way waits for it.
 - **The wordmark** is a link to `#/`. From the player or the booklet it jumps there (below); on an
   open case it only closes it, as Back does. Neither resets the gallery. On the row, where a click
@@ -1057,7 +1152,8 @@ Possible latent issues the types exposed, left as they were:
 ## Phase 2a: booklet as a flip book
 
 Use [LeafThrough](https://github.com/dmtrbrl/leafthrough), the user's own library (npm
-`leafthrough`, MIT, 0.1.3 at the time of writing).
+`leafthrough`, MIT, 0.1.3 at the time of writing; 0.1.5 since the booklet moved into the scene,
+see Booklet in the scene).
 
 What it is: a three.js flip book (needs three r160 or newer; this project uses r186) with spread and
 single layouts, bending paper, drag and keyboard turning, accessibility, reduced motion support, and

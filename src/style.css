@@ -103,19 +103,6 @@ a.wordmark { pointer-events: auto; }
 .about-credit { margin: 40px 0 0; padding-bottom: 39px; font: 400 12px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 40%, var(--bg)); }
 .about-credit a { padding: 4px 10px; margin: 0 -10px; color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .about-credit a:hover { color: var(--ink); }
-/* The wordmark stays above the booklet (a way back to the gallery's start), level with its heading
-   row; on phones the heading goes below it. */
-body:has(.booklet-overlay) .masthead { z-index: 9; }
-.booklet-overlay { transition: translate .6s cubic-bezier(.32, 0, .67, 0); }
-.booklet-overlay.is-leaving { translate: 0 100%; }
-.booklet-overlay { position: fixed; inset: 0; z-index: 8; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 18px; padding: 32px 26px 28px; background: radial-gradient(circle at 48% 38%, var(--bg-center), var(--bg)); color: var(--ink); }
-.booklet-heading { width: min(980px, 100%); display: flex; align-items: center; justify-content: space-between; gap: 20px; font: italic 400 20px/1.2 'Instrument Serif', Georgia, serif; }
-.booklet-heading button, .booklet-navigation button { padding: 6px 10px; border: 0; background: none; color: inherit; }
-.booklet-heading button { font: inherit; }
-.booklet-canvas { width: min(980px, 100%); height: min(68svh, 660px); min-height: 250px; }
-.booklet-navigation { display: flex; align-items: center; justify-content: center; gap: 24px; min-height: 34px; font: 500 11px/1.2 'DM Mono', monospace; }
-.booklet-navigation button { font: 400 24px/1 'DM Sans', Arial, sans-serif; }
-.booklet-navigation button:disabled { opacity: .3; }
 .eyebrow { font: italic 400 16px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); }
 .eyebrow-separator { padding: 0 5px; color: color-mix(in srgb, var(--ink) 35%, var(--bg)); }
 h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 34px; letter-spacing: -.005em; line-height: 1.05; }
@@ -161,7 +148,6 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .transport-track-number { font: 400 11px/1 'DM Mono', monospace; color: color-mix(in srgb, var(--ink) 50%, var(--bg)); }
   .transport-track-title { overflow: hidden; text-overflow: ellipsis; }
   .masthead { top: 22px; --wordmark-size: 24px; }
-  .booklet-overlay { padding-top: 64px; }
   .about { padding: 76px 22px 0; }
   .about-body { font-size: 17px; }
   .about-credit { margin-top: 32px; padding-bottom: 24px; font-size: 11px; }
@@ -178,7 +164,6 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
    to the edges, so the cases and the player get the height (the scene sizes them for it too). */
 @media (max-height: 500px) and (orientation: landscape) {
   .masthead { top: 14px; --wordmark-size: 22px; }
-  .booklet-overlay { padding-top: 44px; }
   /* Taller than the screen here, so it scrolls: the text fades out under the top bar. */
   .about { padding-top: 52px; mask-image: linear-gradient(to bottom, transparent 36px, #000 52px); }
   .about-body { font-size: 15px; line-height: 1.4; }
@@ -194,4 +179,4 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .eyebrow { font-size: 13px; }
   h1, .album-title { font-size: 24px; }
 }
-@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .preloader-fill, .booklet-overlay, .back-label, .about { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .preloader-fill, .back-label, .about { transition: none; } }
