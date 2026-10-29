@@ -21,6 +21,56 @@ decision changes.
 | Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
 | Single page | Gallery as the only page: title screen, artist list, band label and Albums menu removed | Done (29 October 2026) |
 | Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
+| Mobile | Partly open case on phones | In progress (29 October 2026) |
+
+## Mobile view (29 October 2026)
+
+- **Open case on phones, opened like a book**: on screens `narrowWidth` (650 px) wide or less the
+  lid opens to `lidOpenAngleNarrow` (110°) instead of lying flat at 180°, and both halves rise
+  equally from the hinge into a V toward the camera, the spine in the middle of the screen: the body
+  turns back about the hinge by (180° − angle) / 2 and slides so the hinge sits at the centre (flat,
+  this is the desktop's slide, unchanged). The pick plane covers the V's width. Flat, the open case
+  ran into both edges of a 390 px screen; a first try opened only the lid to 120° from a flat body,
+  which left the case off-centre.
+- **Scaled to fit**: there the open case is scaled (`openFit`, from `openCaseWidth()`, which
+  projects the V's outer corners through the gallery camera when the screen changes) to the
+  screen's width less `openFitPadding` (32 px) each side; measured gaps 33 to 36 px at 390 and 320 px
+  wide. So a smaller angle draws the case bigger. Compared: 100° (deeper V, disc darker as it
+  turns from the light), 110° (chosen), 120°. The insert path check still passes at every size.
+
+- **Row spacing on phones**: `hGapNarrow` (0.9) of `hGap`, so the neighbours show beside the front
+  case instead of at the screen's edges. Measured gaps between case edges at 390 px wide (left /
+  right, uneven from the row's perspective): 0.8 gave 4 / 17 px, too tight; 0.9 gives 28 / 47 px;
+  1.0 (the desktop's) 52 / 77 px. 0.6 and 0.7 overlapped the front case.
+- **Player controls on phones**: 17 px symbols, buttons about 51 × 45 px for a fingertip.
+- **Track under the controls on phones**: number and title of the current track (the player's
+  screen is too small to read there), one line with an ellipsis; the line keeps its height while
+  stopped so nothing moves when a track starts. A change fades the old track out and the new one in
+  (0.2 s each, like the caption). Hidden on wider screens.
+- **Top bar centred**: Back and GitHub now line up with the wordmark by the middle of their capitals
+  (cap top to baseline), on phones and desktop (`top` 18.25 and 36.75 px). The first alignment
+  matched whole ink centres, which counted the wordmark's descenders and left them 3 to 4 px low;
+  measured now within 0.75 px.
+- **No player on a double click**: a case counted as open from the start of its opening, so the
+  second click of a double click on a closed case (or a caption clicked twice, or Enter pressed
+  twice) put the disc in the player. The disc, the booklet and `insert()` now wait until the case
+  has finished opening (`fullyOpen`); opening from a link is still immediate.
+
+- **Smaller caption everywhere**: the album title 40 → 34 px on desktop and 32 → 28 px on phones,
+  the artist line 18 → 16 and 15 → 14 px.
+- **Phones turned sideways** (`max-height: 500px` and landscape, `shortHeight` in the scene): the
+  type round the graphics is smaller and closer to the edges (wordmark 22 px, Back and GitHub 15 px,
+  caption 13 / 24 px, side links 15 px), and the graphics take the height: the open case lies flat
+  and is fitted between `openFitShortMargin` (72 px) top and bottom (as well as the width), and the
+  player is `playerScaleShort` (1.25) bigger and `playerRaiseShort` (0.28) up, so its controls end
+  9 to 14 px above the caption (they overlapped it before). Checked at 844 × 390, 667 × 375 and
+  932 × 430; the insert path check now covers 844 × 390 and 667 × 375.
+- **Bottom bar centred**: the side controls (arrows, Booklet and Listen, Apple Music and Buy the
+  CD) were pinned near the title's baseline, 6 to 11 px below the middle of the caption. They are
+  now centred on it (artist line's cap top to the title's baseline), the arrows 2 px higher for
+  their low glyph except at the landscape size: measured within 0.3 px on desktop, landscape and
+  phones. On phones upright the side links still sit a row above the caption.
+- **Top bar in landscape** aligned the same way as on desktop and phones (`top` 10 px, within 0.5 px).
 
 ## Player view without the tracklist (29 October 2026)
 
@@ -434,7 +484,7 @@ the repo:
   that runs steps such as key presses, clicks, held drags and `page.evaluate`, and compared against
   the phase 0 build served from a temporary `git worktree`.
 - `scripts/check-insert-path.mjs` (with `npm run dev` running) samples the disc's insert and eject
-  path at eight screen sizes and exits with 1 if any point of the disc goes into the player. It
+  path at ten screen sizes (phones turned sideways included) and exits with 1 if any point of the disc goes into the player. It
   needs `playwright-core`, for example
   `PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs`. The dev server exposes the
   scene as `window.scene` for it (`import.meta.env.DEV` only).

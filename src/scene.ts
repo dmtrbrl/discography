@@ -45,9 +45,18 @@ const C = {
   casePlasticOpacity: 0.04, trayColor: '#151518', trayRough: 0.5, trayStipple: 0.35, printRough: 0.5, caseScale: 0.78,
   // Opening: the case turns square to the camera and tips back by openTilt degrees, like a book
   // lying open on a table seen from the front (no sideways angle). It comes forward and settles at
-  // openScale, the neighbours move aside and back (on screen), then the lid swings open.
-  openDuration: 1.3, lidOpenAngle: 180, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
-  galleryScale: 1.08, hGap: 2.8, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
+  // openScale, the neighbours move aside and back (on screen), then the lid swings open: flat, to
+  // lidOpenAngle degrees, or on screens narrowWidth px wide or less only to lidOpenAngleNarrow,
+  // with both halves rising from the hinge like a book opened from both sides, since the flat case
+  // is very wide for a phone. There the open case is scaled to the screen's width less
+  // openFitPadding px each side (openFit). On short landscape screens (shortHeight px tall or less,
+  // a phone turned sideways) it lies flat and is scaled to fit between openFitShortMargin px top
+  // and bottom, where the top bar and the caption are.
+  openDuration: 1.3, lidOpenAngle: 180, lidOpenAngleNarrow: 110, narrowWidth: 650, openFitPadding: 32,
+  shortHeight: 500, openFitShortMargin: 72, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
+  // hGap spaces the row; on screens narrowWidth px wide or less, hGapNarrow of it, so the
+  // neighbours show beside the front case rather than at the screen's edges.
+  galleryScale: 1.08, hGap: 2.8, hGapNarrow: 0.9, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
   cameraDistance: 4.4, cameraFOV: 40, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
   ambientIntensity: 0.25, keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
@@ -105,7 +114,10 @@ const C = {
   // is a true rectangle; the lens shift keeps everything framed where it was. The lens is longer
   // than the gallery's (playerFOV degrees; the camera backs off to keep the framing). A soft shadow
   // (playerShadow opacity) grounds it.
+  // On short landscape screens it is playerScaleShort bigger and playerRaiseShort up instead, so it
+  // and the transport row under it fit above the caption.
   playerYaw: 45, playerView: 26, playerScale: 0.7, playerFOV: 18, playerShadow: 0.3, playerRaise: 0.1,
+  playerScaleShort: 1.25, playerRaiseShort: 0.28,
   // Inserting: the disc lifts insertLift out of the tray toward the camera, the row slides up out of
   // view by insertPan while the player rises into its place, then the disc glides over the well,
   // insertHover above the spindle, and drops onto it. Ejecting plays it backwards. Whatever that path
@@ -2007,6 +2019,12 @@ export class GalleryScene {
   private listenOnReveal: boolean;
   private player: Player;
   private playerRest: THREE.Vector3;
+  // How far an open case's lid swings, in degrees (lidOpenAngle, or lidOpenAngleNarrow on phones).
+  private lidAngle: number = C.lidOpenAngle;
+  // On phones, how much the open case is scaled from openScale to fill the screen's width.
+  private openFit = 1;
+  // The row's spacing (hGap, or hGapNarrow of it on phones).
+  private rowGap: number = C.hGap;
   // How far the player leans toward the cursor, 0 to 1 (eased like a case's hover).
   private playerLean = 0;
   // Not private: its tween animates it through tween(), which takes a plain object. 0 is the disc
@@ -2463,9 +2481,11 @@ export class GalleryScene {
   }
 
   // Takes the open case's disc out and puts it in the player; at once restores that state from a link.
+  // Not while the case is still opening (a double click, a caption clicked twice, Enter pressed twice).
   insert(atOnce = false) {
     const item = this.cases[this.opened];
     if (!this.ready || !item || this.inPlayer || (this.listening >= 0 && this.listening !== this.opened)) return;
+    if (!atOnce && !this.fullyOpen(item)) return;
     this.inPlayer = true;
     if (this.listening < 0) {
       this.listening = this.opened;
@@ -2552,10 +2572,16 @@ export class GalleryScene {
     this.updateCursor();
   }
 
+  // Whether the open case has finished opening: until then its disc and booklet don't answer, so
+  // the second click of a double click that opened it doesn't land on the disc.
+  private fullyOpen(item: JewelCase | undefined) {
+    return Boolean(item && item.open >= 0.999);
+  }
+
   // Raycasts the open case's disc, with the ray pick() last set.
   private pickDisc() {
     const item = this.cases[this.opened];
-    return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.disc.pick, false).length);
+    return Boolean(item && this.fullyOpen(item) && this.listening < 0 && this.raycaster.intersectObject(item.disc.pick, false).length);
   }
 
   // The disc on the player under the pointer, once it has landed (not where a button is).
@@ -2568,7 +2594,7 @@ export class GalleryScene {
 
   private pickBooklet() {
     const item = this.cases[this.opened];
-    return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.booklet, false).length);
+    return Boolean(item && this.fullyOpen(item) && this.listening < 0 && this.raycaster.intersectObject(item.booklet, false).length);
   }
 
   // The player's button under the pointer, once the disc has landed.
@@ -2615,6 +2641,41 @@ export class GalleryScene {
     this.setLens(lens);
     const canvas = this.renderer.domElement.getBoundingClientRect();
     return canvas.top + bottom * canvas.height;
+  }
+
+  // How wide and tall the open case is on the page (client px) at openScale, with the lid at
+  // lidAngle: its V's outer corners, projected through the gallery's camera (the gallery at rest),
+  // for openFit.
+  private openCaseSize(): [number, number] {
+    const lens = this.lens;
+    const pan = this.gallery.position.y;
+    this.setLens(0);
+    this.camera.updateMatrixWorld();
+    this.gallery.position.y = 0;
+    this.gallery.updateMatrixWorld(true);
+    const place = new THREE.Vector3(0, C.activeDiscY, 0).addScaledVector(this.toCamera, C.openForward);
+    const pose = new THREE.Matrix4().compose(place, new THREE.Quaternion().setFromEuler(this.facing), new THREE.Vector3().setScalar(C.openScale));
+    pose.premultiply(this.gallery.matrixWorld);
+    // Each half is a case wide, rising from the hinge toward the camera by half of what the lid
+    // stops short of flat; its outer edge's corners, top and bottom, front and back face.
+    const rise = (Math.PI - THREE.MathUtils.degToRad(this.lidAngle)) / 2;
+    const half = (C.caseWidth - C.hingeInset) * MM;
+    const [height, depth] = [C.caseHeight * MM / 2, C.caseDepth * MM / 2];
+    let [left, right, top, bottom] = [Infinity, -Infinity, Infinity, -Infinity];
+    const corner = new THREE.Vector3();
+    for (const side of [-1, 1]) {
+      for (const face of [-1, 1]) {
+        for (const y of [-height, height]) {
+          corner.set(side * half * Math.cos(rise) - side * face * depth * Math.sin(rise), y, half * Math.sin(rise) + face * depth * Math.cos(rise));
+          const { x, y: up } = corner.applyMatrix4(pose).project(this.camera);
+          [left, right, top, bottom] = [Math.min(left, x), Math.max(right, x), Math.min(top, -up), Math.max(bottom, -up)];
+        }
+      }
+    }
+    this.gallery.position.y = pan;
+    this.gallery.updateMatrixWorld(true);
+    this.setLens(lens);
+    return [Math.max(1, ((right - left) / 2) * Math.max(1, this.element.clientWidth)), Math.max(1, ((bottom - top) / 2) * Math.max(1, this.element.clientHeight))];
   }
 
   // A click presses the button in and lets it spring back, and tells the page.
@@ -2999,16 +3060,25 @@ export class GalleryScene {
     const width = Math.max(1, this.element.clientWidth);
     const height = Math.max(1, this.element.clientHeight);
     const aspect = width / height;
+    const narrow = width <= C.narrowWidth;
+    const short = !narrow && height <= C.shortHeight && width > height;
+    this.lidAngle = narrow ? C.lidOpenAngleNarrow : C.lidOpenAngle;
+    this.rowGap = C.hGap * (narrow ? C.hGapNarrow : 1);
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
     // Narrow viewports shrink the whole gallery so the front case still fits.
     this.gallery.scale.setScalar(C.galleryScale * clamp(aspect / 1.5, 0.45, 1));
+    if (narrow || short) {
+      const [caseWidth, caseHeight] = this.openCaseSize();
+      const fitWidth = (width - C.openFitPadding * 2) / caseWidth;
+      this.openFit = short ? Math.min(fitWidth, (height - C.openFitShortMargin * 2) / caseHeight) : fitWidth;
+    } else this.openFit = 1;
     // The player sits centred, a little up, shrunk to fit narrow screens.
     const halfHeight = Math.tan(THREE.MathUtils.degToRad(C.cameraFOV / 2)) * C.cameraDistance;
     const halfWidth = halfHeight * aspect;
-    this.playerRest.set(0, halfHeight * C.playerRaise, 0);
+    this.playerRest.set(0, halfHeight * (short ? C.playerRaiseShort : C.playerRaise), 0);
     this.setLens(this.lens);
-    this.player.group.scale.setScalar(MM * C.playerScale * clamp(halfWidth / 1.4, 0.4, 1));
+    this.player.group.scale.setScalar(MM * C.playerScale * clamp(halfWidth / 1.4, 0.4, 1) * (short ? C.playerScaleShort : 1));
     const stats = this.frameStats;
     const dpr = window.devicePixelRatio || 1;
     if (dpr !== stats.dpr || Math.abs(width * height - stats.area) > stats.area * 0.2) {
@@ -3267,7 +3337,7 @@ export class GalleryScene {
       const distance = Math.abs(offset);
       const isActive = index === active;
       const angle = offset * 0.35;
-      let x = Math.sin(angle) * C.hGap * 2.4;
+      let x = Math.sin(angle) * this.rowGap * 2.4;
       let y = (isActive ? C.activeDiscY : 0) - dip * (isActive ? 0.7 : 1);
       let z = depth - Math.cos(angle) * depth;
       let rotX = 0;
@@ -3303,14 +3373,22 @@ export class GalleryScene {
         rotX += (this.facing.x - rotX) * face;
         rotY += (this.facing.y - rotY) * face;
         rotZ += (this.facing.z - rotZ) * face;
-        scale += (C.openScale * this.intro.active - scale) * face;
+        scale += (C.openScale * this.openFit * this.intro.active - scale) * face;
         x += this.toCamera.x * C.openForward * face;
         y += this.toCamera.y * C.openForward * face;
         z += this.toCamera.z * C.openForward * face;
       }
-      item.lid.rotation.y = -swing * THREE.MathUtils.degToRad(C.lidOpenAngle);
-      item.body.position.x = -CASE.hingeX * MM * swing;
-      item.pick.scale.x = 1 + swing;
+      // Opened like a book: short of flat, both halves rise equally from the hinge into a V toward
+      // the camera, the body turning back about the hinge by half of what the lid stops short of
+      // flat, and the hinge (the spine) slides to the middle. Flat (180°) the body doesn't turn.
+      const lidAngle = THREE.MathUtils.degToRad(this.lidAngle);
+      const rise = ((Math.PI - lidAngle) / 2) * swing;
+      const hinge = CASE.hingeX * MM;
+      item.body.rotation.y = -rise;
+      item.body.position.set(hinge * (1 - swing) - hinge * Math.cos(rise), 0, -hinge * Math.sin(rise));
+      item.lid.rotation.y = -swing * lidAngle;
+      // The pick plane covers both halves as seen from the front.
+      item.pick.scale.x = 1 + swing * (2 * Math.cos(rise) - 1);
       // Light reaches the disc as the lid opens; until then it sits in the closed case's shade.
       item.disc.shade.value = C.discClosedShade + (1 - C.discClosedShade) * ease.power3InOut(clamp(swing / 0.5, 0, 1));
 

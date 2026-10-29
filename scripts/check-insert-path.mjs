@@ -15,7 +15,8 @@ import { pathToFileURL } from 'node:url';
 
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ? pathToFileURL(resolve(process.env.PLAYWRIGHT_CORE)).href : 'playwright-core');
 const url = process.argv[2] ?? 'http://localhost:5173/';
-const sizes = [[1440, 900], [1920, 1080], [1280, 720], [2560, 1080], [1024, 1366], [768, 1024], [390, 844], [320, 640]];
+// Desktop, tablets, phones upright and phones turned sideways (their own layout, see shortHeight).
+const sizes = [[1440, 900], [1920, 1080], [1280, 720], [2560, 1080], [1024, 1366], [768, 1024], [390, 844], [320, 640], [844, 390], [667, 375]];
 const albums = ['nevermind', 'kid-a', 'crystal-castles'];
 
 const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });

@@ -21,7 +21,9 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 .bottom-bar { position: absolute; left: 42px; right: 42px; bottom: 39px; z-index: 3; display: flex; justify-content: center; pointer-events: none; text-align: center; }
 /* The caption leaves room for the arrows on either side. */
 .album-caption { max-width: min(760px, calc(100vw - 220px)); transition: opacity .22s ease; }
-.album-arrow { position: absolute; bottom: 9px; display: block; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: 400 20px/1 'DM Sans', sans-serif; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
+/* The side controls are centred on the caption (artist line and title); the arrow glyph sits low in
+   its line, so the arrows go 2 px higher (measured; not at the landscape size). */
+.album-arrow { position: absolute; top: 50%; translate: 0 calc(-50% - 2px); display: block; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: 400 20px/1 'DM Sans', sans-serif; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
 .album-arrow.is-prev { left: -9px; }
 .album-arrow.is-next { right: -9px; }
 /* Arrows and case actions hand over in turn: the outgoing pair fades out, then the other fades in
@@ -30,7 +32,7 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 .album-arrow.is-shown:disabled { opacity: .25; }
 /* Booklet and Listen (a case is open) and Apple Music and Buy the CD (in the player) take the
    arrows' places, in the corner buttons' italic. */
-.case-action { position: absolute; bottom: 9px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; pointer-events: auto; white-space: nowrap; text-decoration: none; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
+.case-action { position: absolute; top: 50%; translate: 0 -50%; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; pointer-events: auto; white-space: nowrap; text-decoration: none; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
 .case-action.is-left { left: -10px; }
 .case-action.is-right { right: -10px; }
 .case-action.is-shown { opacity: 1; visibility: visible; transition: opacity .3s ease .3s, visibility 0s; }
@@ -70,9 +72,10 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 .masthead.is-hidden { opacity: 0; }
 .masthead { --wordmark-size: 34px; }
 .wordmark { display: block; font: italic 400 var(--wordmark-size)/1 'Instrument Serif', Georgia, serif; translate: 0 -2px; }
-/* Back and GitHub are centred on the masthead: their ink centre matches the wordmark's
-   (measured from screenshots; 2.5 px higher than lining up their boxes from the top). */
-.corner-button { position: absolute; left: 32px; top: 40.5px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; opacity: 0; visibility: hidden; translate: -8px 0; transition: opacity .3s ease, translate .3s ease, visibility .3s; }
+/* Back and GitHub are centred on the masthead: the middle of their capitals (cap top to baseline)
+   matches the wordmark's, measured from screenshots. Matching whole ink centres, as first done,
+   counted the wordmark's descenders (g, p, y) and left them 3 to 4 px low. */
+.corner-button { position: absolute; left: 32px; top: 36.75px; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; opacity: 0; visibility: hidden; translate: -8px 0; transition: opacity .3s ease, translate .3s ease, visibility .3s; }
 .corner-button span { font: normal 400 18px/1 'DM Sans', sans-serif; }
 /* Visible at once when shown (only the fade is delayed), so it can take focus straight away. */
 .corner-button.is-shown { opacity: 1; visibility: visible; translate: 0 0; transition-duration: .3s, .3s, 0s; transition-delay: .5s, .5s, 0s; }
@@ -86,9 +89,9 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 .booklet-navigation { display: flex; align-items: center; justify-content: center; gap: 24px; min-height: 34px; font: 500 11px/1.2 'DM Mono', monospace; }
 .booklet-navigation button { font: 400 24px/1 'DM Sans', Arial, sans-serif; }
 .booklet-navigation button:disabled { opacity: .3; }
-.eyebrow { font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); }
+.eyebrow { font: italic 400 16px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); }
 .eyebrow-separator { padding: 0 5px; color: color-mix(in srgb, var(--ink) 35%, var(--bg)); }
-h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 40px; letter-spacing: -.005em; line-height: 1.05; }
+h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 34px; letter-spacing: -.005em; line-height: 1.05; }
 .bottom-bar { transition: opacity .6s ease .3s, visibility .6s ease .3s; }
 .bottom-bar.is-hidden { opacity: 0; visibility: hidden; }
 .preloader { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; transition: opacity .5s ease, visibility .5s ease; }
@@ -113,16 +116,38 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
 .transport-button { display: grid; place-items: center; padding: 8px 15px; border: 0; background: none; color: var(--ink); }
 .transport-button svg { width: 13px; height: 13px; fill: currentColor; transition: scale .22s cubic-bezier(.22,1,.36,1); }
 .transport-button.is-pressed svg { scale: .7; transition-duration: .07s; }
+.transport-track { display: none; transition: opacity .2s ease; }
+.transport-track.is-switching { opacity: 0; }
 .transport-note { margin: 0; font: italic 400 15px/1.3 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 60%, var(--bg)); }
 @media (max-width: 650px) {
   .bottom-bar { left: 20px; right: 20px; bottom: 24px; }
   /* No room beside a long title on phones: the side controls sit a row above the caption. */
-  .case-action { bottom: calc(100% + 12px); }
+  .case-action { top: auto; bottom: calc(100% + 12px); translate: none; }
+  /* Big enough for a fingertip (about 51 × 45 px each). */
+  .transport-button { padding: 14px 17px; }
+  .transport-button svg { width: 17px; height: 17px; }
+  /* The track under the buttons, one line, cut short with an ellipsis. */
+  .transport-track { display: flex; gap: 10px; align-items: baseline; justify-content: center; max-width: calc(100vw - 80px); min-height: 1.3em; margin: 0; font: 400 14px/1.3 'DM Sans', sans-serif; color: color-mix(in srgb, var(--ink) 70%, var(--bg)); white-space: nowrap; }
+  .transport-track-number { font: 400 11px/1 'DM Mono', monospace; color: color-mix(in srgb, var(--ink) 50%, var(--bg)); }
+  .transport-track-title { overflow: hidden; text-overflow: ellipsis; }
   .masthead { top: 22px; --wordmark-size: 24px; }
-  .corner-button { left: 10px; top: 21.5px; }
+  .corner-button { left: 10px; top: 18.25px; }
   .github-link { left: auto; right: 10px; }
   .album-caption { max-width: calc(100vw - 120px); }
-  h1, .album-title { font-size: 32px; }
-  .eyebrow { font-size: 15px; }
+  h1, .album-title { font-size: 28px; }
+  .eyebrow { font-size: 14px; }
 }
-@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .preloader, .preloader-fill { transition: none; } }
+/* Short landscape screens (a phone turned sideways): the type round the graphics smaller and closer
+   to the edges, so the cases and the player get the height (the scene sizes them for it too). */
+@media (max-height: 500px) and (orientation: landscape) {
+  .masthead { top: 14px; --wordmark-size: 22px; }
+  .corner-button, .corner-button span { font-size: 15px; }
+  .corner-button { left: 16px; top: 10px; }
+  .github-link { left: auto; right: 16px; }
+  .bottom-bar { left: 26px; right: 26px; bottom: 14px; }
+  .case-action { font-size: 15px; }
+  .album-arrow { font-size: 17px; translate: 0 -50%; }
+  .eyebrow { font-size: 13px; }
+  h1, .album-title { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .preloader-fill { transition: none; } }

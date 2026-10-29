@@ -311,8 +311,10 @@ const playerIcon = (kind: PlayerButton) => ({
 type PreviewState = 'stopped' | 'loading' | 'playing' | 'paused';
 
 // What the page can do with the previews: from the keyboard, the transport row and the player's
-// buttons, and whether the transport row can play anything.
+// buttons; whether the transport row can play anything, and the current track (-1 while stopped),
+// which phones show under it.
 interface Previews {
+  current: Accessor<number>;
   failed: Accessor<boolean>;
   playable: Accessor<boolean>;
   toggle(): void;
@@ -450,6 +452,7 @@ function createPreviews(options: {
   });
 
   return {
+    current: () => (state() === 'stopped' ? -1 : current()),
     failed,
     playable: () => Boolean(options.album().appleMusic) && nextTrack(-1) >= 0,
     toggle: () => (current() >= 0 && state() !== 'stopped' ? play(current()) : play(nextTrack(-1))),
@@ -566,6 +569,25 @@ function App(props: { band: Band }) {
     onPlaying: (playing) => scene?.setPlaying(playing), onDisplay: (track, seconds) => scene?.setDisplay(track, seconds),
   });
   let playButton!: HTMLButtonElement;
+  // The track phones show under the transport row: on a change the old one fades out, then the new
+  // one fades in, as the caption does.
+  const [trackShown, setTrackShown] = createSignal(-1);
+  const [trackSwitching, setTrackSwitching] = createSignal(false);
+  let trackTimer = 0;
+  createEffect(on(previews.current, (index) => {
+    clearTimeout(trackTimer);
+    if (reducedMotion || trackShown() === index) {
+      setTrackShown(index);
+      setTrackSwitching(false);
+      return;
+    }
+    setTrackSwitching(true);
+    trackTimer = window.setTimeout(() => {
+      setTrackShown(index);
+      setTrackSwitching(false);
+    }, 200);
+  }, { defer: true }));
+  onCleanup(() => clearTimeout(trackTimer));
   // The transport button that was just pressed, here or on the player itself: its symbol dips in
   // and springs back with the player's button (pressButton's 0.07 s in).
   const [pressed, setPressed] = createSignal<PlayerButton | null>(null);
@@ -805,6 +827,14 @@ function App(props: { band: Band }) {
             </button>
           )}</For>
         </div>
+        {/* Phones only (CSS): the current track under the buttons, since the player's screen is too
+            small to read there. Its line stays while stopped, so nothing moves when a track starts. */}
+        <p class="transport-track" classList={{ 'is-switching': trackSwitching() }} aria-hidden="true">
+          <Show when={trackShown() >= 0}>
+            <span class="transport-track-number">{String(trackShown() + 1).padStart(2, '0')}</span>
+            <span class="transport-track-title">{selected().tracks?.[trackShown()]?.title}</span>
+          </Show>
+        </p>
         <Show when={previews.failed()}><p class="transport-note" role="status">Previews couldn't be loaded. Try again in a moment.</p></Show>
       </div>
       {/* The caption, with controls level with it either side. The caption is a button that opens the
