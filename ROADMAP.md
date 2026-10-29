@@ -33,8 +33,10 @@ cleanup throughout), and its router now holds the page's state.
 - **Routes in the hash** (`HashRouter` from `@solidjs/router`): `#/<id>`, plus `/open`, `/listen`
   or `/booklet`. A hash needs nothing from the server but the page, so links work on GitHub Pages,
   which has no single-page fallback; `vite.config.ts` sets `base: './'` so the build runs from a
-  project subfolder. One route, `/:album?/:mode?`, with `matchFilters` for the album ids and the
-  modes: moving between its views keeps the same component, so the scene is never rebuilt. Any
+  project subfolder. `.github/workflows/deploy.yml` builds every push to `main` and publishes
+  `dist/` to Pages (Settings > Pages > Source must be "GitHub Actions"). One route,
+  `/:album?/:mode?`, with `matchFilters` for the album ids and the modes: moving between its views
+  keeps the same component, so the scene is never rebuilt. Any
   other hash (an unknown album, a typo) goes to `#/`. Old `?album=<id>&open` and `&listen` links
   are moved into the hash as the page loads (`moveQueryToHash()` in `band.ts`); `?band=` and
   `?home` are dropped.
