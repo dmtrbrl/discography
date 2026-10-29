@@ -303,7 +303,11 @@ logo or name in the masthead (`BandMark`, which read "× TEN FAVORITE ALBUMS"), 
 the ten albums; the row, its arrows and the keys already reach every album). The masthead is the
 plain "Discography" wordmark, no longer a link. Top right, where the menu button was, a "GitHub"
 link (`.github-link`, styled as a corner button) opens the repository in a new tab; the credit
-that was on the title screen is in the README.
+that was on the title screen is at the bottom of the about page.
+
+The README only says what the experiment is about, for visitors to the repository (the user's
+decision): no album list or count, since the collection can change, no credit line, and nothing
+for developers (running it, scripts, deploys, controls key by key); those live in this file.
 
 URLs drop the band: `?album=<id>`, plus `&open` or `&listen`. Older `?band=favorites&album=<id>`
 links still open that album; `?home` opens the gallery. `tidyUrl()` (in `band.ts`) rewrites any
@@ -969,9 +973,8 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
 ### Artists and artwork
 
 Album choice follows the project's earlier scope: studio albums plus a major live album or
-compilation, mostly 1990s to 2000s. **Single-disc albums only** (the user's decision, also stated
-in the README): the demo shows one CD per jewel case, so double albums are out (The Knife's
-Tomorrow, in a Year, 2 CDs in every edition, and Shaking the Habitual, 2 CDs in most, including
+compilation, mostly 1990s to 2000s. **Single-disc albums only** (the user's decision): the demo
+shows one CD per jewel case, so double albums are out (The Knife's Tomorrow, in a Year, 2 CDs in every edition, and Shaking the Habitual, 2 CDs in most, including
 the scanned one), and an album whose scans came from a special edition with a second disc was
 re-pinned to a single-CD edition: Invaders Must Die (was CD+DVD; now the 2009 UK CD `6a75994d`)
 and Rosenrot (was the CD+DVD `bf7c54d3`; now the 2005 Russian single CD `b48e5591`, whose outer
