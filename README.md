@@ -22,14 +22,14 @@ npm install
 npm run dev
 ```
 
-The root URL opens the gallery. `?band=favorites&album=kid-a` opens with an album selected; append `&open` for its open case or `&listen` for the player. `?home` opens the short introduction. `npm run typecheck` and `npm run build` verify the project.
+The root URL opens the gallery. `?album=kid-a` opens with an album selected; append `&open` for its open case or `&listen` for the player. `npm run typecheck` and `npm run build` verify the project.
 
 ## Use
 
-- Drag or scroll the row, use its arrows, or open **Albums** to jump to a record.
+- Drag or scroll the row, or use its arrows, to move between records.
 - Drag the front case to turn it over. Click it or its title to open it.
-- Click the booklet in the open lid, or choose **Open booklet**, to turn the archived pages. Escape or **Close** returns to the case.
-- Click the disc or the album title to place it on the player. The tracklist plays 30-second Apple Music previews where available. **Back** returns the disc to its case.
+- Click the booklet in the open lid, or choose **Booklet** at the bottom left, to turn the archived pages. Escape or **Close** returns to the case.
+- Click the disc, the album title, or **Listen** at the bottom right to place it on the player. The tracklist plays 30-second Apple Music previews where available. **Back** returns the disc to its case.
 - Arrow keys, Home, End, Enter, Space, and Escape support the main gallery. The booklet has its own page controls and keyboard support.
 
 ## Artwork and data

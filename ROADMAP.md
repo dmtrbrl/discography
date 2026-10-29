@@ -19,13 +19,43 @@ decision changes.
 | 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
 | Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
 | Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
+| Single page | Gallery as the only page: title screen, artist list, band label and Albums menu removed | Done (29 October 2026) |
+
+## Open case controls (29 October 2026)
+
+The "Open booklet" link above the caption is gone. While a case is open, the cursor bubble says
+"Booklet" over the booklet (the scene reports `overBooklet` beside `overDisc`), as it says "Listen"
+over the disc. For touch and keyboard, the bottom row shows **Booklet** on the left and **Listen**
+on the right (`.case-action`, the corner buttons' italic) in the arrows' places. The two pairs hand
+over in turn: the outgoing pair fades out in 0.3 s, then the other fades in (shown at once for
+focus, only the fade delayed), measured in Chrome both ways. On phones (650 px and narrower) the
+pair sits a row above the caption, since at 320 px Booklet overlapped "Californication". Focus on
+either goes to the caption when the case closes by keyboard; Listen by keyboard moves focus to the
+tracklist, as the caption does.
+
+## Single page (29 October 2026)
+
+The gallery is the only page; the project description lives in `README.md` on GitHub instead of an
+introduction screen. Removed: the title screen (`Home`), the artist list (`ArtistList`), the band
+logo or name in the masthead (`BandMark`, which read "× TEN FAVORITE ALBUMS"), `loadBands()` with
+`public/bands/index.json`, the curtain that faded between views, and the Albums menu (the list of
+the ten albums; the row, its arrows and the keys already reach every album). The masthead is the
+plain "Discography" wordmark, no longer a link. Top right, where the menu button was, a "GitHub"
+link (`.github-link`, styled as a corner button) opens the repository in a new tab; the credit
+that was on the title screen is in the README.
+
+URLs drop the band: `?album=<id>`, plus `&open` or `&listen`. Older `?band=favorites&album=<id>`
+links still open that album and are rewritten to the short form; `?home` opens the gallery. On
+phones Back and GitHub now sit level with the wordmark (`top: 21.5px`, scaled from the desktop
+measurement), since no wide logo shares the top row any more.
+
+Verified in headless Chrome at 1440 × 900 and 390 × 844: gallery and open case, no console errors,
+old links rewritten, `npm run typecheck` and `npm run build` pass.
 
 ## Mixed-artist collection (29 October 2026)
 
 The root URL now opens one mixed-artist gallery. `public/bands/favorites/band.json` holds the ten
-selected albums; the former artist folders remain as source data, but the menu lists albums and
-jumps within the single gallery. `?home` opens the introduction. The album caption names its
-artist. The selection and exact artwork editions are recorded in `ARTWORK_SOURCES.md`.
+selected albums; the former artist folders remain as source data. The album caption names its artist. The selection and exact artwork editions are recorded in `ARTWORK_SOURCES.md`.
 
 Every front is official digital artwork at 1200 px from Apple Music. Each of the ten discs is a
 roughly 1200 px physical scan. `makeArtTexture` trims 1.2% inside the detected disc circle to keep
@@ -34,7 +64,7 @@ unchanged. The five new albums have local CD faces and backs; the five previousl
 reuse their existing physical scans. All ten have booklet-back art and locally archived interior
 booklet scans. When an archived image is a spread, the viewer separates its pages in memory.
 
-Clicking the booklet in the open case or **Open booklet** opens a LeafThrough viewer. It supports
+Clicking the booklet in the open case or **Booklet** in the bottom row opens a LeafThrough viewer. It supports
 turning, previous/next controls, keyboard input and Escape to return to the case. The page sequence
 uses the archive's order where clear. Some archives do not label every page, and special folded
 inserts are not fully reconstructed yet. This viewer is a working visual demo; the more ambitious
@@ -165,9 +195,8 @@ bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
 bash scripts/download-covers.sh the-prodigy   # the same for any band folder
 node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 18+), same arguments
-# / is the title screen; /?band=<folder> opens a band from public/bands/ directly,
-# &album=<id> brings an album to the front, &open opens it, &listen puts its disc in the player
-# (the page keeps these up to date).
+# / opens the gallery; ?album=<id> brings an album to the front, &open opens it, &listen puts its
+# disc in the player (the page keeps these up to date).
 ```
 
 ## Phase 0: what is implemented
@@ -177,9 +206,9 @@ node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 1
 | File | Role |
 | --- | --- |
 | `src/scene.ts` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
-| `src/main.tsx` | Solid app: title screen, menu, loading screen, masthead, caption and album arrows, bubble cursor, keyboard shortcuts, routing. Talks to the scene through its public methods. |
-| `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. `public/bands/index.json` lists the bands in order. |
-| `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band (cached, so the title screen and menu fetch each once), resolves its paths and adds the band name to each album; `loadBands()` loads the list. Documents the JSON shape. |
+| `src/main.tsx` | Solid app: loading screen, masthead, GitHub link, caption and album arrows, bubble cursor, keyboard shortcuts, routing. Talks to the scene through its public methods. |
+| `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. The page loads `favorites`; the other folders hold source artwork it points to. |
+| `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band, resolves its paths and adds the band name to each album. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
 | `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs <band> [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `band.json`. See phase 2b. |
 | `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |

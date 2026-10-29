@@ -116,10 +116,10 @@ const C = {
   spinRpm: 200, spinUp: 0.4, spinDown: 1, spinBlur: 0.025, spinBlurSamples: 24,
 } as const;
 
-// overDisc: the pointer is over the open case's disc. listening: the player view is wanted (from
+// overDisc, overBooklet: the pointer is over the open case's disc or booklet. listening: the player view is wanted (from
 // insert() until eject()); discOut: the disc is out of its case (until the eject has finished);
 // overButton: the player's button under the pointer, if any.
-export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; listening: boolean; discOut: boolean; overButton: PlayerButton | null }
+export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; discOut: boolean; overButton: PlayerButton | null }
 
 export interface SceneOptions {
   onProgress?: (loaded: number, total: number) => void;
@@ -2006,6 +2006,7 @@ export class GalleryScene {
   private playing: boolean;
   private spinRate: number;
   private overDisc: boolean;
+  private overBooklet: boolean;
   private overButton: PlayerButton | null;
   // The button whose stand-in on the page has keyboard focus (focusButton).
   private focusedButton: PlayerButton | null;
@@ -2036,6 +2037,7 @@ export class GalleryScene {
     this.playing = false;
     this.spinRate = 0;
     this.overDisc = false;
+    this.overBooklet = false;
     this.overButton = null;
     this.focusedButton = null;
     this.screenState = { track: null, seconds: 0, playing: false };
@@ -2459,6 +2461,7 @@ export class GalleryScene {
     this.drawScreen();
     this.hovered = -1;
     this.overDisc = false;
+    this.overBooklet = false;
     this.animateListen(1, atOnce);
     this.updateCursor();
   }
@@ -2656,7 +2659,7 @@ export class GalleryScene {
   private updateCursor() {
     if (!this.press) this.element.style.cursor = this.inPlayer ? (this.overButton ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
     const state: PointerState = {
-      hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc,
+      hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc, overBooklet: this.overBooklet,
       listening: this.inPlayer, discOut: this.listening >= 0, overButton: this.overButton,
     };
     const key = Object.values(state).join();
@@ -3020,12 +3023,14 @@ export class GalleryScene {
       this.pointerMoved = false;
       const hit = this.listening >= 0 ? -1 : this.pick();
       const overDisc = hit >= 0 && hit === this.opened && this.pickDisc();
+      const overBooklet = hit >= 0 && hit === this.opened && !overDisc && this.pickBooklet();
       const overButton = this.pickButton();
-      if (hit !== this.hovered || overDisc !== this.overDisc || overButton !== this.overButton) {
+      if (hit !== this.hovered || overDisc !== this.overDisc || overBooklet !== this.overBooklet || overButton !== this.overButton) {
         // Only the mouse's own movement nudges a case, not a case gliding under a still pointer.
         if (hit >= 0 && hit !== this.hovered && !this.press && moved) this.swipe(hit);
         this.hovered = hit;
         this.overDisc = overDisc;
+        this.overBooklet = overBooklet;
         this.overButton = overButton;
         this.updateCursor();
         this.forceFrames = Math.max(this.forceFrames, 2);
