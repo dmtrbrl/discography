@@ -1,8 +1,8 @@
 # Discography: roadmap and project state
 
-A visual experiment for browsing an artist's discography in 3D, built with Solid and three.js. Each
-album is a CD jewel case that turns over and opens to show the disc and the booklet; the next phases
-make the booklet leafable and the disc playable. A title screen lists the artists.
+A visual experiment for browsing ten favorite albums from different artists in 3D, built with Solid
+and three.js. Each album is a CD jewel case that turns over and opens to show the disc and a leafable
+booklet. A CD player offers short track previews.
 
 This file is the hand-off document between sessions. It records what exists, why it is built that
 way, what was tried and rejected, and what comes next. Keep it up to date when a phase lands or a
@@ -15,9 +15,35 @@ decision changes.
 | 0 | CD gallery: motion, CD look, real disc scans, loading screen, performance | Done (initial commit `bb3b070`) |
 | 1 | Jewel cases instead of discs, opening the front case | Done |
 | Pre-2 | Title screen, artist selection and menu, four more artists | Done |
-| 2a | Booklet as a flip book with LeafThrough | Planned |
+| 2a | Booklet as a flip book with LeafThrough | First working version for the ten-album collection |
 | 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
 | Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
+| Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
+
+## Mixed-artist collection (29 October 2026)
+
+The root URL now opens one mixed-artist gallery. `public/bands/favorites/band.json` holds the ten
+selected albums; the former artist folders remain as source data, but the menu lists albums and
+jumps within the single gallery. `?home` opens the introduction. The album caption names its
+artist. The selection and exact artwork editions are recorded in `ARTWORK_SOURCES.md`.
+
+Every front is official digital artwork at 1200 px from Apple Music. Each of the ten discs is a
+roughly 1200 px physical scan. `makeArtTexture` trims 1.2% inside the detected disc circle to keep
+the scanner background off the visible rotating disc. This is a render crop; the scan files remain
+unchanged. The five new albums have local CD faces and backs; the five previously present albums
+reuse their existing physical scans. All ten have booklet-back art and locally archived interior
+booklet scans. When an archived image is a spread, the viewer separates its pages in memory.
+
+Clicking the booklet in the open case or **Open booklet** opens a LeafThrough viewer. It supports
+turning, previous/next controls, keyboard input and Escape to return to the case. The page sequence
+uses the archive's order where clear. Some archives do not label every page, and special folded
+inserts are not fully reconstructed yet. This viewer is a working visual demo; the more ambitious
+lift-and-handoff animation described under Phase 2a below is still a possible refinement.
+
+`scripts/fetch-tracks.mjs` now caches Apple album lists per artist, so it can populate mixed-artist
+collections. All five new albums have CD tracklists and Apple matches; *Post* has one track without
+a preview match. Visually checked the ten-album menu, cover row, an
+opened *Kid A* case, its disc on the player, and a turning booklet spread in the browser.
 
 ## Artwork audit and complete discographies (28 October 2026)
 

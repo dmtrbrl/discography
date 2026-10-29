@@ -127,6 +127,7 @@ export interface SceneOptions {
   onPointer?: (state: PointerState) => void;
   // A click on one of the player's buttons.
   onPlayerButton?: (button: PlayerButton) => void;
+  onBooklet?: (index: number) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
@@ -187,6 +188,7 @@ interface JewelCase extends Push {
   spin: THREE.Group;
   body: THREE.Group;
   lid: THREE.Group;
+  booklet: THREE.Mesh;
   pick: THREE.Mesh;
   disc: Disc;
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
@@ -1205,14 +1207,15 @@ function makeFallbackArt(album: Album, index: number) {
 }
 
 // A booklet page from an image, cropped to fill the square.
-function makeSquareCanvas(image: HTMLImageElement) {
+function makeSquareCanvas(image: HTMLImageElement, side?: 'left' | 'right') {
   const size = C.artResolution;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const width = image.naturalWidth || image.width;
   const height = image.naturalHeight || image.height;
   const crop = Math.min(width, height);
-  canvas.getContext('2d')!.drawImage(image, (width - crop) / 2, (height - crop) / 2, crop, crop, 0, 0, size, size);
+  const x = side === 'left' ? 0 : side === 'right' ? width - crop : (width - crop) / 2;
+  canvas.getContext('2d')!.drawImage(image, x, (height - crop) / 2, crop, crop, 0, 0, size, size);
   return canvas;
 }
 
@@ -1434,7 +1437,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, pick, disc, prints, bookletEdges, plastic, disposed: false,
+    group, spin, body, lid, booklet, pick, disc, prints, bookletEdges, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, discRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -1934,6 +1937,7 @@ export class GalleryScene {
   private onReady: SceneOptions['onReady'];
   private onPointer: SceneOptions['onPointer'];
   private onPlayerButton: SceneOptions['onPlayerButton'];
+  private onBooklet: SceneOptions['onBooklet'];
   private pointerState: string;
   private ready: boolean;
   // Not private: nothing reads it, which noUnusedLocals rejects for a private field.
@@ -2020,7 +2024,7 @@ export class GalleryScene {
   // onPointer({ hovered, active, opened, dragging }) reports what the pointer is over, for a custom cursor.
   // fogColor should match the page background, so distant cases fade into it. startIndex and
   // openOnReveal restore a gallery from a link: that case in front, already open as it appears.
-  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false }: SceneOptions = {}) {
+  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, onBooklet, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false }: SceneOptions = {}) {
     this.element = element;
     this.startIndex = startIndex;
     this.openOnReveal = openOnReveal;
@@ -2041,6 +2045,7 @@ export class GalleryScene {
     this.onReady = onReady;
     this.onPointer = onPointer;
     this.onPlayerButton = onPlayerButton;
+    this.onBooklet = onBooklet;
     this.pointerState = '';
     this.ready = false;
     this.albums = [];
@@ -2244,7 +2249,7 @@ export class GalleryScene {
         if (scan || cover) this.setArt(item.disc, (scan || cover)!, Boolean(scan));
         if (cover) this.setPrint(item, 'cover', makeSquareCanvas(cover));
         this.setPrint(item, 'insert', makeInsertCanvas(album, back));
-        this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack) : makeBookletBackCanvas(album));
+        this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack, album.bookletBackCrop) : makeBookletBackCanvas(album));
         this.onProgress?.((loaded += 1), albums.length);
       }));
       this.gallery.add(item.group);
@@ -2523,6 +2528,11 @@ export class GalleryScene {
   private pickDisc() {
     const item = this.cases[this.opened];
     return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.disc.pick, false).length);
+  }
+
+  private pickBooklet() {
+    const item = this.cases[this.opened];
+    return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.booklet, false).length);
   }
 
   // The player's button under the pointer, once the player is in place.
@@ -2865,6 +2875,7 @@ export class GalleryScene {
     // on the disc in the open case puts it in the player.
     if (hit !== this.opened) this.open(hit);
     else if (this.pickDisc()) this.insert();
+    else if (this.pickBooklet()) this.onBooklet?.(this.opened);
   }
 
   private resetWheel() {

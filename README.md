@@ -1,56 +1,44 @@
 # Discography
 
-An experiment in browsing music as it came on CD: jewel cases you can flick through, turn over and open, with the real covers, discs and inserts. Built with Solid, three.js and TypeScript.
+A gallery of ten favorite albums from ten artists, shown as physical CDs. Flick through the jewel cases, turn one over, open it, leaf through its booklet, and place the disc on a CD player. Built with Solid, three.js, TypeScript, and [LeafThrough](https://github.com/dmtrbrl/leafthrough).
 
-The title screen lists the artists. Pick one to see their albums as a row of cases; the Menu button top right switches artist, and the Discography wordmark returns to the title screen.
+| # | Artist | Album | Year |
+| --- | --- | --- | --- |
+| 1 | Nirvana | *Nevermind* | 1991 |
+| 2 | Red Hot Chili Peppers | *Californication* | 1999 |
+| 3 | David Bowie | *Aladdin Sane* | 1973 |
+| 4 | Enya | *Shepherd Moons* | 1991 |
+| 5 | Björk | *Post* | 1995 |
+| 6 | Radiohead | *Kid A* | 2000 |
+| 7 | The Prodigy | *The Fat of the Land* | 1997 |
+| 8 | The Knife | *Silent Shout* | 2006 |
+| 9 | Rammstein | *Mutter* | 2001 |
+| 10 | Crystal Castles | *Crystal Castles* | 2008 |
 
-| Artist | Albums | Years |
-| --- | --- | --- |
-| Nirvana | *Bleach*, *Nevermind*, *Incesticide*, *In Utero*, *MTV Unplugged in New York*, *From the Muddy Banks of the Wishkah*, *Nirvana* | 1989 to 2002 |
-| The Prodigy | *Experience*, *Music for the Jilted Generation*, *The Fat of the Land*, *Always Outnumbered, Never Outgunned*, *Their Law: The Singles 1990–2005*, *Invaders Must Die*, *The Day Is My Enemy*, *No Tourists* | 1992 to 2018 |
-| The Knife | *The Knife*, *Deep Cuts*, *Silent Shout* | 2001 to 2006 |
-| Rammstein | *Herzeleid*, *Sehnsucht*, *Live aus Berlin*, *Mutter*, *Reise, Reise*, *Rosenrot*, *Liebe ist für alle da*, *Made in Germany 1995–2011*, *Rammstein*, *Zeit* | 1995 to 2022 |
-| Crystal Castles | *Crystal Castles*, *Crystal Castles (II)*, *(III)*, *Amnesty (I)* | 2008 to 2016 |
-
-### Scope: single-disc albums only
-
-This is a deliberate choice: the demo shows only albums that come as one CD in one jewel case. Double albums and multi-disc releases are left out (for The Knife, *Tomorrow, in a Year* and *Shaking the Habitual*), and so are soundtracks (The Knife's *Hannah med H*), and where an album also came out as a special edition with a second CD or a DVD, the artwork comes from a single-CD edition.
-
-## Run it
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. The URL follows the gallery, so a link restores it: `?band=nirvana` opens an artist, `&album=nevermind` brings that album to the front, and `&open` shows it open (for example `/?band=nirvana&album=nevermind&open`). The code is TypeScript in strict mode: `npm run typecheck` checks it, and `npm run build` type-checks before building (then `npm run preview` serves the build).
+The root URL opens the gallery. `?band=favorites&album=kid-a` opens with an album selected; append `&open` for its open case or `&listen` for the player. `?home` opens the short introduction. `npm run typecheck` and `npm run build` verify the project.
 
-## Interactions
+## Use
 
-- Move the mouse over a case and it tilts toward the cursor. A fast pass across a case nudges it.
-- Drag the front case to turn it and see its spines and back insert. Turn it past halfway or flick it and it turns over to its back, staying there until you move to another album.
-- Drag anywhere else to scrub through the row. Scroll, swipe on a trackpad, use the arrows beside the album title, or the arrow keys, Home and End to move one album at a time. With a mouse, a bubble cursor says what a click will do.
-- Click the front case or its title, or press Enter or Space, to open it: it turns to face you like an open book, showing the disc in its tray and the booklet's back page. While it is open, dragging, scrolling and the arrow keys do nothing, and the arrows beside the title hide. Close it with Back, a click beside it, Space or Escape.
-- With the keyboard, Tab reaches the arrows and the album title between them (Enter on the title opens the album). Focus moves to Back when an album opens and returns to the title when it closes.
+- Drag or scroll the row, use its arrows, or open **Albums** to jump to a record.
+- Drag the front case to turn it over. Click it or its title to open it.
+- Click the booklet in the open lid, or choose **Open booklet**, to turn the archived pages. Escape or **Close** returns to the case.
+- Click the disc or the album title to place it on the player. The tracklist plays 30-second Apple Music previews where available. **Back** returns the disc to its case.
+- Arrow keys, Home, End, Enter, Space, and Escape support the main gallery. The booklet has its own page controls and keyboard support.
 
-## How it works
+## Artwork and data
 
-- **Artists.** Each artist is a folder in [`public/bands/`](public/bands/) with a `band.json` (name, optional logo, albums), a one-colour `logo.svg` where one exists, and the artwork. [`public/bands/index.json`](public/bands/index.json) lists the artists in order. [`src/band.ts`](src/band.ts) loads them and documents the shape.
-- **Scene.** [`src/scene.ts`](src/scene.ts) builds a jewel case per album to real dimensions (142 × 125 × 10.4 mm): a clear lid with the booklet behind it, a clear base with the back insert folded into two spines, and a black tray holding the CD. The CD has a printed face from a scan, an iridescent data side and a clear hub. All visual and motion tuning lives in the `C` object at the top of the file.
-- **Page.** [`src/main.tsx`](src/main.tsx) has the title screen, the gallery page (masthead, caption, bubble cursor, menu, loading screen) and the routing between them. Switching artist keeps the page and updates the URL, so the browser's back button works.
+The visible collection is [`public/bands/favorites/band.json`](public/bands/favorites/band.json). Each album has a 1200-pixel official digital front cover, a high-resolution CD scan, a back insert, and local booklet scans. The booklet viewer splits archived spreads into square pages in memory; it never alters the source files. The disc renderer detects the circular scan and trims its outermost edge to keep the artwork centred without showing scanner background during rotation.
 
-## Artwork
+The five artists that were already in the project still have their original folders under `public/bands/`; the collection reuses their disc, back, and booklet-back files. The new albums keep their physical artwork and booklet scans under `public/bands/favorites/`. See [ARTWORK_SOURCES.md](ARTWORK_SOURCES.md) for edition choices, source links, and quality notes. Tracklists come from MusicBrainz CD releases, with preview IDs matched to Apple Music by `scripts/fetch-tracks.mjs`.
 
-[`scripts/download-covers.sh`](scripts/download-covers.sh) fetches each album's front cover, disc scan and back insert from [MusicBrainz](https://musicbrainz.org/) and the [Cover Art Archive](https://coverartarchive.org/), and writes the paths into `band.json`. It needs `curl` and `jq`:
-
-```bash
-bash scripts/download-covers.sh rammstein            # every album
-bash scripts/download-covers.sh rammstein mutter     # only the listed albums
-```
-
-By default the disc and back come from the earliest single-CD release that has both, so they show the same edition. An album's `musicbrainz` block can pin the edition (`release`), pick its back image (`backImage`), take the front from a specific release (`coverRelease`), keep one half of a back scan that shows a whole spread (`backHalf`), and name the booklet's back page (`bookletBack`). Albums without scans get generated artwork. Everything is stored locally, so the demo runs without network access.
-
-The logos for Nirvana, The Prodigy, Rammstein and Crystal Castles are cleaned from Wikimedia Commons (public domain as simple text logos; they may be trademarked). The Knife never had one fixed logo; its mark is traced from a logo image on [TheAudioDB](https://www.theaudiodb.com/). Cover art and logos remain the property of their respective rights holders; this repository is a design and interaction experiment.
+Cover art, booklet scans, disc designs, and logos belong to their respective rights holders. This repository is a design and interaction experiment.
 
 ---
 

@@ -104,7 +104,8 @@ function pairTracks(tracks, songs) {
   return found.map((song) => song?.trackId);
 }
 
-let artistAlbums = null;
+// A collection may contain albums by several artists; cache each artist's Apple catalog separately.
+const artistAlbums = new Map();
 let changed = 0;
 for (const album of config.albums) {
   if (only.length && !only.includes(album.id)) continue;
@@ -118,18 +119,20 @@ for (const album of config.albums) {
   const { artist, tracks } = await mbTracks(releaseId);
   console.log(`  ${tracks.length} tracks from release ${releaseId}`);
 
-  if (!artistAlbums) {
+  let catalog = artistAlbums.get(artist);
+  if (!catalog) {
     const appleId = config.appleArtist ?? (artist && await appleArtist(artist));
     if (!appleId) throw new Error('No Apple artist ID on MusicBrainz; set "appleArtist" in band.json');
     const { results } = await get('itunes', `https://itunes.apple.com/lookup?id=${appleId}&entity=album&limit=200&country=${COUNTRY}`);
-    artistAlbums = results.filter((result) => result.wrapperType === 'collection');
+    catalog = results.filter((result) => result.wrapperType === 'collection');
+    artistAlbums.set(artist, catalog);
   }
 
   // Same name first, then the name without edition notes; closest track count first, explicit
   // before clean, and at most four tried.
-  let candidates = artistAlbums.filter((result) => simple(result.collectionName) === simple(album.title));
-  if (!candidates.length) candidates = artistAlbums.filter((result) => bare(result.collectionName) === bare(album.title));
-  if (!candidates.length) candidates = artistAlbums.filter((result) => bare(result.collectionName).startsWith(bare(album.title)));
+  let candidates = catalog.filter((result) => simple(result.collectionName) === simple(album.title));
+  if (!candidates.length) candidates = catalog.filter((result) => bare(result.collectionName) === bare(album.title));
+  if (!candidates.length) candidates = catalog.filter((result) => bare(result.collectionName).startsWith(bare(album.title)));
   candidates = candidates
     .filter((result) => result.trackCount >= tracks.length * 0.6)
     .sort((a, b) => Math.abs(a.trackCount - tracks.length) - Math.abs(b.trackCount - tracks.length)

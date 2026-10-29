@@ -34,6 +34,8 @@ export interface Track {
 
 export interface AlbumConfig {
   id: string;
+  // A mixed collection can name the artist on each album.
+  artist?: string;
   title: string;
   year: string;
   kind: string;
@@ -44,6 +46,10 @@ export interface AlbumConfig {
   back?: string;
   // The booklet's back page, seen inside the open lid.
   bookletBack?: string;
+  // Some archived booklet backs are the left or right panel of an outer spread.
+  bookletBackCrop?: 'left' | 'right';
+  // Archived interior booklet scans; spreads are split into pages when the booklet opens.
+  bookletScans?: string[];
   tracks?: Track[];
   // The album on Apple Music (an iTunes collection ID), for previews and the store link.
   appleMusic?: number;
@@ -83,8 +89,10 @@ export const defaultTheme: Theme = { background: '#ebe3d4', backgroundCenter: '#
 const bandsUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}bands/${path}`, window.location.href);
 
 export function bandFromUrl(): string | null {
-  const requested = new URLSearchParams(window.location.search).get('band');
-  return requested && /^[a-z0-9-]+$/.test(requested) ? requested : null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('home')) return null;
+  const requested = params.get('band') || 'favorites';
+  return /^[a-z0-9-]+$/.test(requested) ? requested : 'favorites';
 }
 
 // The album in front and whether it is open: ?band=<folder>&album=<id>, plus &open while it is open,
@@ -132,11 +140,12 @@ async function fetchBand(band: string): Promise<Band> {
     years: [Math.min(...years), Math.max(...years)],
     albums: config.albums.map((album) => ({
       ...album,
-      artist: config.name,
+      artist: album.artist || config.name,
       cover: resolve(album.cover),
       disc: resolve(album.disc),
       back: resolve(album.back),
       bookletBack: resolve(album.bookletBack),
+      bookletScans: album.bookletScans?.map((path) => resolve(path)!),
     })),
   };
 }

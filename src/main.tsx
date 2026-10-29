@@ -5,6 +5,8 @@ import { GalleryScene } from './scene';
 import type { PlayerButton, PointerState } from './scene';
 import { albumFromUrl, bandFromUrl, defaultTheme, galleryUrl, loadBand, loadBands } from './band';
 import type { Album, Band, Theme, Track } from './band';
+import { LeafThrough } from 'leafthrough';
+import type { PageSource } from 'leafthrough';
 import './style.css';
 
 const website = 'https://dmytrobarylo.com';
@@ -294,7 +296,7 @@ function BandMark(props: { band: Band; onReady?: () => void }) {
   );
 }
 
-// The artists on the title screen and in the menu: years, logo, album count. Links work as links (a
+// The collections on the title screen: years, logo, album count. Links work as links (a
 // new tab with a modifier key); a plain click switches in place. onReady fires once every logo has
 // its size.
 function ArtistList(props: { bands: Band[] | undefined; current?: string; onSelect: (folder: string) => void; onReady?: () => void; bubble?: ButtonProps }) {
@@ -333,8 +335,8 @@ function Home(props: { bands: Band[] | undefined; onSelect: Select }) {
       <div class="home-body" classList={{ 'is-hidden': !ready() }}>
         <h1 class="home-wordmark">Discography</h1>
         <p class="home-intro">
-          An experiment in browsing music as it came on CD: jewel cases you can flick through, turn
-          over and open, with the real covers, discs and inserts.
+          Ten albums from ten artists, as they came on CD. Browse the cases, turn them over, open
+          them, and put a disc on the player.
         </p>
         <Show when={props.bands}>
           <ArtistList bands={props.bands} onSelect={props.onSelect} onReady={() => setReady(true)} bubble={cursor.button} />
@@ -581,6 +583,76 @@ function Tracklist(props: {
   );
 }
 
+// The archive stores many booklet pages as two-page spreads. Split them only in memory, preserving
+// the source scans on disk, then let LeafThrough turn the square CD booklet pages.
+function BookletViewer(props: { album: Album; onClose: () => void }) {
+  let host!: HTMLDivElement;
+  let reader: LeafThrough | undefined;
+  const [page, setPage] = createSignal(0);
+  const [count, setCount] = createSignal(0);
+  const [loading, setLoading] = createSignal(true);
+  const [error, setError] = createSignal('');
+  const loadImage = async (src: string) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = src;
+    await image.decode();
+    return image;
+  };
+  const square = (image: HTMLImageElement, panel = 0, panels = 1) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1024;
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    const panelWidth = width / panels;
+    const crop = Math.min(panelWidth, height);
+    canvas.getContext('2d')!.drawImage(image, panel * panelWidth + (panelWidth - crop) / 2, (height - crop) / 2, crop, crop, 0, 0, 1024, 1024);
+    return canvas;
+  };
+  onMount(() => {
+    let cancelled = false;
+    (async () => {
+      const pages: PageSource[] = [{ src: props.album.cover!, alt: `${props.album.title} front cover` }];
+      const scans = await Promise.all((props.album.bookletScans ?? []).map(loadImage));
+      for (const scan of scans) {
+        const ratio = scan.naturalWidth / scan.naturalHeight;
+        const panels = ratio > 3.4 ? 4 : ratio > 1.45 ? 2 : 1;
+        for (let panel = 0; panel < panels; panel++) {
+          pages.push({ src: square(scan, panel, panels), alt: `${props.album.title} booklet page ${pages.length + 1}` });
+        }
+      }
+      if (props.album.bookletBack) {
+        const back = await loadImage(props.album.bookletBack);
+        const panels = back.naturalWidth / back.naturalHeight > 1.45 ? 2 : 1;
+        const panel = props.album.bookletBackCrop === 'right' ? panels - 1 : 0;
+        pages.push({ src: square(back, panel, panels), alt: `${props.album.title} booklet back` });
+      }
+      if (cancelled) return;
+      reader = new LeafThrough(host, {
+        pages, layout: 'spread', pageAspect: 1, bleed: true,
+        label: `${props.album.title} CD booklet`,
+        paper: { grain: false, showThrough: 0.02, wrinkles: 0.25, bulge: 0.5 },
+      });
+      reader.addEventListener('pagechange', (event) => setPage(event.detail.page));
+      setCount(reader.pageCount);
+      setLoading(false);
+      requestAnimationFrame(() => reader?.element.focus());
+    })().catch(() => { if (!cancelled) { setLoading(false); setError('The booklet could not be opened.'); } });
+    onCleanup(() => { cancelled = true; reader?.dispose(); });
+  });
+  return (
+    <div class="booklet-overlay" role="dialog" aria-modal="true" aria-label={`${props.album.title} booklet`}>
+      <div class="booklet-heading"><span>{props.album.artist} / {props.album.title}</span><button type="button" onClick={props.onClose}>Close ×</button></div>
+      <div class="booklet-canvas" ref={host} />
+      <div class="booklet-navigation">
+        <button type="button" aria-label="Previous booklet page" disabled={loading() || page() === 0} onClick={() => reader?.prev()}>←</button>
+        <span>{error() || (loading() ? 'Opening booklet…' : `Page ${page() + 1} of ${count()}`)}</span>
+        <button type="button" aria-label="Next booklet page" disabled={loading() || page() >= count() - 1} onClick={() => reader?.next()}>→</button>
+      </div>
+    </div>
+  );
+}
+
 function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select }) {
   const { albums, name: artist, theme } = props.band;
   let stage!: HTMLDivElement;
@@ -607,6 +679,12 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
   let backButton!: HTMLButtonElement;
   let backByKeyboard = false;
   let captionButton!: HTMLButtonElement;
+  let bookletButton!: HTMLButtonElement;
+  const [bookletOpen, setBookletOpen] = createSignal(false);
+  const closeBooklet = () => {
+    setBookletOpen(false);
+    requestAnimationFrame(() => bookletButton?.focus({ preventScroll: true }));
+  };
   const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, listening: false, discOut: false, overButton: null });
   // The disc is in the player (or going in): the tracklist shows and the row is out of view.
   const listening = createMemo(() => pointer().listening);
@@ -631,12 +709,28 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
     props.onSelect(null);
   }
 
-  // The menu lists the artists over the gallery. Keys go to it, not the scene, while it is open.
+  // The menu lists the ten albums over the gallery. Keys go to it, not the scene, while it is open.
   function toggleMenu(open = !menuOpen()) {
     setMenuOpen(open);
-    if (open) requestAnimationFrame(() => document.querySelector<HTMLElement>('.menu [aria-current], .menu .artist')?.focus());
+    if (open) requestAnimationFrame(() => document.querySelector<HTMLElement>('.menu [aria-current], .menu .album-menu-button')?.focus());
     else menuButton.focus({ preventScroll: true });
   }
+
+  let pendingAlbum = -1;
+  function jumpToAlbum(index: number) {
+    toggleMenu(false);
+    if (pointer().discOut) {
+      pendingAlbum = index;
+      if (listening()) scene?.eject();
+    } else scene?.goTo(index, 'click');
+  }
+
+  createEffect(on(() => pointer().discOut, (out) => {
+    if (out || pendingAlbum < 0) return;
+    const index = pendingAlbum;
+    pendingAlbum = -1;
+    scene?.goTo(index, 'click');
+  }, { defer: true }));
 
   // Fades the caption out, swaps in the new album, and fades it back in. Moves through several
   // albums in a row keep it hidden until they settle.
@@ -671,8 +765,8 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
   const loaded = () => ready() && percent() === 100;
 
   // Keeps the URL on the album in front and whether it is open, replacing the history entry, so the
-  // browser's back button still goes to the previous artist or the title screen. Only while the URL
-  // is still this band's: a gallery fading out mustn't overwrite the next one's address.
+  // browser's back button still goes to the title screen. Only while the URL is still this
+  // collection's: a gallery fading out mustn't overwrite the next view's address.
   createEffect(() => {
     const url = galleryUrl(props.band.folder, albums[active()]?.id, pointer().opened >= 0, listening());
     if (!revealed() || bandFromUrl() !== props.band.folder || window.location.search === url) return;
@@ -736,6 +830,10 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
 
   // The scene owns the motion and reports the case in front back through setActive.
   function onKeyDown(event: KeyboardEvent) {
+    if (bookletOpen()) {
+      if (event.key === 'Escape') { event.preventDefault(); closeBooklet(); }
+      return;
+    }
     if (event.altKey || event.metaKey || event.ctrlKey || !scene) return;
     if (menuOpen()) {
       if (event.key === 'Escape') toggleMenu(false);
@@ -781,6 +879,7 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
       onPlayerButton: (button) => tracklist?.button(button),
+      onBooklet: () => setBookletOpen(true),
       onReady: () => {
         setReady(true);
         // Without the fade there is no transitionend to wait for.
@@ -798,25 +897,33 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
 
   return (
     <main class="app-shell">
-      <div class="stage" classList={{ 'is-hidden': !revealed(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label={`Interactive ${artist} album slider`} {...cursor.surface} />
+      <div class="stage" classList={{ 'is-hidden': !revealed(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label="Interactive album gallery" {...cursor.surface} />
       {/* Collaboration-style masthead: the site's wordmark (a link to the title screen), a thin cross,
           and the band's logo (or its name, for bands without one). */}
       <header class="masthead" classList={{ 'is-hidden': !revealed() || !markReady() }}>
-        <a class="wordmark" classList={{ 'has-bubble': canBubble }} href="./" onClick={goHome} {...cursor.button}>Discography</a>
+        <a class="wordmark" classList={{ 'has-bubble': canBubble }} href="?home" onClick={goHome} {...cursor.button}>Discography</a>
         <svg class="cross" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3 17 17M17 3 3 17" /></svg>
         <BandMark band={props.band} onReady={() => setMarkReady(true)} />
       </header>
       <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
         <span aria-hidden="true">←</span> Back
       </button>
-      <nav class="menu" classList={{ 'is-open': menuOpen(), 'has-bubble': canBubble }} id="menu" aria-label="Artists" inert={menuOpen() ? undefined : true} onClick={(event) => event.target === event.currentTarget && toggleMenu(false)} {...cursor.surface}>
-        <ArtistList bands={props.bands} current={props.band.folder} onSelect={(folder) => (folder === props.band.folder ? toggleMenu(false) : props.onSelect(folder))} bubble={cursor.button} />
-        <a class="menu-home" href="./" onClick={goHome} {...cursor.button}>Home</a>
+      <nav class="menu" classList={{ 'is-open': menuOpen(), 'has-bubble': canBubble }} id="menu" aria-label="Albums" inert={menuOpen() ? undefined : true} onClick={(event) => event.target === event.currentTarget && toggleMenu(false)} {...cursor.surface}>
+        <ol class="album-menu-list">
+          <For each={albums}>{(album, index) => (
+            <li><button class="album-menu-button" type="button" aria-current={active() === index() ? 'true' : undefined} onClick={() => jumpToAlbum(index())} {...cursor.button}>
+              <span class="album-menu-number">{String(index() + 1).padStart(2, '0')}</span>
+              <span class="album-menu-title">{album.title}</span>
+              <span class="album-menu-artist">{album.artist}</span>
+            </button></li>
+          )}</For>
+        </ol>
+        <a class="menu-home" href="?home" onClick={goHome} {...cursor.button}>About this collection</a>
       </nav>
       {/* Both words sit in the same place and cross-fade; the button is named by aria-label. */}
       <button class="corner-button menu-button" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} type="button" ref={menuButton} onClick={() => toggleMenu()}
-        aria-label={menuOpen() ? 'Close menu' : 'Menu'} aria-expanded={menuOpen()} aria-controls="menu" {...cursor.button}>
-        <span class="menu-label" classList={{ 'is-shown': !menuOpen() }} aria-hidden="true">Menu</span>
+        aria-label={menuOpen() ? 'Close album list' : 'Albums'} aria-expanded={menuOpen()} aria-controls="menu" {...cursor.button}>
+        <span class="menu-label" classList={{ 'is-shown': !menuOpen() }} aria-hidden="true">Albums</span>
         <span class="menu-label" classList={{ 'is-shown': menuOpen() }} aria-hidden="true">Close</span>
       </button>
       {cursor.view()}
@@ -836,19 +943,21 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
           in the player. The arrows hide while a case is open, which keeps the row where it is; the
           whole bar hides while the disc is out of its case, since the tracklist names the album. */}
       <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() || pointer().discOut }} inert={pointer().discOut ? true : undefined}>
+        <Show when={pointer().opened >= 0 && !listening()}><button class="booklet-launch" type="button" ref={bookletButton} onClick={() => setBookletOpen(true)} {...cursor.button}>Open booklet</button></Show>
         <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
           disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
           <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton}
-            aria-label={`${pointer().opened < 0 ? 'Open' : 'Listen to'} ${selected().title} (${selected().year}, ${selected().kind})`}
+            aria-label={`${pointer().opened < 0 ? 'Open' : 'Listen to'} ${selected().title} by ${selected().artist} (${selected().year})`}
             onClick={() => (pointer().opened < 0 ? scene?.open() : scene?.insert())} {...cursor.button}>
-            <span class="eyebrow">{selected().year}<span class="eyebrow-separator">/</span>{selected().kind}</span>
+            <span class="eyebrow">{selected().artist}<span class="eyebrow-separator">/</span>{selected().year}</span>
             <span class="album-title">{selected().title}</span>
           </button>
         </div>
         <button class="album-arrow is-next" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
           disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
       </footer>
+      <Show when={bookletOpen()}><BookletViewer album={albums[active()]} onClose={closeBooklet} /></Show>
     </main>
   );
 }
@@ -898,7 +1007,7 @@ function Root() {
     setCovered(false);
   }
   function select(folder: string | null) {
-    const url = folder ? galleryUrl(folder) : window.location.pathname;
+    const url = folder ? galleryUrl(folder) : '?home';
     if (folder !== bandFromUrl()) window.history.pushState(null, '', url);
     show(folder);
   }

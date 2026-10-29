@@ -1,0 +1,945 @@
+{
+  "name": "Ten favorite albums",
+  "theme": {
+    "background": "#ebe3d4",
+    "backgroundCenter": "#f6f0e5",
+    "backgroundEdge": "#e1d7c5",
+    "ink": "#252521"
+  },
+  "albums": [
+    {
+      "id": "nevermind",
+      "title": "Nevermind",
+      "year": "1991",
+      "kind": "Studio album",
+      "cover": "covers/nevermind.jpg",
+      "disc": "../nirvana/discs/nevermind.jpg",
+      "back": "../nirvana/backs/nevermind.jpg",
+      "bookletBack": "../nirvana/booklets/nevermind-back.jpg",
+      "color": "#13506c",
+      "accent": "#b2dae5",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "1b022e01-4da6-387b-8658-8678046e4cef",
+        "bookletBack": "350a8190-2c4b-4010-9bd2-437857325ac5/27145200195@left"
+      },
+      "appleMusic": 1440783617,
+      "tracks": [
+        {
+          "title": "Smells Like Teen Spirit",
+          "length": 301,
+          "apple": 1440783625
+        },
+        {
+          "title": "In Bloom",
+          "length": 255,
+          "apple": 1440783633
+        },
+        {
+          "title": "Come as You Are",
+          "length": 219,
+          "apple": 1440783636
+        },
+        {
+          "title": "Breed",
+          "length": 184,
+          "apple": 1440783638
+        },
+        {
+          "title": "Lithium",
+          "length": 257,
+          "apple": 1440783764
+        },
+        {
+          "title": "Polly",
+          "length": 177,
+          "apple": 1440783767
+        },
+        {
+          "title": "Territorial Pissings",
+          "length": 143,
+          "apple": 1440783772
+        },
+        {
+          "title": "Drain You",
+          "length": 224,
+          "apple": 1440783774
+        },
+        {
+          "title": "Lounge Act",
+          "length": 157,
+          "apple": 1440783779
+        },
+        {
+          "title": "Stay Away",
+          "length": 212,
+          "apple": 1440783783
+        },
+        {
+          "title": "On a Plain",
+          "length": 196,
+          "apple": 1440783786
+        },
+        {
+          "title": "Something in the Way / Endless, Nameless",
+          "length": 1235,
+          "apple": 1440783790
+        }
+      ],
+      "artist": "Nirvana",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1440783617",
+        "booklet": "https://musicbrainz.org/release/350a8190-2c4b-4010-9bd2-437857325ac5/cover-art"
+      },
+      "bookletScans": [
+        "booklet-scans/nevermind/02.jpg",
+        "booklet-scans/nevermind/03.jpg",
+        "booklet-scans/nevermind/04.jpg"
+      ]
+    },
+    {
+      "id": "californication",
+      "kind": "Studio album",
+      "artist": "Red Hot Chili Peppers",
+      "title": "Californication",
+      "year": "1999",
+      "color": "#143d82",
+      "accent": "#ef6a28",
+      "musicbrainz": {
+        "releaseGroup": "ca5dfcc3-83fb-3eee-9061-c27296b77b2c",
+        "release": "ae9e09df-5029-30ec-bf1c-8d4a905f8c02"
+      },
+      "bookletBackCrop": "left",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/945575406",
+        "disc": "https://coverartarchive.org/release/ae9e09df-5029-30ec-bf1c-8d4a905f8c02/4211771417",
+        "back": "https://coverartarchive.org/release/ae9e09df-5029-30ec-bf1c-8d4a905f8c02/4211756160",
+        "bookletBack": "https://coverartarchive.org/release/4275cef6-b011-4ed8-922d-39bd2761dd4e/23343285668",
+        "booklet": "https://musicbrainz.org/release/4275cef6-b011-4ed8-922d-39bd2761dd4e/cover-art"
+      },
+      "cover": "covers/californication.jpg",
+      "disc": "discs/californication.jpg",
+      "back": "backs/californication.jpg",
+      "bookletBack": "booklets/californication-back.jpg",
+      "appleMusic": 945575406,
+      "tracks": [
+        {
+          "title": "Around the World",
+          "length": 238,
+          "apple": 945575407
+        },
+        {
+          "title": "Parallel Universe",
+          "length": 270,
+          "apple": 945575408
+        },
+        {
+          "title": "Scar Tissue",
+          "length": 218,
+          "apple": 945575409
+        },
+        {
+          "title": "Otherside",
+          "length": 256,
+          "apple": 945575411
+        },
+        {
+          "title": "Get on Top",
+          "length": 198,
+          "apple": 945575412
+        },
+        {
+          "title": "Californication",
+          "length": 322,
+          "apple": 945575413
+        },
+        {
+          "title": "Easily",
+          "length": 231,
+          "apple": 945575414
+        },
+        {
+          "title": "Porcelain",
+          "length": 164,
+          "apple": 945575415
+        },
+        {
+          "title": "Emit Remmus",
+          "length": 240,
+          "apple": 945575416
+        },
+        {
+          "title": "I Like Dirt",
+          "length": 158,
+          "apple": 945575417
+        },
+        {
+          "title": "This Velvet Glove",
+          "length": 225,
+          "apple": 945575418
+        },
+        {
+          "title": "Savior",
+          "length": 292,
+          "apple": 945575419
+        },
+        {
+          "title": "Purple Stain",
+          "length": 253,
+          "apple": 945575420
+        },
+        {
+          "title": "Right on Time",
+          "length": 113,
+          "apple": 945575421
+        },
+        {
+          "title": "Road Trippin’",
+          "length": 206,
+          "apple": 945575422
+        }
+      ],
+      "bookletScans": [
+        "booklet-scans/californication/02.jpg",
+        "booklet-scans/californication/03.jpg",
+        "booklet-scans/californication/04.jpg",
+        "booklet-scans/californication/05.jpg",
+        "booklet-scans/californication/06.jpg",
+        "booklet-scans/californication/07.jpg",
+        "booklet-scans/californication/08.jpg"
+      ]
+    },
+    {
+      "id": "aladdin-sane",
+      "kind": "Studio album",
+      "artist": "David Bowie",
+      "title": "Aladdin Sane",
+      "year": "1973",
+      "color": "#ece9e6",
+      "accent": "#db4c69",
+      "musicbrainz": {
+        "releaseGroup": "50f8710f-3ae6-319b-85a7-afe783f13449",
+        "release": "0e7365bd-8e61-427a-b77b-2dbd0c2874c0"
+      },
+      "bookletBackCrop": "left",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1039655668",
+        "disc": "https://coverartarchive.org/release/0e7365bd-8e61-427a-b77b-2dbd0c2874c0/18868930884",
+        "back": "https://coverartarchive.org/release/0e7365bd-8e61-427a-b77b-2dbd0c2874c0/18868930161",
+        "bookletBack": "https://coverartarchive.org/release/0e7365bd-8e61-427a-b77b-2dbd0c2874c0/18868924250",
+        "booklet": "https://musicbrainz.org/release/0e7365bd-8e61-427a-b77b-2dbd0c2874c0/cover-art"
+      },
+      "cover": "covers/aladdin-sane.jpg",
+      "disc": "discs/aladdin-sane.jpg",
+      "back": "backs/aladdin-sane.jpg",
+      "bookletBack": "booklets/aladdin-sane-back.jpg",
+      "appleMusic": 1039655668,
+      "tracks": [
+        {
+          "title": "Watch That Man",
+          "length": 271,
+          "apple": 1039655669
+        },
+        {
+          "title": "Aladdin Sane (1913–1938–197?)",
+          "length": 308,
+          "apple": 1039655670
+        },
+        {
+          "title": "Drive‐In Saturday",
+          "length": 278,
+          "apple": 1039655671
+        },
+        {
+          "title": "Panic in Detroit",
+          "length": 268,
+          "apple": 1039655672
+        },
+        {
+          "title": "Cracked Actor",
+          "length": 183,
+          "apple": 1039655673
+        },
+        {
+          "title": "Time",
+          "length": 315,
+          "apple": 1039655674
+        },
+        {
+          "title": "The Prettiest Star",
+          "length": 211,
+          "apple": 1039656215
+        },
+        {
+          "title": "Let’s Spend the Night Together",
+          "length": 189,
+          "apple": 1039656216
+        },
+        {
+          "title": "The Jean Genie",
+          "length": 247,
+          "apple": 1039656217
+        },
+        {
+          "title": "Lady Grinning Soul",
+          "length": 234,
+          "apple": 1039656218
+        }
+      ],
+      "bookletScans": [
+        "booklet-scans/aladdin-sane/02.jpg",
+        "booklet-scans/aladdin-sane/03.jpg",
+        "booklet-scans/aladdin-sane/04.jpg",
+        "booklet-scans/aladdin-sane/05.jpg",
+        "booklet-scans/aladdin-sane/06.jpg"
+      ]
+    },
+    {
+      "id": "shepherd-moons",
+      "kind": "Studio album",
+      "artist": "Enya",
+      "title": "Shepherd Moons",
+      "year": "1991",
+      "color": "#253968",
+      "accent": "#86bacd",
+      "musicbrainz": {
+        "releaseGroup": "678a2bac-4b27-314e-929b-2612938dd1f2",
+        "release": "2fbbe6b7-5679-33cf-a084-ee4bd5429807"
+      },
+      "bookletBackCrop": "left",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/253334781",
+        "disc": "https://coverartarchive.org/release/2fbbe6b7-5679-33cf-a084-ee4bd5429807/16797038016",
+        "back": "https://coverartarchive.org/release/2fbbe6b7-5679-33cf-a084-ee4bd5429807/16797028987",
+        "bookletBack": "https://coverartarchive.org/release/2fbbe6b7-5679-33cf-a084-ee4bd5429807/16797041016",
+        "booklet": "https://musicbrainz.org/release/2fbbe6b7-5679-33cf-a084-ee4bd5429807/cover-art"
+      },
+      "cover": "covers/shepherd-moons.jpg",
+      "disc": "discs/shepherd-moons.jpg",
+      "back": "backs/shepherd-moons.jpg",
+      "bookletBack": "booklets/shepherd-moons-back.jpg",
+      "appleMusic": 253334781,
+      "tracks": [
+        {
+          "title": "Shepherd Moons",
+          "length": 225,
+          "apple": 253334783
+        },
+        {
+          "title": "Caribbean Blue",
+          "length": 240,
+          "apple": 253334836
+        },
+        {
+          "title": "How Can I Keep From Singing?",
+          "length": 265,
+          "apple": 253334850
+        },
+        {
+          "title": "Ebudæ",
+          "length": 116,
+          "apple": 253335903
+        },
+        {
+          "title": "Angeles",
+          "length": 241,
+          "apple": 253336207
+        },
+        {
+          "title": "No Holly for Miss Quinn",
+          "length": 163,
+          "apple": 253336227
+        },
+        {
+          "title": "Book of Days (Gaelic only version)",
+          "length": 154,
+          "apple": 253336375
+        },
+        {
+          "title": "Evacuee",
+          "length": 231,
+          "apple": 253336386
+        },
+        {
+          "title": "Lothlórien",
+          "length": 128,
+          "apple": 253336650
+        },
+        {
+          "title": "Marble Halls",
+          "length": 235,
+          "apple": 253336827
+        },
+        {
+          "title": "Afer Ventus",
+          "length": 246,
+          "apple": 253336998
+        },
+        {
+          "title": "Smaointe...",
+          "length": 368,
+          "apple": 253337352
+        }
+      ],
+      "bookletScans": [
+        "booklet-scans/shepherd-moons/02.jpg",
+        "booklet-scans/shepherd-moons/03.jpg",
+        "booklet-scans/shepherd-moons/04.jpg",
+        "booklet-scans/shepherd-moons/05.jpg",
+        "booklet-scans/shepherd-moons/06.jpg"
+      ]
+    },
+    {
+      "id": "post",
+      "kind": "Studio album",
+      "artist": "Björk",
+      "title": "Post",
+      "year": "1995",
+      "color": "#b85a73",
+      "accent": "#e3a4b6",
+      "musicbrainz": {
+        "releaseGroup": "b2a6e057-087d-3ae5-a6e5-7f5fa39808ff",
+        "release": "0119ac37-0ba6-490a-ac2f-c04b38b09164"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/us/album/300205609",
+        "disc": "https://coverartarchive.org/release/0119ac37-0ba6-490a-ac2f-c04b38b09164/33099904074",
+        "back": "https://coverartarchive.org/release/0119ac37-0ba6-490a-ac2f-c04b38b09164/33099903215",
+        "bookletBack": "https://coverartarchive.org/release/0119ac37-0ba6-490a-ac2f-c04b38b09164/33099905170",
+        "booklet": "https://musicbrainz.org/release/0119ac37-0ba6-490a-ac2f-c04b38b09164/cover-art"
+      },
+      "cover": "covers/post.jpg",
+      "disc": "discs/post.jpg",
+      "back": "backs/post.jpg",
+      "bookletBack": "booklets/post-back.jpg",
+      "appleMusic": 300205609,
+      "tracks": [
+        {
+          "title": "Army of Me",
+          "length": 234,
+          "apple": 300205685
+        },
+        {
+          "title": "Hyper‐Ballad",
+          "length": 322,
+          "apple": 300205691
+        },
+        {
+          "title": "The Modern Things",
+          "length": 250
+        },
+        {
+          "title": "It’s Oh So Quiet",
+          "length": 219,
+          "apple": 300205693
+        },
+        {
+          "title": "Enjoy",
+          "length": 237,
+          "apple": 300205694
+        },
+        {
+          "title": "You’ve Been Flirting Again",
+          "length": 150,
+          "apple": 300205695
+        },
+        {
+          "title": "Isobel",
+          "length": 347,
+          "apple": 300205696
+        },
+        {
+          "title": "Possibly Maybe",
+          "length": 307,
+          "apple": 300205714
+        },
+        {
+          "title": "I Miss You",
+          "length": 244,
+          "apple": 300205715
+        },
+        {
+          "title": "Cover Me",
+          "length": 126,
+          "apple": 300205716
+        },
+        {
+          "title": "Headphones",
+          "length": 340,
+          "apple": 300205717
+        }
+      ],
+      "bookletScans": [
+        "booklet-scans/post/01.jpg",
+        "booklet-scans/post/02.jpg",
+        "booklet-scans/post/03.jpg",
+        "booklet-scans/post/04.jpg",
+        "booklet-scans/post/05.jpg",
+        "booklet-scans/post/06.jpg",
+        "booklet-scans/post/07.jpg"
+      ]
+    },
+    {
+      "id": "kid-a",
+      "kind": "Studio album",
+      "artist": "Radiohead",
+      "title": "Kid A",
+      "year": "2000",
+      "color": "#c7d3d8",
+      "accent": "#af392e",
+      "musicbrainz": {
+        "releaseGroup": "e75c0549-ad55-39e3-8025-c72c5d4a3c5d",
+        "release": "9046da34-87be-3727-80a9-c1cb0c276113"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1097862870",
+        "disc": "https://coverartarchive.org/release/9046da34-87be-3727-80a9-c1cb0c276113/5554101484",
+        "back": "https://coverartarchive.org/release/9046da34-87be-3727-80a9-c1cb0c276113/5554070174",
+        "bookletBack": "https://coverartarchive.org/release/9046da34-87be-3727-80a9-c1cb0c276113/5554072287",
+        "booklet": "https://musicbrainz.org/release/9046da34-87be-3727-80a9-c1cb0c276113/cover-art"
+      },
+      "cover": "covers/kid-a.jpg",
+      "disc": "discs/kid-a.jpg",
+      "back": "backs/kid-a.jpg",
+      "bookletBack": "booklets/kid-a-back.jpg",
+      "appleMusic": 1097862870,
+      "tracks": [
+        {
+          "title": "Everything in Its Right Place",
+          "length": 251,
+          "apple": 1097863108
+        },
+        {
+          "title": "Kid A",
+          "length": 285,
+          "apple": 1097863120
+        },
+        {
+          "title": "The National Anthem",
+          "length": 352,
+          "apple": 1097863241
+        },
+        {
+          "title": "How to Disappear Completely",
+          "length": 356,
+          "apple": 1097863247
+        },
+        {
+          "title": "Treefingers",
+          "length": 223,
+          "apple": 1097863252
+        },
+        {
+          "title": "Optimistic",
+          "length": 316,
+          "apple": 1097863254
+        },
+        {
+          "title": "In Limbo",
+          "length": 211,
+          "apple": 1097863258
+        },
+        {
+          "title": "Idioteque",
+          "length": 309,
+          "apple": 1097863262
+        },
+        {
+          "title": "Morning Bell",
+          "length": 276,
+          "apple": 1097863575
+        },
+        {
+          "title": "Motion Picture Soundtrack",
+          "length": 419,
+          "apple": 1097863579
+        }
+      ],
+      "bookletScans": [
+        "booklet-scans/kid-a/02.jpg",
+        "booklet-scans/kid-a/03.jpg",
+        "booklet-scans/kid-a/04.jpg",
+        "booklet-scans/kid-a/05.jpg",
+        "booklet-scans/kid-a/06.jpg",
+        "booklet-scans/kid-a/07.jpg",
+        "booklet-scans/kid-a/08.jpg",
+        "booklet-scans/kid-a/09.jpg",
+        "booklet-scans/kid-a/10.jpg",
+        "booklet-scans/kid-a/11.jpg",
+        "booklet-scans/kid-a/12.jpg",
+        "booklet-scans/kid-a/13.jpg",
+        "booklet-scans/kid-a/14.jpg",
+        "booklet-scans/kid-a/15.jpg"
+      ],
+      "bookletBackCrop": "left"
+    },
+    {
+      "id": "the-fat-of-the-land",
+      "title": "The Fat of the Land",
+      "year": "1997",
+      "kind": "Studio album",
+      "cover": "covers/the-fat-of-the-land.jpg",
+      "color": "#3a3226",
+      "accent": "#d9b25a",
+      "motif": "waves",
+      "musicbrainz": {
+        "releaseGroup": "ac9138ce-6331-3f8d-86d7-69f13e4ab4f4",
+        "bookletBack": "8417d94a-88cf-4094-8a75-c33d16300c06/27141657376@left"
+      },
+      "disc": "../the-prodigy/discs/the-fat-of-the-land.jpg",
+      "back": "../the-prodigy/backs/the-fat-of-the-land.jpg",
+      "bookletBack": "../the-prodigy/booklets/the-fat-of-the-land-back.jpg",
+      "appleMusic": 500162127,
+      "tracks": [
+        {
+          "title": "Smack My Bitch Up",
+          "length": 343,
+          "apple": 500162135
+        },
+        {
+          "title": "Breathe",
+          "length": 335,
+          "apple": 500162140
+        },
+        {
+          "title": "Diesel Power",
+          "length": 258,
+          "apple": 500162142
+        },
+        {
+          "title": "Funky Shit",
+          "length": 316,
+          "apple": 500162144
+        },
+        {
+          "title": "Serial Thrilla",
+          "length": 311,
+          "apple": 500162146
+        },
+        {
+          "title": "Mindfields",
+          "length": 340,
+          "apple": 500162231
+        },
+        {
+          "title": "Narayan",
+          "length": 546,
+          "apple": 500162233
+        },
+        {
+          "title": "Firestarter",
+          "length": 281,
+          "apple": 500162235
+        },
+        {
+          "title": "Climbatize",
+          "length": 397,
+          "apple": 500162238
+        },
+        {
+          "title": "Fuel My Fire",
+          "length": 259,
+          "apple": 500162240
+        }
+      ],
+      "artist": "The Prodigy",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/500162127",
+        "booklet": "https://musicbrainz.org/release/8417d94a-88cf-4094-8a75-c33d16300c06/cover-art"
+      },
+      "bookletScans": [
+        "booklet-scans/the-fat-of-the-land/02.jpg",
+        "booklet-scans/the-fat-of-the-land/03.jpg",
+        "booklet-scans/the-fat-of-the-land/04.jpg",
+        "booklet-scans/the-fat-of-the-land/05.jpg",
+        "booklet-scans/the-fat-of-the-land/06.jpg"
+      ]
+    },
+    {
+      "id": "silent-shout",
+      "title": "Silent Shout",
+      "year": "2006",
+      "kind": "Studio album",
+      "cover": "covers/silent-shout.jpg",
+      "color": "#14122a",
+      "accent": "#4b3fae",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "02c05025-e031-30a0-afee-d92cea9d79dd",
+        "coverRelease": "d8956dde-c200-35b5-9788-102ab6e33492",
+        "bookletBack": "099094f6-2e34-4e65-aa31-6df3789357a4/23129607098@left"
+      },
+      "disc": "../the-knife/discs/silent-shout.jpg",
+      "back": "../the-knife/backs/silent-shout.jpg",
+      "bookletBack": "../the-knife/booklets/silent-shout-back.jpg",
+      "appleMusic": 1489763587,
+      "tracks": [
+        {
+          "title": "Silent Shout",
+          "length": 296,
+          "apple": 1489763590
+        },
+        {
+          "title": "Neverland",
+          "length": 220,
+          "apple": 1489763592
+        },
+        {
+          "title": "The Captain",
+          "length": 371,
+          "apple": 1489763594
+        },
+        {
+          "title": "We Share Our Mothers’ Health",
+          "length": 254,
+          "apple": 1489763595
+        },
+        {
+          "title": "Na Na Na",
+          "length": 150,
+          "apple": 1489763596
+        },
+        {
+          "title": "Marble House",
+          "length": 321,
+          "apple": 1489763598
+        },
+        {
+          "title": "Like a Pen",
+          "length": 375,
+          "apple": 1489763599
+        },
+        {
+          "title": "From Off to On",
+          "length": 240,
+          "apple": 1489763601
+        },
+        {
+          "title": "Forest Families",
+          "length": 251,
+          "apple": 1489763602
+        },
+        {
+          "title": "One Hit",
+          "length": 270,
+          "apple": 1489763605
+        },
+        {
+          "title": "Still Light",
+          "length": 196,
+          "apple": 1489763606
+        }
+      ],
+      "artist": "The Knife",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1489763587",
+        "booklet": "https://musicbrainz.org/release/099094f6-2e34-4e65-aa31-6df3789357a4/cover-art"
+      },
+      "bookletScans": [
+        "booklet-scans/silent-shout/01.jpg",
+        "booklet-scans/silent-shout/02.jpg",
+        "booklet-scans/silent-shout/03.jpg",
+        "booklet-scans/silent-shout/04.jpg",
+        "booklet-scans/silent-shout/05.jpg"
+      ]
+    },
+    {
+      "id": "mutter",
+      "title": "Mutter",
+      "year": "2001",
+      "kind": "Studio album",
+      "cover": "covers/mutter.jpg",
+      "color": "#6f655c",
+      "accent": "#e2d9cc",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07",
+        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c",
+        "bookletBack": "eed328a1-5f3c-33d5-bf9e-b9033175124c/9614674636@left"
+      },
+      "back": "../rammstein/backs/mutter.jpg",
+      "disc": "../rammstein/discs/mutter.jpg",
+      "bookletBack": "../rammstein/booklets/mutter-back.jpg",
+      "appleMusic": 1440770702,
+      "tracks": [
+        {
+          "title": "Mein Herz brennt",
+          "length": 280,
+          "apple": 1440771222
+        },
+        {
+          "title": "Links 2 3 4",
+          "length": 217,
+          "apple": 1440771243
+        },
+        {
+          "title": "Sonne",
+          "length": 273,
+          "apple": 1440771250
+        },
+        {
+          "title": "Ich will",
+          "length": 218,
+          "apple": 1440771494
+        },
+        {
+          "title": "Feuer frei!",
+          "length": 191,
+          "apple": 1440771498
+        },
+        {
+          "title": "Mutter",
+          "length": 273,
+          "apple": 1440771501
+        },
+        {
+          "title": "Spieluhr",
+          "length": 286,
+          "apple": 1440771505
+        },
+        {
+          "title": "Zwitter",
+          "length": 257,
+          "apple": 1440771510
+        },
+        {
+          "title": "Rein raus",
+          "length": 190,
+          "apple": 1440771520
+        },
+        {
+          "title": "Adios",
+          "length": 230,
+          "apple": 1440771762
+        },
+        {
+          "title": "Nebel",
+          "length": 295,
+          "apple": 1440771764
+        }
+      ],
+      "artist": "Rammstein",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1440770702",
+        "booklet": "https://musicbrainz.org/release/eed328a1-5f3c-33d5-bf9e-b9033175124c/cover-art"
+      },
+      "bookletScans": [
+        "booklet-scans/mutter/02.jpg",
+        "booklet-scans/mutter/03.jpg",
+        "booklet-scans/mutter/04.jpg",
+        "booklet-scans/mutter/05.jpg",
+        "booklet-scans/mutter/06.jpg",
+        "booklet-scans/mutter/07.jpg",
+        "booklet-scans/mutter/08.jpg"
+      ]
+    },
+    {
+      "id": "crystal-castles",
+      "title": "Crystal Castles",
+      "year": "2008",
+      "kind": "Studio album",
+      "cover": "covers/crystal-castles.jpg",
+      "color": "#1f1f1f",
+      "accent": "#d9d9d9",
+      "motif": "rings",
+      "musicbrainz": {
+        "releaseGroup": "3fd716f5-2f67-3890-95ec-20c4032511c8",
+        "bookletBack": "f5dde22a-23de-3881-9a1b-962c5e52b4ad/42703574279@left"
+      },
+      "disc": "../crystal-castles/discs/crystal-castles.jpg",
+      "back": "../crystal-castles/backs/crystal-castles.jpg",
+      "bookletBack": "../crystal-castles/booklets/crystal-castles-back.jpg",
+      "appleMusic": 1132754123,
+      "tracks": [
+        {
+          "title": "Untrust Us",
+          "length": 186,
+          "apple": 1132754186
+        },
+        {
+          "title": "Alice Practice",
+          "length": 161,
+          "apple": 1132754187
+        },
+        {
+          "title": "Crimewave",
+          "length": 258,
+          "apple": 1132754189
+        },
+        {
+          "title": "Magic Spells",
+          "length": 367,
+          "apple": 1132754190
+        },
+        {
+          "title": "XXZXCUZX Me",
+          "length": 114,
+          "apple": 1132754191
+        },
+        {
+          "title": "Air War",
+          "length": 252,
+          "apple": 1132754192
+        },
+        {
+          "title": "Courtship Dating",
+          "length": 210,
+          "apple": 1132754193
+        },
+        {
+          "title": "Good Time",
+          "length": 176,
+          "apple": 1132754194
+        },
+        {
+          "title": "1991",
+          "length": 114,
+          "apple": 1132754195
+        },
+        {
+          "title": "Vanished",
+          "length": 243,
+          "apple": 1132754196
+        },
+        {
+          "title": "Knights",
+          "length": 194,
+          "apple": 1132754197
+        },
+        {
+          "title": "Love and Caring",
+          "length": 139,
+          "apple": 1132754198
+        },
+        {
+          "title": "Through the Hosiery",
+          "length": 187,
+          "apple": 1132754199
+        },
+        {
+          "title": "Reckless",
+          "length": 208,
+          "apple": 1132754200
+        },
+        {
+          "title": "Black Panther",
+          "length": 177,
+          "apple": 1132754261
+        },
+        {
+          "title": "Tell Me What to Swallow",
+          "length": 137,
+          "apple": 1132754262
+        }
+      ],
+      "artist": "Crystal Castles",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1132754123",
+        "booklet": "https://musicbrainz.org/release/f5dde22a-23de-3881-9a1b-962c5e52b4ad/cover-art"
+      },
+      "bookletScans": [
+        "booklet-scans/crystal-castles/02.jpg"
+      ]
+    }
+  ]
+}

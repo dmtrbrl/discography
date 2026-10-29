@@ -92,6 +92,22 @@ a.wordmark { pointer-events: auto; padding: 4px 10px; margin: -4px -10px; }
 .menu.is-open { opacity: 1; visibility: visible; transition: opacity .35s ease; }
 .menu-home { padding: 4px 10px; margin: -4px -10px; font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 72%, var(--bg)); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .menu-home:hover { color: var(--ink); }
+.album-menu-list { width: min(760px, calc(100vw - 48px)); margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.album-menu-button { width: 100%; display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(130px, 220px); align-items: baseline; gap: 20px; padding: 8px 10px; border: 0; background: none; color: var(--ink); text-align: left; }
+.album-menu-number { font: 500 11px/1.2 'DM Mono', monospace; color: color-mix(in srgb, var(--ink) 45%, var(--bg)); }
+.album-menu-title { font: 400 27px/1 'Instrument Serif', Georgia, serif; }
+.album-menu-artist { font: 400 13px/1.2 'DM Sans', Arial, sans-serif; text-align: right; }
+.album-menu-button[aria-current] { color: color-mix(in srgb, var(--ink) 45%, var(--bg)); }
+.album-menu-button:hover, .album-menu-button:focus-visible { color: var(--ink); }
+.booklet-launch { position: absolute; bottom: 76px; left: 50%; translate: -50% 0; padding: 6px 10px; border: 0; background: none; color: var(--ink); font: italic 400 17px/1 'Instrument Serif', Georgia, serif; pointer-events: auto; text-decoration: underline; text-underline-offset: 4px; white-space: nowrap; }
+.booklet-overlay { position: fixed; inset: 0; z-index: 8; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 18px; padding: 32px 26px 28px; background: radial-gradient(circle at 48% 38%, var(--bg-center), var(--bg)); color: var(--ink); }
+.booklet-heading { width: min(980px, 100%); display: flex; align-items: center; justify-content: space-between; gap: 20px; font: italic 400 20px/1.2 'Instrument Serif', Georgia, serif; }
+.booklet-heading button, .booklet-navigation button { padding: 6px 10px; border: 0; background: none; color: inherit; }
+.booklet-heading button { font: inherit; }
+.booklet-canvas { width: min(980px, 100%); height: min(68svh, 660px); min-height: 250px; }
+.booklet-navigation { display: flex; align-items: center; justify-content: center; gap: 24px; min-height: 34px; font: 500 11px/1.2 'DM Mono', monospace; }
+.booklet-navigation button { font: 400 24px/1 'DM Sans', Arial, sans-serif; }
+.booklet-navigation button:disabled { opacity: .3; }
 /* Artist list, shared by the title screen and the menu: logos on the centre axis, years to their left
    and the album count to their right. Hovering one dims the others; in the menu the current artist
    is dimmed. */
@@ -179,3 +195,9 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .eyebrow { font-size: 15px; }
 }
 @media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .menu, .artist > *, .home-body, .curtain, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .menu-label, .preloader, .preloader-fill, .tracklist { transition: none; } }
+@media (max-width: 600px) {
+  .menu { place-content: start center; gap: 28px; padding-top: 92px; }
+  .album-menu-button { grid-template-columns: 28px minmax(0, 1fr); gap: 8px 12px; }
+  .album-menu-title { font-size: 24px; }
+  .album-menu-artist { grid-column: 2; text-align: left; margin-top: -5px; }
+}
