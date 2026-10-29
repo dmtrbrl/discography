@@ -1,10 +1,10 @@
 import { render } from 'solid-js/web';
 import { For, Match, Show, Switch, createComputed, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { GalleryScene } from './scene';
+import { GalleryScene, PLAYER_BUTTONS } from './scene';
 import type { PlayerButton, PointerState } from './scene';
-import { albumFromUrl, galleryUrl, loadBand } from './band';
-import type { Album, Band, Theme, Track } from './band';
+import { albumFromUrl, galleryUrl, loadBand, tidyUrl } from './band';
+import type { Album, Band, Theme } from './band';
 import { LeafThrough } from 'leafthrough';
 import type { PageSource } from 'leafthrough';
 import './style.css';
@@ -22,7 +22,6 @@ const repository = 'https://github.com/dmtrbrl/discography';
 // cover) the dot becomes a thin ring round it, and the label opens as a tag above the ring.
 const labelDelay = 3000;
 const restSlop = 3;
-const buttonDot = 20;
 const canBubble = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 const cloneStyles = ['font', 'letterSpacing', 'textTransform', 'textDecoration', 'textUnderlineOffset', 'display', 'alignItems', 'justifyContent', 'justifyItems', 'gap', 'padding', 'whiteSpace'] as const;
 const contentRect = (element: Node) => {
@@ -59,6 +58,7 @@ function createBubble(options: BubbleOptions) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let bubble!: HTMLDivElement;
   let layer!: HTMLDivElement;
+  let body!: HTMLSpanElement;
   const [over, setOver] = createSignal(false);
   const [shown, setShown] = createSignal(false);
   const [pressed, setPressed] = createSignal(false);
@@ -83,13 +83,23 @@ function createBubble(options: BubbleOptions) {
     if (keyboardFocus()) setTip((current) => ({ ...current, shown: false }));
   });
   const mouse = { x: 0, y: 0, clip: 0, raf: 0, left: 0, top: 0 };
+  // Over a button the clone shows through a circle exactly the dot's size as drawn, read from the
+  // dot every frame while it grows or shrinks; a circle animated on its own fell out of step with
+  // the dot's transition, which showed a small symbol half white when the pointer jumped between
+  // buttons. Off a button the clone's circle closes quickly.
   function follow() {
     bubble.style.transform = `translate3d(${mouse.x}px, ${mouse.y}px, 0)`;
-    const clipTarget = over() ? buttonDot : 0;
-    mouse.clip += (clipTarget - mouse.clip) * (reducedMotion ? 1 : 0.25);
-    if (Math.abs(clipTarget - mouse.clip) < 0.1) mouse.clip = clipTarget;
+    let settled: boolean;
+    if (over()) {
+      const clip = (body.offsetWidth / 2) * new DOMMatrixReadOnly(getComputedStyle(body).transform).a;
+      settled = body.getAnimations().length === 0 && Math.abs(clip - mouse.clip) < 0.05;
+      mouse.clip = clip;
+    } else {
+      mouse.clip = reducedMotion || mouse.clip < 0.1 ? 0 : mouse.clip * 0.75;
+      settled = mouse.clip === 0;
+    }
     layer.style.clipPath = `circle(${mouse.clip}px at ${mouse.x - mouse.left}px ${mouse.y - mouse.top}px)`;
-    mouse.raf = mouse.clip !== clipTarget ? requestAnimationFrame(follow) : 0;
+    mouse.raf = settled ? 0 : requestAnimationFrame(follow);
   }
   function move(event: PointerEvent) {
     if (!canBubble || event.pointerType !== 'mouse') return;
@@ -226,7 +236,7 @@ function createBubble(options: BubbleOptions) {
     view: () => (
       <>
         <div class="bubble" ref={bubble} aria-hidden="true">
-          <span class="bubble-body" classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over(), 'has-label': tip().shown && !over() && !quiet(), 'is-button': over(), 'is-pressed': pressed(), 'is-ring': quiet() }}>
+          <span class="bubble-body" ref={body} classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over(), 'has-label': tip().shown && !over() && !quiet(), 'is-button': over(), 'is-pressed': pressed(), 'is-ring': quiet() }}>
             <span class="bubble-label">{tip().text}</span>
           </span>
           <span class="bubble-tag" classList={{ 'is-shown': shown() && options.revealed() && quiet() && tip().shown }}>{tip().text}</span>
@@ -270,66 +280,42 @@ function loadPreviews(collection: number) {
 const BUTTON_LABELS: Record<PlayerButton, string> = { previous: 'Prev', play: 'Play', pause: 'Pause', next: 'Next' };
 const BUTTON_NAMES: Record<PlayerButton, string> = { previous: 'Previous track', play: 'Play', pause: 'Pause', next: 'Next track' };
 
-// Stand-ins for the player's buttons, which are drawn in the scene: real buttons for screen readers
-// and the keyboard, invisible and out of the pointer's way. A focused one is laid over its button
-// (scene.playerButtonRect), so the focus ring goes round it, and the scene lights its symbol.
-function PlayerControls(props: { shown: boolean; scene: () => GalleryScene | undefined }) {
-  let focused: { kind: PlayerButton; element: HTMLButtonElement } | null = null;
-  function place(kind: PlayerButton, element: HTMLButtonElement) {
-    const rect = props.scene()?.playerButtonRect(kind);
-    if (!rect) return;
-    Object.assign(element.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
-  }
-  const replace = () => {
-    if (focused) place(focused.kind, focused.element);
-  };
-  window.addEventListener('resize', replace);
-  onCleanup(() => window.removeEventListener('resize', replace));
-  return (
-    <div class="player-controls" role="group" aria-label="Player" inert={props.shown ? undefined : true}>
-      <For each={['previous', 'play', 'pause', 'next'] as PlayerButton[]}>
-        {(kind) => (
-          <button class="player-control" type="button" aria-label={BUTTON_NAMES[kind]} onClick={() => props.scene()?.pressButton(kind)}
-            onFocus={(event) => {
-              focused = { kind, element: event.currentTarget };
-              place(kind, event.currentTarget);
-              props.scene()?.focusButton(event.currentTarget.matches(':focus-visible') ? kind : null);
-            }}
-            onBlur={() => {
-              focused = null;
-              props.scene()?.focusButton(null);
-            }} />
-        )}
-      </For>
-    </div>
-  );
+// The player's printed button symbols as the scene draws them (playerMark), for the transport row
+// under the player.
+const playerIcon = (kind: PlayerButton) => ({
+  previous: <><path d="M1.2-1.1-.55 0 1.2 1.1z" /><rect x="-1.225" y="-1.15" width=".55" height="2.3" rx=".12" /></>,
+  play: <path d="M-.85-1.2 1.2 0-.85 1.2z" />,
+  pause: <><rect x="-.925" y="-1.15" width=".65" height="2.3" rx=".12" /><rect x=".275" y="-1.15" width=".65" height="2.3" rx=".12" /></>,
+  next: <><path d="M-1.2-1.1.55 0-1.2 1.1z" /><rect x=".675" y="-1.15" width=".55" height="2.3" rx=".12" /></>,
+})[kind];
+
+type PreviewState = 'stopped' | 'loading' | 'playing' | 'paused';
+
+// What the page can do with the previews: from the keyboard, the transport row and the player's
+// buttons, and whether the transport row can play anything.
+interface Previews {
+  failed: Accessor<boolean>;
+  playable: Accessor<boolean>;
+  toggle(): void;
+  button(button: PlayerButton): void;
 }
 
-const duration = (seconds?: number) => (seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : '');
-
-// What the page can do with the tracklist: from the keyboard, and from the player's buttons.
-interface TracklistControls { toggle(): void; focus(): void; button(button: PlayerButton): void }
-
-// The player view's tracklist, right of the player (below it on narrow screens). A click on a track
-// plays its preview, a second click pauses it, and the next track follows when one ends. Tracks
-// Apple has no preview for are listed but can't be played. Below the list: the album on Apple
-// Music, and where to buy the CD (the artist's shop when band.json names one, otherwise an Amazon
-// search). Playing and pausing spin and stop the disc (onPlaying); the display follows the track
-// and time (onDisplay). Hiding the list stops the music.
-function Tracklist(props: {
-  album: Album; shown: boolean; bubble: ButtonProps; controls: (controls: TracklistControls) => void;
+// The player view's 30-second previews. The player's buttons (and the transport row, which presses
+// them) play, pause and skip; the next track follows when one ends. Tracks Apple has no preview for
+// are skipped. Playing and pausing spin and stop the disc (onPlaying); the display follows the
+// track and time (onDisplay). Leaving the player stops the music.
+function createPreviews(options: {
+  album: () => Album; shown: () => boolean;
   onPlaying: (playing: boolean) => void; onDisplay: (track: number | null, seconds: number) => void;
-}) {
+}): Previews {
   const audio = new Audio();
   audio.preload = 'none';
   const [current, setCurrent] = createSignal(-1);
-  const [state, setState] = createSignal<'stopped' | 'loading' | 'playing' | 'paused'>('stopped');
-  const [progress, setProgress] = createSignal(0);
+  const [state, setState] = createSignal<PreviewState>('stopped');
+  const [seconds, setSeconds] = createSignal(0);
   const [failed, setFailed] = createSignal(false);
-  const tracks = () => props.album.tracks ?? [];
-  let list!: HTMLOListElement;
+  const tracks = () => options.album().tracks ?? [];
   let request = 0;
-  let second = -1;
 
   function stop() {
     request++;
@@ -338,28 +324,32 @@ function Tracklist(props: {
     audio.load();
     setCurrent(-1);
     setState('stopped');
-    setProgress(0);
-    second = -1;
-    props.onPlaying(false);
-    props.onDisplay(null, 0);
+    setSeconds(0);
+    options.onPlaying(false);
+    options.onDisplay(null, 0);
   }
 
-  async function play(index: number) {
+  // Plays track `index`, or with autoplay false only cues it: the track is chosen and shown, paused
+  // at its start, as a CD player skips while paused. The previous track's audio is dropped at once,
+  // so Play pressed while the new one loads can't resume the old one.
+  async function play(index: number, autoplay = true) {
+    const album = options.album();
     const track = tracks()[index];
-    if (!track?.apple || !props.album.appleMusic) return;
-    if (index === current() && state() !== 'stopped') {
+    if (!track?.apple || !album.appleMusic) return;
+    if (autoplay && index === current() && state() !== 'stopped' && audio.getAttribute('src')) {
       if (audio.paused) audio.play().catch(() => {});
       else audio.pause();
       return;
     }
     const ticket = ++request;
     audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
     setCurrent(index);
-    setState('loading');
-    setProgress(0);
-    second = -1;
-    props.onDisplay(index + 1, 0);
-    const urls = await loadPreviews(props.album.appleMusic).catch(() => null);
+    setState(autoplay ? 'loading' : 'paused');
+    setSeconds(0);
+    options.onDisplay(index + 1, 0);
+    const urls = await loadPreviews(album.appleMusic).catch(() => null);
     if (ticket !== request) return;
     const url = urls?.get(track.apple);
     if (!url) {
@@ -369,6 +359,7 @@ function Tracklist(props: {
     }
     setFailed(false);
     audio.src = url;
+    if (!autoplay) return;
     audio.play().catch(() => {
       if (ticket === request) stop();
     });
@@ -381,32 +372,42 @@ function Tracklist(props: {
 
   // The player's buttons, as on a CD player. Play resumes, or starts the first track; pause holds
   // the track; next skips ahead; previous restarts the track after its first three seconds, and
-  // otherwise goes back one.
+  // otherwise goes back one. Only Play starts the music: unless a track is playing, next and
+  // previous only cue one, paused at its start. Stopped counts as sitting at the first track.
   function button(kind: PlayerButton) {
-    const index = state() === 'stopped' ? -1 : current();
+    const stopped = state() === 'stopped';
+    const index = stopped ? -1 : current();
+    const autoplay = state() === 'playing' || state() === 'loading';
     if (kind === 'play') {
       if (index < 0) play(nextTrack(-1));
-      else if (state() === 'paused') audio.play().catch(() => {});
+      else if (state() === 'paused') {
+        // A track cued while paused may still be loading its preview: then start it afresh.
+        if (audio.getAttribute('src')) audio.play().catch(() => {});
+        else play(index);
+      }
     } else if (kind === 'pause') {
       if (state() === 'playing') audio.pause();
     } else if (kind === 'next') {
-      const next = nextTrack(index);
-      if (next >= 0) play(next);
-    } else if (index >= 0) {
+      const next = nextTrack(stopped ? nextTrack(-1) : index);
+      if (next >= 0) play(next, autoplay);
+    } else if (stopped) {
+      const first = nextTrack(-1);
+      if (first >= 0) play(first, false);
+    } else {
       const previous = previousTrack(index);
       if (audio.currentTime > 3 || previous < 0) audio.currentTime = 0;
-      else play(previous);
+      else play(previous, autoplay);
     }
   }
 
   audio.addEventListener('playing', () => {
     setState('playing');
-    props.onPlaying(true);
+    options.onPlaying(true);
   });
   audio.addEventListener('pause', () => {
     if (audio.ended || state() === 'stopped' || !audio.src) return;
     setState('paused');
-    props.onPlaying(false);
+    options.onPlaying(false);
   });
   audio.addEventListener('ended', () => {
     const next = nextTrack(current());
@@ -414,20 +415,13 @@ function Tracklist(props: {
     else stop();
   });
   audio.addEventListener('timeupdate', () => {
-    if (!audio.duration) return;
-    setProgress(audio.currentTime / audio.duration);
     const now = Math.floor(audio.currentTime);
-    if (now === second) return;
-    second = now;
-    props.onDisplay(current() + 1, now);
+    if (!audio.duration || now === seconds()) return;
+    setSeconds(now);
+    options.onDisplay(current() + 1, now);
   });
 
-  props.controls({
-    toggle: () => (current() >= 0 && state() !== 'stopped' ? play(current()) : play(nextTrack(-1))),
-    focus: () => list.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true }),
-    button,
-  });
-  createEffect(on(() => props.shown, (shown) => {
+  createEffect(on(options.shown, (shown) => {
     if (!shown) stop();
   }, { defer: true }));
   onCleanup(() => {
@@ -436,48 +430,12 @@ function Tracklist(props: {
     audio.removeAttribute('src');
   });
 
-  const appleLink = () => `https://music.apple.com/us/album/${props.album.appleMusic}`;
-  const buyLink = () => props.album.buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${props.album.artist} ${props.album.title} CD`)}&i=popular`;
-  const label = (track: Track, n: number) => {
-    if (!track.apple) return `${track.title}, no preview`;
-    if (n === current() && state() === 'playing') return `Pause ${track.title}`;
-    return `Play ${track.title}`;
+  return {
+    failed,
+    playable: () => Boolean(options.album().appleMusic) && nextTrack(-1) >= 0,
+    toggle: () => (current() >= 0 && state() !== 'stopped' ? play(current()) : play(nextTrack(-1))),
+    button,
   };
-
-  return (
-    <section class="tracklist" classList={{ 'is-shown': props.shown }} inert={props.shown ? undefined : true} aria-label={`${props.album.title} tracklist`}>
-      <p class="eyebrow">{props.album.year}<span class="eyebrow-separator">/</span>{props.album.kind}</p>
-      <h2 class="album-title">{props.album.title}</h2>
-      <ol class="tracks" ref={list}>
-        <For each={tracks()}>
-          {(track, n) => (
-            <li>
-              <button class="track" classList={{ 'is-current': n() === current(), 'is-playing': n() === current() && (state() === 'playing' || state() === 'loading'), 'has-bubble': canBubble }}
-                type="button" disabled={!track.apple || !props.album.appleMusic} aria-label={label(track, n())} onClick={() => play(n())}
-                style={{ '--progress': n() === current() ? progress() : 0 }} {...props.bubble}>
-                <span class="track-number" aria-hidden="true">
-                  <span class="track-index">{String(n() + 1).padStart(2, '0')}</span>
-                  <svg class="track-icon is-play" viewBox="0 0 10 10"><path d="M2.5 1.5v7l6-3.5z" /></svg>
-                  <svg class="track-icon is-pause" viewBox="0 0 10 10"><path d="M2.5 1.5h1.8v7H2.5zM5.7 1.5h1.8v7H5.7z" /></svg>
-                </span>
-                <span class="track-title">{track.title}</span>
-                <span class="track-length" aria-hidden="true">{duration(track.length)}</span>
-              </button>
-            </li>
-          )}
-        </For>
-      </ol>
-      <Show when={failed()}>
-        <p class="tracklist-note" role="status">Previews couldn't be loaded. Try again in a moment.</p>
-      </Show>
-      <p class="tracklist-links">
-        <Show when={props.album.appleMusic}>
-          <a classList={{ 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener" {...props.bubble}>Apple Music</a>
-        </Show>
-        <a classList={{ 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener" {...props.bubble}>Buy the CD</a>
-      </p>
-    </section>
-  );
 }
 
 // The archive stores many booklet pages as two-page spreads. Split them only in memory, preserving
@@ -578,14 +536,51 @@ function App(props: { band: Band }) {
     setBookletOpen(false);
     requestAnimationFrame(() => bookletButton?.focus({ preventScroll: true }));
   };
-  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, overBooklet: false, listening: false, discOut: false, overButton: null });
-  // The disc is in the player (or going in): the tracklist shows and the row is out of view.
+  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, overBooklet: false, listening: false, seated: false, discOut: false, overButton: null });
+  // The disc is in the player (or going in): the transport row shows and the row of cases is out of view.
   const listening = createMemo(() => pointer().listening);
-  let tracklist: TracklistControls | undefined;
+  // The disc has landed on the spindle: only then do the player's screen, its buttons and the
+  // transport row under it work.
+  const seated = createMemo(() => pointer().seated);
+  const previews = createPreviews({
+    album: selected, shown: listening,
+    onPlaying: (playing) => scene?.setPlaying(playing), onDisplay: (track, seconds) => scene?.setDisplay(track, seconds),
+  });
+  let playButton!: HTMLButtonElement;
+  // The transport button that was just pressed, here or on the player itself: its symbol dips in
+  // and springs back with the player's button (pressButton's 0.07 s in).
+  const [pressed, setPressed] = createSignal<PlayerButton | null>(null);
+  let pressTimer = 0;
+  const pressTwin = (kind: PlayerButton) => {
+    clearTimeout(pressTimer);
+    setPressed(kind);
+    pressTimer = window.setTimeout(() => setPressed(null), 90);
+  };
+  // The transport row hangs just under the player: its top, from where the scene says the player's
+  // lowest edge is. Measured when the player view starts and after a resize (two frames on, once
+  // the scene has resized too).
+  const [transportTop, setTransportTop] = createSignal<number | null>(null);
+  const placeTransport = () => {
+    if (listening() && scene) setTransportTop(scene.playerBottom() + 20);
+  };
+  createEffect(on(listening, placeTransport));
+  const onResize = () => requestAnimationFrame(() => requestAnimationFrame(placeTransport));
+  window.addEventListener('resize', onResize);
+  onCleanup(() => window.removeEventListener('resize', onResize));
+  // A transport button with keyboard focus lights its symbol on the player.
+  const lightOnFocus = (kind: PlayerButton) => ({
+    onFocus: (event: FocusEvent) => scene?.focusButton((event.currentTarget as HTMLElement).matches(':focus-visible') ? kind : null),
+    onBlur: () => scene?.focusButton(null),
+  });
+  // The album on Apple Music, and where to buy the CD: the artist's shop when band.json names one,
+  // otherwise an Amazon search.
+  const appleLink = () => `https://music.apple.com/us/album/${selected().appleMusic}`;
+  const buyLink = () => selected().buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${selected().artist} ${selected().title} CD`)}&i=popular`;
   // What a click does, for the bubble cursor.
   const bubbleLabel = () => {
     const { hovered, active: front, opened, dragging, overDisc, overBooklet, overButton } = pointer();
-    if (listening()) return overButton ? BUTTON_LABELS[overButton] : '';
+    // In the player: its buttons, and the landed disc, which a click ejects (as Back does).
+    if (listening()) return overButton ? BUTTON_LABELS[overButton] : overDisc ? 'Eject' : '';
     // While a case is open, a click beside it closes it. Over the case the disc goes in the player
     // and the booklet opens; elsewhere on the case the bubble stays a plain dot.
     if (opened >= 0) return hovered === opened ? (overDisc ? 'Listen' : overBooklet ? 'Booklet' : '') : 'Close';
@@ -656,24 +651,23 @@ function App(props: { band: Band }) {
     });
   }, { defer: true }));
 
-  // The same for the player view: from the caption (hidden in it) to the first track when the disc
-  // goes in by keyboard, and from the tracklist or the player's buttons (inert once the disc comes
+  // The same for the player view: from the caption (inactive in it) or Listen to Play when the disc
+  // goes in by keyboard, and from the transport row or the store links (inert once the disc comes
   // out) back to the caption, if they had keyboard focus; otherwise focus is let go. Which it was is
-  // noted before they go inert (a computation runs before the DOM updates), and the caption takes
-  // focus once the disc is back in its case and its bar is visible again (it is inert until then,
-  // and fades back in after a delay, hidden until it starts).
+  // noted before the controls change (a computation runs before the DOM updates), and the caption
+  // takes focus once the disc is back in its case.
+  let playAfterInsert = false;
   let captionAfterEject = false;
-  createEffect(on(listening, (listen) => {
-    if (!listen) return;
-    const focused = document.activeElement as HTMLElement | null;
-    const byKeyboard = Boolean(focused?.matches(':focus-visible'));
-    requestAnimationFrame(() => {
-      if ((focused === captionButton || focused === listenButton) && byKeyboard) tracklist?.focus();
-    });
-  }, { defer: true }));
   createComputed(on(listening, (listen) => {
     const focused = document.activeElement as HTMLElement | null;
-    if (!listen && focused?.closest('.tracklist, .player-controls')) captionAfterEject = focused.matches(':focus-visible');
+    const byKeyboard = Boolean(focused?.matches(':focus-visible'));
+    if (listen) playAfterInsert = (focused === captionButton || focused === listenButton) && byKeyboard;
+    else if (focused?.closest('.transport, .case-action')) captionAfterEject = byKeyboard;
+  }, { defer: true }));
+  createEffect(on(seated, (landed) => {
+    if (!landed || !playAfterInsert) return;
+    playAfterInsert = false;
+    requestAnimationFrame(() => playButton.focus({ preventScroll: true }));
   }, { defer: true }));
   createEffect(on(() => pointer().discOut, (out) => {
     if (out || !captionAfterEject) return;
@@ -712,7 +706,7 @@ function App(props: { band: Band }) {
     // In the player view Space plays and pauses; Enter on an open case puts its disc in the player.
     if (event.key === ' ' && !onControl) {
       event.preventDefault();
-      if (listening()) tracklist?.toggle();
+      if (listening()) { if (seated()) previews.toggle(); }
       else scene.toggle();
     }
     if (event.key === 'Enter' && !onControl && !listening()) { event.preventDefault(); if (browse) scene.open(); else scene.insert(); }
@@ -738,7 +732,10 @@ function App(props: { band: Band }) {
       listenOnReveal: linked.listen,
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
-      onPlayerButton: (button) => tracklist?.button(button),
+      onPlayerButton: (button) => {
+        pressTwin(button);
+        previews.button(button);
+      },
       onBooklet: () => setBookletOpen(true),
       onReady: () => {
         setReady(true);
@@ -746,6 +743,8 @@ function App(props: { band: Band }) {
         if (reducedMotion) reveal();
       },
     });
+    // The dev server hands the scene to scripted checks (the insert path test in ROADMAP.md).
+    if (import.meta.env.DEV) Object.assign(window, { scene });
     window.addEventListener('keydown', onKeyDown);
   });
   onCleanup(() => {
@@ -774,22 +773,36 @@ function App(props: { band: Band }) {
           <span class="preloader-fill" style={{ transform: `scaleX(${percent() / 100})` }} />
         </span>
       </div>
-      <PlayerControls shown={listening()} scene={() => scene} />
-      <Tracklist album={selected()} shown={listening()} bubble={cursor.button} controls={(controls) => { tracklist = controls; }}
-        onPlaying={(playing) => scene?.setPlaying(playing)} onDisplay={(track, seconds) => scene?.setDisplay(track, seconds)} />
-      {/* The caption, with arrows to the previous and next album level with it. The caption is a button
-          that opens the album (Tab reaches it between the arrows), and once it is open puts its disc
-          in the player. The arrows hide while a case is open, which keeps the row where it is, and
-          Booklet and Listen take their places; the whole bar hides while the disc is out of its case,
-          since the tracklist names the album. */}
-      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() || pointer().discOut }} inert={pointer().discOut ? true : undefined}>
-        <button class="case-action is-booklet" classList={{ 'is-shown': pointer().opened >= 0 && !listening(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
+      {/* Under the player: its four buttons again, with the same symbols, once the disc has landed.
+          They press the player's own buttons (so those move too), and keyboard focus on one lights
+          its symbol on the player. */}
+      <div class="transport" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} style={{ top: transportTop() === null ? undefined : `${transportTop()}px` }}
+        role="group" aria-label="Player" inert={seated() ? undefined : true} {...cursor.surface}>
+        <div class="transport-buttons">
+          <For each={PLAYER_BUTTONS}>{(kind) => (
+            <button class="transport-button" classList={{ 'is-pressed': pressed() === kind, 'has-bubble': canBubble }} type="button" ref={(element) => { if (kind === 'play') playButton = element; }}
+              aria-label={BUTTON_NAMES[kind]} disabled={!previews.playable()} onClick={() => scene?.pressButton(kind)} {...lightOnFocus(kind)} {...cursor.button}>
+              <svg viewBox="-1.5 -1.5 3 3" aria-hidden="true">{playerIcon(kind)}</svg>
+            </button>
+          )}</For>
+        </div>
+        <Show when={previews.failed()}><p class="transport-note" role="status">Previews couldn't be loaded. Try again in a moment.</p></Show>
+      </div>
+      {/* The caption, with controls level with it either side. The caption is a button that opens the
+          album (Tab reaches it between the arrows), and once it is open puts its disc in the player;
+          in the player it only names the album. Either side: the arrows while the row is browsed,
+          Booklet and Listen while a case is open, Apple Music and Buy the CD in the player. Each pair
+          fades out before the next fades in. */}
+      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() }}>
+        <button class="case-action is-left" classList={{ 'is-shown': pointer().opened >= 0 && !listening(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
           inert={pointer().opened >= 0 && !listening() ? undefined : true} onClick={() => setBookletOpen(true)} {...cursor.button}>Booklet</button>
+        <a class="case-action is-left" classList={{ 'is-shown': listening() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
+          inert={listening() && selected().appleMusic ? undefined : true} {...cursor.button}>Apple Music</a>
         <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
           disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
-          <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton}
-            aria-label={`${pointer().opened < 0 ? 'Open' : 'Listen to'} ${selected().title} by ${selected().artist} (${selected().year})`}
+          <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} disabled={listening()}
+            aria-label={`${pointer().opened < 0 ? 'Open' : listening() ? '' : 'Listen to'} ${selected().title} by ${selected().artist} (${selected().year})`.trim()}
             onClick={() => (pointer().opened < 0 ? scene?.open() : scene?.insert())} {...cursor.button}>
             <span class="eyebrow">{selected().artist}<span class="eyebrow-separator">/</span>{selected().year}</span>
             <span class="album-title">{selected().title}</span>
@@ -797,8 +810,10 @@ function App(props: { band: Band }) {
         </div>
         <button class="album-arrow is-next" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
           disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
-        <button class="case-action is-listen" classList={{ 'is-shown': pointer().opened >= 0 && !listening(), 'has-bubble': canBubble }} type="button" ref={listenButton}
+        <button class="case-action is-right" classList={{ 'is-shown': pointer().opened >= 0 && !listening(), 'has-bubble': canBubble }} type="button" ref={listenButton}
           inert={pointer().opened >= 0 && !listening() ? undefined : true} onClick={() => scene?.insert()} {...cursor.button}>Listen</button>
+        <a class="case-action is-right" classList={{ 'is-shown': listening(), 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener"
+          inert={listening() ? undefined : true} {...cursor.button}>Buy the CD</a>
       </footer>
       <Show when={bookletOpen()}><BookletViewer album={albums[active()]} onClose={closeBooklet} /></Show>
     </main>
@@ -808,8 +823,10 @@ function App(props: { band: Band }) {
 // The page is the collection's gallery, or why it couldn't load.
 function Root() {
   const [view, setView] = createSignal<{ band?: Band; error?: string } | null>(null);
+  tidyUrl();
   loadBand('favorites').then(
     (band) => {
+      tidyUrl(band.albums.map((album) => album.id));
       applyTheme(band.theme, 'Discography');
       setView({ band });
     },

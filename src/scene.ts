@@ -96,30 +96,36 @@ const C = {
   playerButtonWidth: 9, playerButtonHeight: 7, playerButtonGap: 2.6, playerButtonPress: 0.4, playerPrintOpacity: 0.5, playerButtonHover: 0.08,
   playerButtonColor: '#45474d', playerPrint: '#ebe3d4',
   // The player stands level, turned playerYaw degrees on its stand so a corner faces the camera (as
-  // in the product photo), at playerScale of the scene's size. On wide screens it sits
-  // playerShift of the half-width left of centre, leaving the right for the tracklist; on narrow
-  // ones it sits above the list, playerRaise of the half-height up. It is shot like a product photo
+  // in the product photo), at playerScale of the scene's size (about the open case's height on
+  // screen), centred and playerRaise of the half-height up, clear of the transport row and caption
+  // below; narrow screens shrink it to fit their width. It is shot like a product photo
   // with a shift lens (setLens): the camera moves in front of it and rises until it sees the top from
   // playerView degrees above, still aimed straight ahead, so verticals stay vertical and the front
   // is a true rectangle; the lens shift keeps everything framed where it was. The lens is longer
   // than the gallery's (playerFOV degrees; the camera backs off to keep the framing). A soft shadow
   // (playerShadow opacity) grounds it.
-  playerYaw: 45, playerView: 26, playerScale: 0.5, playerFOV: 18, playerShadow: 0.3, playerShift: 0.38, playerRaise: 0.42,
+  playerYaw: 45, playerView: 26, playerScale: 0.7, playerFOV: 18, playerShadow: 0.3, playerRaise: 0.1,
   // Inserting: the disc lifts insertLift out of the tray toward the camera, the row slides up out of
   // view by insertPan while the player rises into its place, then the disc glides over the well,
-  // insertHover above the spindle, and drops onto it. Ejecting plays it backwards.
-  insertDuration: 2.4, ejectDuration: 1.9, insertLift: 0.45, insertPan: 4.4, insertHover: 0.3,
+  // insertHover above the spindle, and drops onto it. Ejecting plays it backwards. Whatever that path
+  // does, the disc never goes into the player: it is pushed up to insertClearance mm over the top
+  // (see updatePlayer).
+  insertDuration: 2.4, ejectDuration: 1.9, insertLift: 0.45, insertPan: 4.4, insertHover: 0.3, insertClearance: 3,
   // Spin while playing, in turns a minute (a real disc turns 200 to 500), and how long it takes to
-  // spin up and coast down (time constants in seconds). At this speed the print is blurred over the
+  // spin up and coast down (time constants in seconds; spinDownEject, much quicker, when the disc is
+  // taken out while it turns, so it brakes as it leaves). At this speed the print is blurred over the
   // arc it turns in spinBlur seconds, like a camera's exposure, so it reads as a spinning disc
   // rather than strobing; spinBlurSamples samples along that arc.
-  spinRpm: 200, spinUp: 0.4, spinDown: 1, spinBlur: 0.025, spinBlurSamples: 24,
+  spinRpm: 200, spinUp: 0.4, spinDown: 1, spinDownEject: 0.25, spinBlur: 0.025, spinBlurSamples: 24,
 } as const;
 
-// overDisc, overBooklet: the pointer is over the open case's disc or booklet. listening: the player view is wanted (from
-// insert() until eject()); discOut: the disc is out of its case (until the eject has finished);
-// overButton: the player's button under the pointer, if any.
-export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; discOut: boolean; overButton: PlayerButton | null }
+// overDisc, overBooklet: the pointer is over the open case's disc or booklet (overDisc also over the
+// disc once it has landed on the player, where a click ejects it). listening: the player view is wanted (from
+// insert() until eject()); seated: the disc has landed on the spindle (from the end of the insert
+// until eject() starts), the only time the player's screen shows anything and its buttons work;
+// discOut: the disc is out of its case (until the eject has finished); overButton: the player's
+// button under the pointer, if any.
+export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; seated: boolean; discOut: boolean; overButton: PlayerButton | null }
 
 export interface SceneOptions {
   onProgress?: (loaded: number, total: number) => void;
@@ -280,8 +286,12 @@ const lensDistance = (fov: number) => (C.cameraDistance * Math.tan(THREE.MathUti
 const PLAYER_SCRATCH = {
   trayPosition: new THREE.Vector3(), trayQuaternion: new THREE.Quaternion(), trayScale: new THREE.Vector3(),
   seatPosition: new THREE.Vector3(), seatQuaternion: new THREE.Quaternion(), seatScale: new THREE.Vector3(),
-  matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), corner: new THREE.Vector3(),
+  matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), point: new THREE.Vector3(),
 };
+
+// Points over a disc of radius 1 in its plane (rings out to the rim), for keeping it out of the player.
+const DISC_SAMPLES = [0.35, 0.7, 1].flatMap((radius) => Array.from({ length: 36 }, (_, n) =>
+  new THREE.Vector3(Math.cos((n / 36) * Math.PI * 2) * radius, Math.sin((n / 36) * Math.PI * 2) * radius, 0)));
 
 // Pixel ratio multipliers, stepped down while frames keep running long.
 const QUALITY = [1, 0.85, 0.7, 0.55];
@@ -1475,7 +1485,7 @@ function roundedRect(width: number, height: number, radius: number, cx = 0, cy =
 const roundedShape = (width: number, height: number, radius: number, cx = 0, cy = 0) => roundedRect(width, height, radius, cx, cy) as THREE.Shape;
 
 export type PlayerButton = 'previous' | 'play' | 'pause' | 'next';
-const PLAYER_BUTTONS: PlayerButton[] = ['previous', 'play', 'pause', 'next'];
+export const PLAYER_BUTTONS: PlayerButton[] = ['previous', 'play', 'pause', 'next'];
 
 // The buttons' printed transport symbols, about 3 mm across, centred, x to the right.
 function playerMark(kind: PlayerButton): THREE.Shape[] {
@@ -2003,12 +2013,13 @@ export class GalleryScene {
   // player view is wanted (from insert() until eject()).
   private listening: number;
   private inPlayer: boolean;
+  private seated: boolean;
   private playing: boolean;
   private spinRate: number;
   private overDisc: boolean;
   private overBooklet: boolean;
   private overButton: PlayerButton | null;
-  // The button whose stand-in on the page has keyboard focus (focusButton).
+  // The button whose twin in the page's transport row has keyboard focus (focusButton).
   private focusedButton: PlayerButton | null;
   // What the player's screen shows (drawPlayerScreen).
   private screenState: ScreenState;
@@ -2034,6 +2045,7 @@ export class GalleryScene {
     this.listenTween = null;
     this.listening = -1;
     this.inPlayer = false;
+    this.seated = false;
     this.playing = false;
     this.spinRate = 0;
     this.overDisc = false;
@@ -2208,7 +2220,7 @@ export class GalleryScene {
   setAlbums(albums: Album[]) {
     this.cases[this.listening]?.disc.group.removeFromParent();
     this.listening = -1;
-    this.inPlayer = this.playing = false;
+    this.inPlayer = this.seated = this.playing = false;
     this.listen = this.spinRate = 0;
     this.listenTween = null;
     this.gallery.position.y = 0;
@@ -2469,16 +2481,18 @@ export class GalleryScene {
   // Stops the disc and puts it back in its case.
   eject() {
     if (!this.inPlayer) return;
-    this.inPlayer = false;
+    this.inPlayer = this.seated = false;
     this.playing = false;
     this.overButton = null;
+    this.overDisc = false;
+    this.drawScreen();
     this.animateListen(0);
     this.updateCursor();
   }
 
   // The disc spins while a track plays and coasts to a stop when it pauses.
   setPlaying(playing: boolean) {
-    this.playing = playing && this.inPlayer;
+    this.playing = playing && this.seated;
     this.screenState.playing = this.playing;
     this.drawScreen();
   }
@@ -2490,8 +2504,9 @@ export class GalleryScene {
     this.drawScreen();
   }
 
+  // The screen stays dark until the disc has landed, and goes dark as it leaves.
   private drawScreen() {
-    drawPlayerScreen(this.player, this.screenState, performance.now() / 1000);
+    drawPlayerScreen(this.player, this.seated ? this.screenState : { track: null, seconds: 0, playing: false }, performance.now() / 1000);
     this.request();
   }
 
@@ -2501,6 +2516,12 @@ export class GalleryScene {
     const done = () => {
       this.listenTween = null;
       if (to === 0) this.returnDisc();
+      else if (this.inPlayer) {
+        // Landed: the screen lights up with the album and the buttons start to work.
+        this.seated = true;
+        this.drawScreen();
+        this.updateCursor();
+      }
     };
     if (atOnce || this.reducedMotion) {
       this.listen = to;
@@ -2533,50 +2554,66 @@ export class GalleryScene {
     return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.disc.pick, false).length);
   }
 
+  // The disc on the player under the pointer, once it has landed (not where a button is).
+  private pickSeatedDisc() {
+    const item = this.cases[this.listening];
+    if (!this.seated || !item) return false;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    return this.raycaster.intersectObject(item.disc.pick, false).length > 0;
+  }
+
   private pickBooklet() {
     const item = this.cases[this.opened];
     return Boolean(item && this.listening < 0 && this.raycaster.intersectObject(item.booklet, false).length);
   }
 
-  // The player's button under the pointer, once the player is in place.
+  // The player's button under the pointer, once the disc has landed.
   private pickButton(): PlayerButton | null {
-    if (!this.inPlayer || this.listen < 0.999) return null;
+    if (!this.seated) return null;
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects(this.player.buttons.map((button) => button.cap), false)[0];
     return this.player.buttons.find((button) => button.cap === hit?.object)?.kind ?? null;
   }
 
-  // Where a player button is on the page, in client pixels (its cap's bounds), once the player is in
-  // place; for the focusable stand-ins the page lays over the buttons.
-  playerButtonRect(kind: PlayerButton) {
-    const button = this.player.buttons.find((item) => item.kind === kind);
-    if (!button || !this.inPlayer || this.listen < 0.999) return null;
-    const geometry = button.cap.geometry;
-    if (!geometry.boundingBox) geometry.computeBoundingBox();
-    const box = geometry.boundingBox!;
-    button.cap.updateWorldMatrix(true, false);
-    const canvas = this.renderer.domElement.getBoundingClientRect();
-    let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
-    for (let corner = 0; corner < 8; corner++) {
-      const point = PLAYER_SCRATCH.corner.set(corner & 1 ? box.max.x : box.min.x, corner & 2 ? box.max.y : box.min.y, corner & 4 ? box.max.z : box.min.z)
-        .applyMatrix4(button.cap.matrixWorld).project(this.camera);
-      const x = canvas.left + (point.x + 1) / 2 * canvas.width;
-      const y = canvas.top + (1 - point.y) / 2 * canvas.height;
-      [left, top, right, bottom] = [Math.min(left, x), Math.min(top, y), Math.max(right, x), Math.max(bottom, y)];
-    }
-    return { left, top, width: right - left, height: bottom - top };
-  }
-
-  // A button's stand-in has keyboard focus (or none does): its symbol lights as under the pointer.
+  // A button's twin in the page's transport row has keyboard focus (or none does): its symbol lights
+  // as under the pointer.
   focusButton(kind: PlayerButton | null) {
     this.focusedButton = kind;
     this.request();
   }
 
+  // Where the player's lowest edge is on the page (client y), as it sits once in place, whatever it
+  // is doing now: the page hangs the transport row under it. Puts the camera and player in their
+  // player-view places for the measurement and back.
+  playerBottom() {
+    const { group } = this.player;
+    const lens = this.lens;
+    const position = group.position.clone();
+    this.setLens(1);
+    this.camera.updateMatrixWorld();
+    group.position.copy(this.playerRest);
+    group.updateWorldMatrix(true, true);
+    const body = group.children[0] as THREE.Mesh;
+    if (!body.geometry.boundingBox) body.geometry.computeBoundingBox();
+    const box = body.geometry.boundingBox!;
+    const point = new THREE.Vector3();
+    let bottom = -1;
+    for (let corner = 0; corner < 8; corner++) {
+      point.set(corner & 1 ? box.max.x : box.min.x, corner & 2 ? box.max.y : box.min.y, corner & 4 ? box.max.z : box.min.z)
+        .applyMatrix4(body.matrixWorld).project(this.camera);
+      bottom = Math.max(bottom, (1 - point.y) / 2);
+    }
+    group.position.copy(position);
+    group.updateWorldMatrix(true, true);
+    this.setLens(lens);
+    const canvas = this.renderer.domElement.getBoundingClientRect();
+    return canvas.top + bottom * canvas.height;
+  }
+
   // A click presses the button in and lets it spring back, and tells the page.
   pressButton(kind: PlayerButton) {
     const button = this.player.buttons.find((item) => item.kind === kind);
-    if (!button) return;
+    if (!button || !this.seated) return;
     this.killTween(button.tween);
     if (!this.reducedMotion) {
       button.tween = this.tween(button, { press: 1 }, 0.07, ease.power3Out, () => {
@@ -2657,10 +2694,10 @@ export class GalleryScene {
   }
 
   private updateCursor() {
-    if (!this.press) this.element.style.cursor = this.inPlayer ? (this.overButton ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
+    if (!this.press) this.element.style.cursor = this.inPlayer ? (this.overButton || this.overDisc ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
     const state: PointerState = {
       hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc, overBooklet: this.overBooklet,
-      listening: this.inPlayer, discOut: this.listening >= 0, overButton: this.overButton,
+      listening: this.inPlayer, seated: this.seated, discOut: this.listening >= 0, overButton: this.overButton,
     };
     const key = Object.values(state).join();
     if (key === this.pointerState) return;
@@ -2848,11 +2885,12 @@ export class GalleryScene {
   }
 
   private onClick(event: MouseEvent) {
-    // In the player view only the player's buttons take clicks.
+    // In the player view only the player's buttons take clicks, and the landed disc, which ejects.
     if (this.ready && this.inPlayer) {
       this.updatePointer(event);
       const button = this.pickButton();
       if (button) this.pressButton(button);
+      else if (this.pickSeatedDisc()) this.eject();
       return;
     }
     if (!this.ready || this.listening >= 0) return;
@@ -2958,13 +2996,12 @@ export class GalleryScene {
     this.camera.updateProjectionMatrix();
     // Narrow viewports shrink the whole gallery so the front case still fits.
     this.gallery.scale.setScalar(C.galleryScale * clamp(aspect / 1.5, 0.45, 1));
-    // The player sits left of the tracklist on wide screens and above it on narrow ones, shrunk to fit.
+    // The player sits centred, a little up, shrunk to fit narrow screens.
     const halfHeight = Math.tan(THREE.MathUtils.degToRad(C.cameraFOV / 2)) * C.cameraDistance;
     const halfWidth = halfHeight * aspect;
-    const wide = aspect >= 1.1;
-    this.playerRest.set(wide ? -halfWidth * C.playerShift : 0, wide ? -0.05 : halfHeight * C.playerRaise, 0);
+    this.playerRest.set(0, halfHeight * C.playerRaise, 0);
     this.setLens(this.lens);
-    this.player.group.scale.setScalar(MM * C.playerScale * (wide ? clamp(aspect / 1.5, 0.75, 1) : clamp(halfWidth / 1.25, 0.4, 1)));
+    this.player.group.scale.setScalar(MM * C.playerScale * clamp(halfWidth / 1.4, 0.4, 1));
     const stats = this.frameStats;
     const dpr = window.devicePixelRatio || 1;
     if (dpr !== stats.dpr || Math.abs(width * height - stats.area) > stats.area * 0.2) {
@@ -3022,9 +3059,9 @@ export class GalleryScene {
       const moved = this.pointerMoved;
       this.pointerMoved = false;
       const hit = this.listening >= 0 ? -1 : this.pick();
-      const overDisc = hit >= 0 && hit === this.opened && this.pickDisc();
-      const overBooklet = hit >= 0 && hit === this.opened && !overDisc && this.pickBooklet();
       const overButton = this.pickButton();
+      const overDisc = this.seated ? !overButton && this.pickSeatedDisc() : hit >= 0 && hit === this.opened && this.pickDisc();
+      const overBooklet = hit >= 0 && hit === this.opened && !overDisc && this.pickBooklet();
       if (hit !== this.hovered || overDisc !== this.overDisc || overBooklet !== this.overBooklet || overButton !== this.overButton) {
         // Only the mouse's own movement nudges a case, not a case gliding under a still pointer.
         if (hit >= 0 && hit !== this.hovered && !this.press && moved) this.swipe(hit);
@@ -3100,7 +3137,8 @@ export class GalleryScene {
     player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan, this.playerRest.z);
 
     const target = this.playing && !this.reducedMotion ? (C.spinRpm / 60) * Math.PI * 2 : 0;
-    this.spinRate += (target - this.spinRate) * (1 - Math.exp(-dt / (target > this.spinRate ? C.spinUp : C.spinDown)));
+    const slowing = this.inPlayer ? C.spinDown : C.spinDownEject;
+    this.spinRate += (target - this.spinRate) * (1 - Math.exp(-dt / (target > this.spinRate ? C.spinUp : slowing)));
     if (target === 0 && this.spinRate < 0.02) this.spinRate = 0;
     // The symbol of the button under the pointer, or with keyboard focus, lights up; the others dim back.
     for (const button of this.player.buttons) {
@@ -3116,13 +3154,13 @@ export class GalleryScene {
     // Clockwise seen from the label, as a disc turns, blurred over the arc it turns in spinBlur.
     item.disc.spin.rotation.z -= this.spinRate * dt;
     this.player.spindle.rotation.y -= this.spinRate * dt;
-    if (this.player.screen.scrolls && this.inPlayer) {
+    if (this.player.screen.scrolls && this.seated) {
       drawPlayerScreen(this.player, this.screenState, performance.now() / 1000);
       this.forceFrames = Math.max(this.forceFrames, 2);
     }
     item.disc.blur.value = this.spinRate * C.spinBlur;
 
-    const { trayPosition, trayQuaternion, trayScale, seatPosition, seatQuaternion, seatScale, matrix, axis } = PLAYER_SCRATCH;
+    const { trayPosition, trayQuaternion, trayScale, seatPosition, seatQuaternion, seatScale, matrix, axis, point } = PLAYER_SCRATCH;
     item.body.updateWorldMatrix(true, false);
     matrix.multiplyMatrices(item.body.matrixWorld, item.discRest).decompose(trayPosition, trayQuaternion, trayScale);
     trayPosition.y -= this.gallery.position.y;
@@ -3138,6 +3176,23 @@ export class GalleryScene {
     disc.position.lerpVectors(trayPosition, seatPosition, carry);
     disc.quaternion.slerpQuaternions(trayQuaternion, seatQuaternion, carry);
     disc.scale.setScalar(trayScale.x + (seatScale.x - trayScale.x) * carry);
+
+    // Keep the disc out of the player, whatever the path and the screen's shape do. In the player's
+    // millimetres, every point of the disc stays insertClearance above the top, and near the sides
+    // above a 45° slope down from the top edges, so the push starts gently as the disc comes over
+    // an edge rather than jumping; over the well it may go down to the floor, to land on the
+    // spindle. The push is straight up the player's axis (still in `axis`).
+    disc.updateWorldMatrix(true, false);
+    matrix.copy(player.matrixWorld).invert().multiply(disc.matrixWorld);
+    let lift = 0;
+    for (const sample of DISC_SAMPLES) {
+      point.copy(sample).applyMatrix4(matrix);
+      const outside = Math.max(Math.abs(point.x), Math.abs(point.z)) - PLAYER.half;
+      const floor = outside < 0 && Math.hypot(point.x, point.z - C.wellZ) < C.wellRadius
+        ? PLAYER.floor : PLAYER.top + C.insertClearance - Math.max(0, outside);
+      lift = Math.max(lift, floor - point.y);
+    }
+    if (lift > 0) disc.position.addScaledVector(axis, lift * player.scale.x);
   }
 
   // The camera, from the gallery's (0) to the player view's (1). The field of view narrows to

@@ -29,7 +29,7 @@ The root URL opens the gallery. `?album=kid-a` opens with an album selected; app
 - Drag or scroll the row, or use its arrows, to move between records.
 - Drag the front case to turn it over. Click it or its title to open it.
 - Click the booklet in the open lid, or choose **Booklet** at the bottom left, to turn the archived pages. Escape or **Close** returns to the case.
-- Click the disc, the album title, or **Listen** at the bottom right to place it on the player. The tracklist plays 30-second Apple Music previews where available. **Back** returns the disc to its case.
+- Click the disc, the album title, or **Listen** at the bottom right to place it on the player. The player's buttons, or the row under it, play 30-second Apple Music previews where available; **Apple Music** and **Buy the CD** sit either side of the album title. **Back**, or a click on the disc, returns it to its case.
 - Arrow keys, Home, End, Enter, Space, and Escape support the main gallery. The booklet has its own page controls and keyboard support.
 
 ## Artwork and data

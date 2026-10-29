@@ -20,6 +20,75 @@ decision changes.
 | Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
 | Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
 | Single page | Gallery as the only page: title screen, artist list, band label and Albums menu removed | Done (29 October 2026) |
+| Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
+
+## Player view without the tracklist (29 October 2026)
+
+The tracklist panel is gone. The player is centred (`playerRest` x = 0, `playerRaise` 0.1 of the
+half-height up) and larger (`playerScale` 0.5 to 0.7, about the open case's height on screen:
+660 × 385 px at 1440 × 900); narrow screens shrink it by `halfWidth / 1.4`. `playerShift` is gone.
+
+- **Transport row** (`.transport`) centred under the player, above the caption: the player's four
+  buttons again (`PLAYER_BUTTONS`), with the same symbols as SVG (`playerIcon`, matching the
+  scene's `playerMark`) in ink. A first version with arrows, a "Play"/"Pause" word and the
+  track and time in mono under it was rejected: the player's screen already shows the track and
+  time, and the row should repeat the player's own controls. The buttons call `scene.pressButton`,
+  so the player's own buttons move too; keyboard focus on one lights its symbol (`focusButton`). They replace the
+  invisible stand-ins laid over the 3D buttons (`PlayerControls`, `playerButtonRect`, removed).
+  It fades in once the disc has landed (1.7 s), as the tracklist did. Tuned after review: 13 px
+  symbols, 12 px apart, 40% opacity (full on hover or keyboard focus), and 20 px under the
+  player's lowest edge, which the scene measures (`playerBottom()`, the player at rest in the
+  player-view camera) when the view starts and after a resize; a fixed CSS offset could not follow
+  the player, which scales with the height on wide screens and with the width on narrow ones.
+  A press dips the symbol to 70% and lets it spring back (`.is-pressed`, 90 ms), set from the
+  scene's `onPlayerButton`, so a click here, a key, or a click on the 3D button all show it.
+- **Cursor ring** over the 3D player's buttons is half see-through (`--bg-center` at 50%).
+- **Nothing works until the disc has landed.** The scene's `seated` (in `PointerState`) is true
+  from the end of the insert until `eject()` starts. Until then the player's screen stays dark (it
+  used to show the album while the disc was still flying in), its buttons ignore the pointer and
+  `pressButton`, Space does nothing, and the transport row stays hidden; it fades in (0.5 s) when
+  the disc lands rather than after a fixed 1.7 s, and keyboard focus moves to Play then.
+- **Only Play starts the music, as on a CD player**: unless a track is playing, next and previous
+  change the track and show it at 0:00, paused; Play starts it. While playing they play straight
+  away. Stopped counts as sitting at the first track, so Next from a stop cues track 2 and Previous
+  cues track 1. Changing track drops the old preview at once, so Play pressed while
+  the new one loads can't resume the old one.
+- **Ejecting brakes the spin**: a disc taken out while it turns slows with `spinDownEject` (0.25 s)
+  instead of the pause's `spinDown` (1 s): from 200 rpm it is at 49 after 0.4 s and nearly still by
+  1 s, against 134 and 73 after a pause.
+- **The landed disc ejects on a click**, as Back does: the cursor bubble says "Eject" over it
+  (the scene reports `overDisc` for the seated disc too, not where a button is), and the system
+  cursor is a pointer there.
+- **No gaps in the transport row**: the 12 px between the buttons belonged to the row, which was
+  not a bubble surface, so moving across one showed the system cursor and dropped the dot. The
+  buttons now touch (padding 8 px 15 px, same symbol spacing) and the row is a bubble surface.
+  Checked by sweeping the pointer across the row a pixel at a time: no system cursor, the dot
+  always shown and the right size.
+- **Bubble clone in step with the dot.** Moving fast between the small transport buttons showed a
+  symbol half white: the clone's clipping circle grew on its own easing while the dot grew on its
+  CSS transition. The circle's radius is now read from the dot's rendered size every frame while
+  its transition runs (`follow` in `createBubble`).
+- **The disc never goes into the player.** The insert path (lift, carry, hover, drop) cut through
+  the player's side while it was still rising: 8.5 mm deep at 1440 × 900, 1.8 mm at 1024 × 1366,
+  clear on phones. `updatePlayer` now finishes every frame by checking 108 points of the disc in
+  the player's millimetres and pushing it straight up the player's axis until every point is
+  `insertClearance` (3 mm) above the top, or above a 45° slope down from the top edges near the
+  sides (so the push starts gently instead of jumping), or above the well's floor over the well (so
+  it still lands on the spindle). This holds whatever the path or the screen's shape does; the eject
+  is the same path backwards. `scripts/check-insert-path.mjs` checks it (see Verifying changes):
+  clear at eight sizes from 320 × 640 to 2560 × 1080 for three albums, and the largest step between
+  samples is 2.2× the 90th percentile (1.6× without the push), so it speeds up over the edge but
+  never jumps.
+- **Bottom row stays in the player**: the caption (inactive there, it only names the album) with
+  **Apple Music** left and **Buy the CD** right, the third pair in the arrows' places, handing over
+  from Booklet and Listen the same way.
+- **Playback** moved from the `Tracklist` component into `createPreviews` (no DOM): same buttons
+  logic, tracks without a preview are skipped.
+- **Focus**: Enter on the caption or Listen by keyboard moves focus to Play; leaving the player
+  from the transport row or a store link by keyboard returns it to the caption.
+
+Verified in headless Chrome at 1440 × 900 and 390 × 844: layout, keyboard insert to Play, play,
+next, pause, Escape back to the open case, no console errors.
 
 ## Open case controls (29 October 2026)
 
@@ -45,7 +114,11 @@ link (`.github-link`, styled as a corner button) opens the repository in a new t
 that was on the title screen is in the README.
 
 URLs drop the band: `?album=<id>`, plus `&open` or `&listen`. Older `?band=favorites&album=<id>`
-links still open that album and are rewritten to the short form; `?home` opens the gallery. On
+links still open that album; `?home` opens the gallery. `tidyUrl()` (in `band.ts`) rewrites any
+such address as the page loads, without a history entry: unused parameters go at once, an unknown
+album once the collection has loaded. Tabs opened before the change still hold `?home` entries in
+their history, and the browser's Back button can land on one; the address is clean again within a
+moment instead of after the intro. On
 phones Back and GitHub now sit level with the wordmark (`top: 21.5px`, scaled from the desktop
 measurement), since no wide logo shares the top row any more.
 
@@ -342,6 +415,11 @@ the repo:
 - Phase 1 used a small screenshot script (`playwright-core` from a sibling project, Chrome channel)
   that runs steps such as key presses, clicks, held drags and `page.evaluate`, and compared against
   the phase 0 build served from a temporary `git worktree`.
+- `scripts/check-insert-path.mjs` (with `npm run dev` running) samples the disc's insert and eject
+  path at eight screen sizes and exits with 1 if any point of the disc goes into the player. It
+  needs `playwright-core`, for example
+  `PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs`. The dev server exposes the
+  scene as `window.scene` for it (`import.meta.env.DEV` only).
 
 ## Phase 1: jewel cases
 

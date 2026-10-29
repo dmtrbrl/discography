@@ -98,6 +98,17 @@ export function galleryUrl(album: string, open = false, listen = false): string 
   return `?album=${encodeURIComponent(album)}${listen ? '&listen' : open ? '&open' : ''}`;
 }
 
+// Old links and the history entries the earlier pages left in open tabs (?home, ?band=<folder>)
+// still reach the page. Rewrites the address at once to what the page reads, without adding a
+// history entry: only the album and its state, and with `albums` given, only an album that exists.
+export function tidyUrl(albums?: string[]) {
+  const { album, open, listen } = albumFromUrl();
+  const known = album && (!albums || albums.includes(album)) ? album : null;
+  const search = known ? galleryUrl(known, open, listen) : '';
+  if (window.location.search === search) return;
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${search}${window.location.hash}`);
+}
+
 export async function loadBand(band: string): Promise<Band> {
   const url = bandsUrl(`${band}/band.json`);
   const response = await fetch(url);
