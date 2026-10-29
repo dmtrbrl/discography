@@ -972,7 +972,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
             <span class="transport-track-title">{selected().tracks?.[trackShown()]?.title}</span>
           </Show>
         </p>
-        <Show when={previews.failed()}><p class="transport-note" role="status">Previews couldn't be loaded. Try again in a moment.</p></Show>
+        <Show when={previews.failed()}><p class="transport-note" role="status">Song previews couldn't be loaded. Try again in a moment.</p></Show>
       </div>
       {/* The caption, with controls level with it either side. The caption is a button that opens the
           album (Tab reaches it between the arrows), and once it is open puts its disc in the player;
