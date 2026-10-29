@@ -722,6 +722,23 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       });
       return;
     }
+    // One step from the view shown, with nothing over it (mostly the browser's Back or Forward):
+    // it plays as the page's own controls would, the case opening or closing, the disc going in or
+    // out, the row moving to another album. Further away, or while the view is still changing, it
+    // jumps.
+    if (!busy() && !bookletOpen() && !aboutOpen() && link.mode !== 'booklet' && !link.about) {
+      const shownOpen = pointer().opened >= 0;
+      const shownListen = listening();
+      if (index === active()) {
+        if (!shownOpen && open && !listen) { scene.open(); return; }
+        if (shownOpen && !shownListen && !open) { scene.close(); return; }
+        if (shownOpen && !shownListen && listen) { scene.insert(); return; }
+        if (shownListen && open && !listen) { scene.eject(); return; }
+      } else if (!shownOpen && !open) {
+        scene.goTo(index, 'click');
+        return;
+      }
+    }
     (document.activeElement as HTMLElement | null)?.blur();
     if (bookletOpen() || aboutOpen()) fadeStage(0, 0);
     else if (!listening()) fadeStage(0, 600);

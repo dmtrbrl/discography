@@ -81,6 +81,12 @@ cleanup throughout), and its router now holds the page's state.
   jump to `#/about` from another view restarts the gallery on the row of the album in front,
   hidden, behind the page. On landscape phones the text is smaller and scrolls under a fade below
   the top bar if it must.
+- **One step through the history plays as a step**: when a change of the hash the gallery didn't
+  write lands one step from the view shown (mostly the browser's Back or Forward), it plays as the
+  page's own controls would: the case opens or closes, the disc goes in or out, the row slides to
+  another album. Only further moves (the wordmark from the player or the booklet, several entries
+  at once, a distant link) and moves that arrive while the view is still changing jump. The first
+  version jumped on every Back and Forward too (a decision from the first review, revised).
 - **Jumps to the view already shown**: the browser's Back from the about page or the booklet lands
   on the view still under it, so only the page or the booklet goes; no intro replays.
 - **No input during a view change**: while the intro or a jump plays, a case opens or closes, or
