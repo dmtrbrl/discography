@@ -51,9 +51,12 @@ const C = {
   // is very wide for a phone. There the open case is scaled to the screen's width less
   // openFitPadding px each side (openFit). On short landscape screens (shortHeight px tall or less,
   // a phone turned sideways) it lies flat and is scaled to fit between openFitShortMargin px top
-  // and bottom, where the top bar and the caption are.
+  // and bottom, where the top bar and the caption are. There the wordmark is much shorter than the
+  // caption, so the picture is raised rowRaiseShort px (the row) or openRaiseShort px (an open case)
+  // to leave the same gap above the front case as below it (setLens).
   openDuration: 1.3, lidOpenAngle: 180, lidOpenAngleNarrow: 110, narrowWidth: 650, openFitPadding: 32,
   shortHeight: 500, openFitShortMargin: 72, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
+  rowRaiseShort: 10, openRaiseShort: 17,
   // hGap spaces the row; on screens narrowWidth px wide or less, hGapNarrow of it, so the
   // neighbours show beside the front case rather than at the screen's edges.
   galleryScale: 1.08, hGap: 2.8, hGapNarrow: 0.9, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
@@ -115,22 +118,29 @@ const C = {
   // than the gallery's (playerFOV degrees; the camera backs off to keep the framing). A soft shadow
   // (playerShadow opacity) grounds it.
   // On short landscape screens it is playerScaleShort bigger and playerRaiseShort up instead, so it
-  // and the transport row under it fit above the caption.
+  // and the transport row under it fit above the caption, with as much room above it as between it
+  // and the row's symbols (the row sits closer to it there, see .transport in style.css).
   playerYaw: 45, playerView: 26, playerScale: 0.7, playerFOV: 18, playerShadow: 0.3, playerRaise: 0.1,
-  playerScaleShort: 1.25, playerRaiseShort: 0.28,
+  playerScaleShort: 1.25, playerRaiseShort: 0.24,
   // Inserting: the disc lifts insertLift out of the tray toward the camera, the row slides up out of
   // view by insertPan while the player rises into its place, then the disc glides over the well,
   // insertHover above the spindle, and drops onto it. Ejecting plays it backwards. Whatever that path
   // does, the disc never goes into the player: it is pushed up to insertClearance mm over the top
   // (see updatePlayer).
   insertDuration: 2.4, ejectDuration: 1.9, insertLift: 0.45, insertPan: 4.4, insertHover: 0.3, insertClearance: 3,
+  // A jump to another view (the wordmark, the browser's Back, a pasted link) doesn't play the steps
+  // in between: the player drops leaveDrop down out of view over leaveDuration seconds (the page
+  // fades the gallery out meanwhile, and in again with the intro), then the intro plays into the new
+  // view (show()). The cases don't shrink back first: seen, that read as the gallery resetting.
+  leaveDuration: 0.6, leaveDrop: 4.4,
   // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
-  // one, 500 falling to about 200 across the disc, were tried and rejected, see ROADMAP.md), and how long it takes to
+  // one, 500 falling to about 200 across the disc, were tried and rejected, and 200 later read as too
+  // busy, see ROADMAP.md), and how long it takes to
   // spin up and coast down (time constants in seconds; spinDownEject, much quicker, when the disc is
   // taken out while it turns, so it brakes as it leaves). At this speed the print is blurred over the
   // arc it turns in spinBlur seconds, like a camera's exposure, so it reads as a spinning disc
   // rather than strobing; spinBlurSamples samples along that arc.
-  spinRpm: 200, spinUp: 0.4, spinDown: 1, spinDownEject: 0.25, spinBlur: 0.025, spinBlurSamples: 24,
+  spinRpm: 150, spinUp: 0.4, spinDown: 1, spinDownEject: 0.25, spinBlur: 0.025, spinBlurSamples: 24,
 } as const;
 
 // overDisc, overBooklet: the pointer is over the open case's disc or booklet (overDisc also over the
@@ -138,8 +148,9 @@ const C = {
 // insert() until eject()); seated: the disc has landed on the spindle (from the end of the insert
 // until eject() starts), the only time the player's screen shows anything and its buttons work;
 // discOut: the disc is out of its case (until the eject has finished); overButton: the player's
-// button under the pointer, if any.
-export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; seated: boolean; discOut: boolean; overButton: PlayerButton | null }
+// button under the pointer, if any; busy: the view is changing (see viewBusy), when nothing that
+// would change it again works.
+export interface PointerState { hovered: number; active: number; opened: number; dragging: boolean; overDisc: boolean; overBooklet: boolean; listening: boolean; seated: boolean; discOut: boolean; overButton: PlayerButton | null; busy: boolean }
 
 export interface SceneOptions {
   onProgress?: (loaded: number, total: number) => void;
@@ -224,6 +235,8 @@ interface JewelCase extends Push {
   spinRest: number;
   resetTween: Tween | null;
   placed: boolean;
+  // How far the disc's reflections are turned back with the body (radians; see layout).
+  envTurn: number;
   // Where the disc sits in the body, to put it back after the player.
   discRest: THREE.Matrix4;
 }
@@ -303,6 +316,9 @@ const PLAYER_SCRATCH = {
   matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), point: new THREE.Vector3(),
 };
 
+// Reused by layout for the disc's turned reflections (see envTurn).
+const TURN_SCRATCH = { group: new THREE.Quaternion(), turn: new THREE.Quaternion(), axis: new THREE.Vector3(0, 1, 0) };
+
 // Points over a disc of radius 1 in its plane (rings out to the rim), for keeping it out of the player.
 const DISC_SAMPLES = [0.35, 0.7, 1].flatMap((radius) => Array.from({ length: 36 }, (_, n) =>
   new THREE.Vector3(Math.cos((n / 36) * Math.PI * 2) * radius, Math.sin((n / 36) * Math.PI * 2) * radius, 0)));
@@ -326,9 +342,10 @@ function cubicBezier(x1: number, y1: number, x2: number, y2: number): Easing {
   };
 }
 
-const ease: Record<'glide' | 'linear' | 'power3Out' | 'power3InOut', Easing> = {
+const ease: Record<'glide' | 'linear' | 'power3In' | 'power3Out' | 'power3InOut', Easing> = {
   glide: cubicBezier(0.32, 0.72, 0, 1),
   linear: (t) => t,
+  power3In: (t) => t ** 3,
   power3Out: (t) => 1 - (1 - t) ** 3,
   power3InOut: (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2),
 };
@@ -1462,7 +1479,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number): JewelCas
   group.add(pick);
   return {
     group, spin, body, lid, booklet, pick, disc, prints, bookletEdges, plastic, disposed: false,
-    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, discRest,
+    open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
 }
@@ -2017,6 +2034,13 @@ export class GalleryScene {
   private startIndex: number;
   private openOnReveal: boolean;
   private listenOnReveal: boolean;
+  // During a jump (show()): the player's drop out of view, 0 to 1, and what to call once the new
+  // view has started.
+  private leaveTween: Tween | null = null;
+  // The intro growing the cases in (playIntro).
+  private introTween: Tween | null = null;
+  leave = 0;
+  private onShown: (() => void) | null = null;
   private player: Player;
   private playerRest: THREE.Vector3;
   // How far an open case's lid swings, in degrees (lidOpenAngle, or lidOpenAngleNarrow on phones).
@@ -2047,6 +2071,11 @@ export class GalleryScene {
   private screenState: ScreenState;
   // How far the camera has gone from the gallery's to the player view's (see setLens).
   private lens: number;
+  // Short landscape screens only: whether the picture is raised (see rowRaiseShort), and how far the
+  // front case is open, 0 to 1 (eased as the others make room), to blend the row's raise into the
+  // open case's.
+  private short = false;
+  private openRoom = 0;
   // The blue rim light behind the gallery; it fades in the player view, where the camera looks down
   // on surfaces it would tint.
   private rimLight!: THREE.DirectionalLight;
@@ -2210,7 +2239,77 @@ export class GalleryScene {
     this.ready = true;
     this.gallery.visible = true;
     this.playIntro();
+    this.updateCursor();
     this.request(3);
+  }
+
+  // Jumps to a view, as a link to it would open the page: case `index` in front, open, or with its
+  // disc in the player too. The current view leaves first (the player drops out of view), then the
+  // gallery starts again there with the intro, and onShown is called, so the page can fade it in
+  // as on the first reveal. Before the gallery is revealed it only changes where the intro will start.
+  show(index: number, open = false, listen = false, onShown?: () => void) {
+    this.startIndex = clamp(Math.round(index), 0, Math.max(0, this.cases.length - 1));
+    this.openOnReveal = open || listen;
+    this.listenOnReveal = listen;
+    if (this.destroyed) return;
+    if (!this.ready && !this.leaveTween) {
+      this.position = this.lastPosition = this.startIndex;
+      return;
+    }
+    this.onShown = onShown ?? null;
+    // A jump during a jump only changes where it lands.
+    if (this.leaveTween) return;
+    // No input while the view leaves; the player's buttons and the transport row stop at once.
+    this.ready = false;
+    this.press = null;
+    this.dragging = false;
+    this.spinning = -1;
+    this.inPlayer = this.seated = this.playing = false;
+    this.hovered = -1;
+    this.overDisc = this.overBooklet = false;
+    this.overButton = null;
+    this.tweens.clear();
+    this.indexTween = this.listenTween = this.introTween = null;
+    this.cases.forEach((item) => { item.openTween = item.resetTween = null; });
+    this.inertia = this.flow = 0;
+    this.target = -1;
+    this.updateCursor();
+    const restart = () => {
+      this.leaveTween = null;
+      this.restart();
+    };
+    if (this.reducedMotion) return restart();
+    this.leaveTween = this.tween(this, { leave: 1 }, C.leaveDuration, ease.linear, restart);
+  }
+
+  // Puts everything back as it was before the first intro, at the jump's start, and plays the intro.
+  private restart() {
+    if (this.listening >= 0) this.returnDisc();
+    this.listen = this.spinRate = this.leave = 0;
+    this.gallery.position.y = 0;
+    this.player.group.visible = false;
+    // Cases ease toward where they should be; unplaced, they go straight there, so the old view
+    // doesn't shrink back into the new intro.
+    this.cases.forEach((item) => {
+      item.open = item.hover = 0;
+      item.spinX = item.spinY = item.spinRest = 0;
+      Object.assign(item, { pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0 });
+      item.placed = false;
+    });
+    this.position = this.lastPosition = this.startIndex;
+    this.inertia = this.settle = this.flow = 0;
+    this.active = -1;
+    this.opened = -1;
+    this.resetWheel();
+    this.intro.active = this.intro.others = 0;
+    this.ready = true;
+    this.gallery.visible = true;
+    this.playIntro();
+    this.updateCursor();
+    this.request(3);
+    const shown = this.onShown;
+    this.onShown = null;
+    shown?.();
   }
 
   private addLights() {
@@ -2274,6 +2373,12 @@ export class GalleryScene {
     this.cases = albums.map((album, index) => {
       const item = makeCase(this.shared, album, seedFrom(album.id ?? index));
       item.pick.userData.index = index;
+      // The disc's own reference to the environment, so its reflections can turn with its half of
+      // the case (layout), at the strength the scene gives the others.
+      for (const material of item.disc.materials) {
+        material.envMap = this.environment.texture;
+        material.envMapIntensity = C.environmentIntensity;
+      }
       const placeholder = makeFallbackArt(album, index);
       this.setArt(item.disc, placeholder);
       this.setPrint(item, 'cover', placeholder);
@@ -2359,7 +2464,11 @@ export class GalleryScene {
       this.intro.active = this.intro.others = 1;
       return;
     }
-    this.tween(this.intro, { active: 1 }, C.introDuration, ease.glide);
+    // The neighbours' tween ends first (at 0.95 of the duration), so this one marks the intro's end.
+    this.introTween = this.tween(this.intro, { active: 1 }, C.introDuration, ease.glide, () => {
+      this.introTween = null;
+      this.updateCursor();
+    });
     this.tween(this.intro, { others: 1 }, C.introDuration * 0.85, ease.linear, null, C.introDuration * 0.1);
   }
 
@@ -2477,6 +2586,7 @@ export class GalleryScene {
     const duration = this.reducedMotion ? 0.15 : C.openDuration * (to ? 1 : 0.85) * Math.max(0.2, Math.abs(to - item.open));
     item.openTween = this.tween(item, { open: to }, duration, ease.linear, () => {
       item.openTween = null;
+      this.updateCursor();
     });
   }
 
@@ -2761,11 +2871,18 @@ export class GalleryScene {
     return hit.object.userData.index as number;
   }
 
+  // The view is changing: the intro or a jump plays, a case opens or closes, or the disc goes into
+  // the player or back. Clicks and drags that would change it again wait until it has finished
+  // (moving along the row doesn't count).
+  private viewBusy() {
+    return Boolean(this.introTween || this.leaveTween || this.listenTween || this.cases.some((item) => item.openTween));
+  }
+
   private updateCursor() {
     if (!this.press) this.element.style.cursor = this.inPlayer ? (this.overButton || this.overDisc ? 'pointer' : 'default') : this.hovered >= 0 ? 'pointer' : 'grab';
     const state: PointerState = {
       hovered: this.hovered, active: this.activeIndex(), opened: this.opened, dragging: this.dragging, overDisc: this.overDisc, overBooklet: this.overBooklet,
-      listening: this.inPlayer, seated: this.seated, discOut: this.listening >= 0, overButton: this.overButton,
+      listening: this.inPlayer, seated: this.seated, discOut: this.listening >= 0, overButton: this.overButton, busy: this.viewBusy(),
     };
     const key = Object.values(state).join();
     if (key === this.pointerState) return;
@@ -2804,7 +2921,7 @@ export class GalleryScene {
   }
 
   private onPointerDown(event: PointerEvent) {
-    if (!this.ready || event.button !== 0 || !event.isPrimary || !this.cases.length || this.listening >= 0) return;
+    if (!this.ready || event.button !== 0 || !event.isPrimary || !this.cases.length || this.listening >= 0 || this.viewBusy()) return;
     const point = this.updatePointer(event);
     const hit = this.pick();
     // While a case is open a drag does nothing, on the case or beside it: it neither turns a case
@@ -2961,7 +3078,7 @@ export class GalleryScene {
       else if (this.pickSeatedDisc()) this.eject();
       return;
     }
-    if (!this.ready || this.listening >= 0) return;
+    if (!this.ready || this.listening >= 0 || this.viewBusy()) return;
     if (performance.now() < this.suppressClickUntil) {
       event.preventDefault();
       return;
@@ -2997,7 +3114,8 @@ export class GalleryScene {
   private onWheel(event: WheelEvent) {
     if (event.ctrlKey) return;
     event.preventDefault();
-    if (!this.ready) return;
+    // Turning the wheel moves the row, which would close a case still opening or closing.
+    if (!this.ready || this.cases.some((item) => item.openTween)) return;
     let dx = event.deltaX;
     let dy = event.deltaY;
     if (event.deltaMode === 1) {
@@ -3062,6 +3180,7 @@ export class GalleryScene {
     const aspect = width / height;
     const narrow = width <= C.narrowWidth;
     const short = !narrow && height <= C.shortHeight && width > height;
+    this.short = short;
     this.lidAngle = narrow ? C.lidOpenAngleNarrow : C.lidOpenAngle;
     this.rowGap = C.hGap * (narrow ? C.hGapNarrow : 1);
     this.camera.aspect = aspect;
@@ -3211,7 +3330,7 @@ export class GalleryScene {
     this.setLens(pan);
     const player = this.player.group;
     player.visible = pan > 0.001;
-    player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan, this.playerRest.z);
+    player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan - ease.power3In(this.leave) * C.leaveDrop, this.playerRest.z);
     // With the disc landed, the player leans toward the cursor like the open case, only less; it
     // eases back as the disc leaves or the pointer goes.
     const lean = this.seated && this.pointerInside && !this.reducedMotion ? 1 : 0;
@@ -3297,7 +3416,9 @@ export class GalleryScene {
     // setViewOffset also sets the aspect to fullWidth / fullHeight, so the full size is the aspect by
     // 1, and the offsets are fractions of the height.
     const aspect = Math.max(1, this.element.clientWidth) / Math.max(1, this.element.clientHeight);
-    if (amount > 0) this.camera.setViewOffset(aspect, 1, -x / (2 * reach), y / (2 * reach), aspect, 1);
+    // The raise on short screens (rowRaiseShort), as a fraction of the height; gone in the player view.
+    const raise = this.short ? ((C.rowRaiseShort + (C.openRaiseShort - C.rowRaiseShort) * this.openRoom) / Math.max(1, this.element.clientHeight)) * (1 - amount) : 0;
+    if (amount > 0 || raise) this.camera.setViewOffset(aspect, 1, -x / (2 * reach), y / (2 * reach) + raise, aspect, 1);
     else {
       this.camera.clearViewOffset();
       this.camera.aspect = aspect;
@@ -3330,6 +3451,7 @@ export class GalleryScene {
       }
     });
     room = ease.power3InOut(clamp(room / 0.6, 0, 1));
+    this.openRoom = room;
     let residual = 0;
 
     this.cases.forEach((item, index) => {
@@ -3387,6 +3509,17 @@ export class GalleryScene {
       item.body.rotation.y = -rise;
       item.body.position.set(hinge * (1 - swing) - hinge * Math.cos(rise), 0, -hinge * Math.sin(rise));
       item.lid.rotation.y = -swing * lidAngle;
+      // Opened like a book (phones), the disc's half turns away from the bright part of the
+      // environment and the disc went dull next to the booklet. Its reflections turn back by the
+      // same amount, so it reads as it does lying flat. Not for a disc out in the player.
+      const envTurn = index === this.listening ? 0 : rise;
+      if (envTurn !== item.envTurn) {
+        item.envTurn = envTurn;
+        const { group, turn, axis } = TURN_SCRATCH;
+        group.setFromEuler(item.group.rotation).premultiply(this.gallery.quaternion);
+        turn.setFromAxisAngle(axis, -envTurn).premultiply(group).multiply(group.invert());
+        for (const material of item.disc.materials) material.envMapRotation.setFromQuaternion(turn);
+      }
       // The pick plane covers both halves as seen from the front.
       item.pick.scale.x = 1 + swing * (2 * Math.cos(rise) - 1);
       // Light reaches the disc as the lid opens; until then it sits in the closed case's shade.

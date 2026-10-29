@@ -1,10 +1,11 @@
 import { render } from 'solid-js/web';
-import { For, Match, Show, Switch, createComputed, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
+import { For, Match, Show, Switch, batch, createComputed, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from 'solid-js';
+import { A, HashRouter, Navigate, Route, useLocation, useNavigate, useParams } from '@solidjs/router';
 import type { Accessor } from 'solid-js';
 import { GalleryScene, PLAYER_BUTTONS } from './scene';
 import type { PlayerButton, PointerState } from './scene';
-import { albumFromUrl, galleryUrl, loadBand, tidyUrl } from './band';
-import type { Album, Band, Theme } from './band';
+import { galleryLink, galleryModes, galleryPath, loadBand, moveQueryToHash } from './band';
+import type { Album, Band, GalleryLink, GalleryMode, Theme } from './band';
 import { LeafThrough } from 'leafthrough';
 import type { PageSource } from 'leafthrough';
 import './style.css';
@@ -462,7 +463,7 @@ function createPreviews(options: {
 
 // The archive stores many booklet pages as two-page spreads. Split them only in memory, preserving
 // the source scans on disk, then let LeafThrough turn the square CD booklet pages.
-function BookletViewer(props: { album: Album; onClose: () => void }) {
+function BookletViewer(props: { album: Album; leaving: boolean; onClose: () => void }) {
   let host!: HTMLDivElement;
   let reader: LeafThrough | undefined;
   const [page, setPage] = createSignal(0);
@@ -518,7 +519,7 @@ function BookletViewer(props: { album: Album; onClose: () => void }) {
     onCleanup(() => { cancelled = true; reader?.dispose(); });
   });
   return (
-    <div class="booklet-overlay" role="dialog" aria-modal="true" aria-label={`${props.album.title} booklet`}>
+    <div class="booklet-overlay" classList={{ 'is-leaving': props.leaving }} role="dialog" aria-modal="true" aria-label={`${props.album.title} booklet`}>
       <div class="booklet-heading"><span>{props.album.artist} / {props.album.title}</span><button type="button" onClick={props.onClose}>Close ×</button></div>
       <div class="booklet-canvas" ref={host} />
       <div class="booklet-navigation">
@@ -530,13 +531,14 @@ function BookletViewer(props: { album: Album; onClose: () => void }) {
   );
 }
 
-function App(props: { band: Band }) {
+function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | null; onPath: (path: string) => void }) {
   const { albums, theme } = props.band;
   let stage!: HTMLDivElement;
   let scene: GalleryScene | undefined;
-  // A link can name the album in front and ask for it open; an unknown album starts at the first.
-  const linked = albumFromUrl();
-  const startIndex = Math.max(0, albums.findIndex((album) => album.id === linked.album));
+  // A link can name the album in front and its view; without one the row starts at the first.
+  const indexOf = (album: string | null) => Math.max(0, albums.findIndex((item) => item.id === album));
+  let linked = props.link;
+  const startIndex = indexOf(linked.album);
   const [active, setActive] = createSignal(startIndex);
   const [loading, setLoading] = createSignal({ loaded: 0, total: albums.length });
   const [ready, setReady] = createSignal(false);
@@ -554,16 +556,25 @@ function App(props: { band: Band }) {
   let bookletButton!: HTMLButtonElement;
   let listenButton!: HTMLButtonElement;
   const [bookletOpen, setBookletOpen] = createSignal(false);
+  // A jump (see Gallery) is under way: the view is leaving, and the page's controls fade with it.
+  const [leaving, setLeaving] = createSignal(false);
+  // The view is changing (a jump, the intro, a case opening or closing, the disc going in or out):
+  // Back, Escape, Enter, Space, the wordmark, the caption, Booklet and Listen do nothing until it has
+  // finished, as clicks on the scene don't (see GalleryScene.viewBusy). Moving along the row works.
+  const busy = () => pointer().busy || leaving();
   const closeBooklet = () => {
     setBookletOpen(false);
     requestAnimationFrame(() => bookletButton?.focus({ preventScroll: true }));
   };
-  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, overBooklet: false, listening: false, seated: false, discOut: false, overButton: null });
+  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, overBooklet: false, listening: false, seated: false, discOut: false, overButton: null, busy: false });
   // The disc is in the player (or going in): the transport row shows and the row of cases is out of view.
   const listening = createMemo(() => pointer().listening);
   // The disc has landed on the spindle: only then do the player's screen, its buttons and the
   // transport row under it work.
   const seated = createMemo(() => pointer().seated);
+  // Booklet and Listen: while a case is open with its disc in it, so after an eject only once the
+  // disc is back in the case.
+  const caseActions = createMemo(() => pointer().opened >= 0 && !pointer().discOut);
   const previews = createPreviews({
     album: selected, shown: listening,
     onPlaying: (playing) => scene?.setPlaying(playing), onDisplay: (track, seconds) => scene?.setDisplay(track, seconds),
@@ -598,11 +609,11 @@ function App(props: { band: Band }) {
     pressTimer = window.setTimeout(() => setPressed(null), 90);
   };
   // The transport row hangs just under the player: its top, from where the scene says the player's
-  // lowest edge is. Measured when the player view starts and after a resize (two frames on, once
+  // lowest edge is (the gap is its margin in style.css). Measured when the player view starts and after a resize (two frames on, once
   // the scene has resized too).
   const [transportTop, setTransportTop] = createSignal<number | null>(null);
   const placeTransport = () => {
-    if (listening() && scene) setTransportTop(scene.playerBottom() + 20);
+    if (listening() && scene) setTransportTop(scene.playerBottom());
   };
   createEffect(on(listening, placeTransport));
   const onResize = () => requestAnimationFrame(() => requestAnimationFrame(placeTransport));
@@ -664,13 +675,50 @@ function App(props: { band: Band }) {
   }));
   const loaded = () => ready() && percent() === 100;
 
-  // Keeps the URL on the album in front and whether it is open, replacing the history entry, so
-  // browsing doesn't fill the browser's history.
+  // Keeps the route on the album in front and its view (see Gallery), except while a jump is still
+  // on its way to the route it came from.
   createEffect(() => {
-    const url = galleryUrl(albums[active()].id, pointer().opened >= 0, listening());
-    if (!revealed() || window.location.search === url) return;
-    window.history.replaceState(window.history.state, '', url);
+    const mode: GalleryMode | null = bookletOpen() ? 'booklet' : listening() ? 'listen' : pointer().opened >= 0 ? 'open' : null;
+    const path = galleryPath(albums[active()].id, mode);
+    if (revealed() && !leaving()) props.onPath(path);
   });
+
+  // A jump: the view leaves and the gallery starts again on the link's view with the intro, fading
+  // in as on the first reveal, as if the page had opened there. The steps in between don't play.
+  // The gallery fades out as the view leaves; the player drops out of view first, so then it stays
+  // until the player has gone; behind the booklet, which slides down, it goes at once.
+  let stageFade: Animation | undefined;
+  function fadeStage(to: 0 | 1, duration: number) {
+    stageFade?.cancel();
+    if (reducedMotion) return;
+    const from = to ? 0 : Number(getComputedStyle(stage).opacity);
+    stageFade = stage.animate([{ opacity: from }, { opacity: to }], { duration, easing: 'ease', fill: 'forwards' });
+    if (to) stageFade.onfinish = () => stageFade?.cancel();
+  }
+  onCleanup(() => stageFade?.cancel());
+  createEffect(on(props.jump, (link) => {
+    if (!link) return;
+    linked = link;
+    const index = indexOf(link.album);
+    const open = link.mode !== null;
+    const listen = link.mode === 'listen';
+    if (!revealed() || !scene) {
+      scene?.show(index, open, listen);
+      return;
+    }
+    (document.activeElement as HTMLElement | null)?.blur();
+    if (bookletOpen()) fadeStage(0, 0);
+    else if (!listening()) fadeStage(0, 600);
+    setLeaving(true);
+    scene.show(index, open, listen, () => {
+      fadeStage(1, 700);
+      batch(() => {
+        setActive(index);
+        setBookletOpen(link.mode === 'booklet');
+        setLeaving(false);
+      });
+    });
+  }, { defer: true }));
 
   // Focus moves only when the control holding it is about to go away: from Back, Booklet or Listen
   // (hidden) to the caption when the case closes. The caption stays usable while the case is open (it puts the disc
@@ -723,6 +771,7 @@ function App(props: { band: Band }) {
 
   // Back: from the player to the open case, from the open case to the row.
   function back() {
+    if (busy()) return;
     if (listening()) scene?.eject();
     else scene?.close();
   }
@@ -748,16 +797,24 @@ function App(props: { band: Band }) {
     if (event.key === ' ' && !onControl) {
       event.preventDefault();
       if (listening()) { if (seated()) previews.toggle(); }
-      else scene.toggle();
+      else if (!busy()) scene.toggle();
     }
-    if (event.key === 'Enter' && !onControl && !listening()) { event.preventDefault(); if (browse) scene.open(); else scene.insert(); }
+    if (event.key === 'Enter' && !onControl && !listening()) {
+      event.preventDefault();
+      if (busy()) return;
+      if (browse) scene.open();
+      else scene.insert();
+    }
     if (event.key === 'Escape') back();
   }
 
   // The loading screen fades out first; only then does the gallery fade in and play its intro.
   function reveal() {
     if (revealed()) return;
-    setRevealed(true);
+    batch(() => {
+      setRevealed(true);
+      if (linked.mode === 'booklet') setBookletOpen(true);
+    });
     scene?.reveal();
   }
 
@@ -769,8 +826,8 @@ function App(props: { band: Band }) {
     scene = new GalleryScene(stage, albums, (index) => setActive(index), {
       fogColor: theme.background,
       startIndex,
-      openOnReveal: linked.open && albums[startIndex]?.id === linked.album,
-      listenOnReveal: linked.listen,
+      openOnReveal: linked.mode !== null && albums[startIndex]?.id === linked.album,
+      listenOnReveal: linked.mode === 'listen',
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
       onPlayerButton: (button) => {
@@ -799,9 +856,20 @@ function App(props: { band: Band }) {
     <main class="app-shell">
       <div class="stage" classList={{ 'is-hidden': !revealed(), 'has-bubble': canBubble }} ref={stage} role="region" aria-label="Interactive album gallery" {...cursor.surface} />
       <header class="masthead" classList={{ 'is-hidden': !revealed() }}>
-        <span class="wordmark">Discography</span>
+        {/* From the player or the booklet, back to the gallery's start (a jump, see Gallery). An open
+            case only closes, as with Back. Neither resets the gallery. On the row a click would do
+            nothing, so there it is plain text: no link, no bubble, and the pointer reaches the row. */}
+        <Show when={pointer().opened >= 0 || bookletOpen()} fallback={<span class="wordmark">Discography</span>}>
+          <A class="wordmark" classList={{ 'has-bubble': canBubble && !bookletOpen() }} href="/" {...cursor.button}
+            onClick={(event) => {
+              if (busy()) return event.preventDefault();
+              if (listening() || bookletOpen()) return;
+              event.preventDefault();
+              scene?.close();
+            }}>Discography</A>
+        </Show>
       </header>
-      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
+      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0 && !leaving(), 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
         <span aria-hidden="true">←</span> Back
       </button>
       <a class="corner-button github-link" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} href={repository} target="_blank" rel="noopener" {...cursor.button}>GitHub</a>
@@ -840,42 +908,101 @@ function App(props: { band: Band }) {
       {/* The caption, with controls level with it either side. The caption is a button that opens the
           album (Tab reaches it between the arrows), and once it is open puts its disc in the player;
           in the player it only names the album. Either side: the arrows while the row is browsed,
-          Booklet and Listen while a case is open, Apple Music and Buy the CD in the player. Each pair
-          fades out before the next fades in. */}
-      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() }}>
-        <button class="case-action is-left" classList={{ 'is-shown': pointer().opened >= 0 && !listening(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
-          inert={pointer().opened >= 0 && !listening() ? undefined : true} onClick={() => setBookletOpen(true)} {...cursor.button}>Booklet</button>
-        <a class="case-action is-left" classList={{ 'is-shown': listening() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
-          inert={listening() && selected().appleMusic ? undefined : true} {...cursor.button}>Apple Music</a>
+          Booklet and Listen while a case is open, Apple Music and Buy the CD once the disc has
+          landed in the player (with the transport row). Each pair fades out before the next fades
+          in. */}
+      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed(), 'is-leaving': leaving() }}>
+        <button class="case-action is-left" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
+          inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) setBookletOpen(true); }} {...cursor.button}>Booklet</button>
+        <a class="case-action store-link is-left" classList={{ 'is-shown': seated() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
+          inert={seated() && selected().appleMusic ? undefined : true} {...cursor.button}>Apple Music</a>
         <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
           disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
           <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} disabled={listening()}
             aria-label={`${pointer().opened < 0 ? 'Open' : listening() ? '' : 'Listen to'} ${selected().title} by ${selected().artist} (${selected().year})`.trim()}
-            onClick={() => (pointer().opened < 0 ? scene?.open() : scene?.insert())} {...cursor.button}>
+            onClick={() => { if (!busy()) (pointer().opened < 0 ? scene?.open() : scene?.insert()); }} {...cursor.button}>
             <span class="eyebrow">{selected().artist}<span class="eyebrow-separator">/</span>{selected().year}</span>
             <span class="album-title">{selected().title}</span>
           </button>
         </div>
         <button class="album-arrow is-next" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Next album"
           disabled={active() === albums.length - 1} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(1)} {...cursor.button}>→</button>
-        <button class="case-action is-right" classList={{ 'is-shown': pointer().opened >= 0 && !listening(), 'has-bubble': canBubble }} type="button" ref={listenButton}
-          inert={pointer().opened >= 0 && !listening() ? undefined : true} onClick={() => scene?.insert()} {...cursor.button}>Listen</button>
-        <a class="case-action is-right" classList={{ 'is-shown': listening(), 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener"
-          inert={listening() ? undefined : true} {...cursor.button}>Buy the CD</a>
+        <button class="case-action is-right" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={listenButton}
+          inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) scene?.insert(); }} {...cursor.button}>Listen</button>
+        <a class="case-action store-link is-right" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener"
+          inert={seated() ? undefined : true} {...cursor.button}>Buy the CD</a>
       </footer>
-      <Show when={bookletOpen()}><BookletViewer album={albums[active()]} onClose={closeBooklet} /></Show>
+      <Show when={bookletOpen() && albums[active()]} keyed>{(album) => <BookletViewer album={album} leaving={leaving()} onClose={closeBooklet} />}</Show>
     </main>
   );
 }
 
-// The page is the collection's gallery, or why it couldn't load.
+// The gallery's route: #/, #/<album>, or #/<album>/open, /listen or /booklet. The gallery writes it
+// as it changes. Browsing the row replaces the history entry, so it doesn't fill the browser's
+// history; each view (the open case, then the player or the booklet) adds one, and leaving a view
+// in the page (Back, Escape, Close) goes back to the entry it came from. Every other change of the
+// hash (the wordmark, the browser's Back and Forward, a link pasted into the tab) is a jump, which
+// App plays as one move rather than as the steps in between.
+function Gallery(props: { band: Band }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const params = useParams<{ album?: string; mode?: string }>();
+  const link = untrack(() => galleryLink(params));
+  // The route the gallery shows. While `returning`, it is going back to it through the history, and
+  // a change written meanwhile waits in `queued`.
+  let known = location.pathname;
+  let returning = false;
+  let queued: string | null = null;
+  // How deep a view is: 0 for the row, 1 for the open case, 2 for the player or the booklet.
+  const depth = (path: string) => {
+    const mode = path.split('/')[2];
+    return !mode ? 0 : mode === 'open' ? 1 : 2;
+  };
+  const [jump, setJump] = createSignal<GalleryLink | null>(null, { equals: false });
+
+  function write(path: string) {
+    if (returning) {
+      queued = path;
+      return;
+    }
+    if (path === known) return;
+    const from = known;
+    known = path;
+    if (depth(path) < depth(from) && window.history.state?.parent === path) {
+      returning = true;
+      navigate(-1);
+    } else if (depth(path) > depth(from)) {
+      navigate(path, { scroll: false, state: { parent: from } });
+    } else {
+      navigate(path, { replace: true, scroll: false, state: { parent: window.history.state?.parent } });
+    }
+  }
+
+  createEffect(on(() => location.pathname, (path) => {
+    if (path !== known) {
+      known = path;
+      returning = false;
+      queued = null;
+      setJump(galleryLink(params));
+    } else if (returning) {
+      returning = false;
+      const next = queued;
+      queued = null;
+      if (next) write(next);
+    }
+  }, { defer: true }));
+
+  return <App band={props.band} link={link} jump={jump} onPath={write} />;
+}
+
+// The page is the collection's gallery, or why it couldn't load. An unknown album, or any other
+// hash, goes to the gallery's start.
 function Root() {
   const [view, setView] = createSignal<{ band?: Band; error?: string } | null>(null);
-  tidyUrl();
+  moveQueryToHash();
   loadBand('favorites').then(
     (band) => {
-      tidyUrl(band.albums.map((album) => album.id));
       applyTheme(band.theme, 'Discography');
       setView({ band });
     },
@@ -883,7 +1010,12 @@ function Root() {
   );
   return (
     <Switch>
-      <Match when={view()?.band} keyed>{(band) => <App band={band} />}</Match>
+      <Match when={view()?.band} keyed>{(band) => (
+        <HashRouter>
+          <Route path="/:album?/:mode?" matchFilters={{ album: band.albums.map((album) => album.id), mode: galleryModes }} component={() => <Gallery band={band} />} />
+          <Route path="*" component={() => <Navigate href="/" />} />
+        </HashRouter>
+      )}</Match>
       <Match when={view()?.error} keyed>{(error) => <p class="load-error">{error}</p>}</Match>
     </Switch>
   );

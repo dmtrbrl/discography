@@ -86,27 +86,33 @@ const defaultTheme: Theme = { background: '#ebe3d4', backgroundCenter: '#f6f0e5'
 
 const bandsUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}bands/${path}`, window.location.href);
 
-// The album in front and whether it is open: ?album=<id>, plus &open while it is open,
-// or &listen while its disc is in the player. The page keeps these up to date, so a link restores
-// the gallery as it was.
-export function albumFromUrl(): { album: string | null; open: boolean; listen: boolean } {
+// The album in front and its view, as a hash route: #/<id>, plus /open while it is open, /listen
+// while its disc is in the player, or /booklet while its booklet is out. The page keeps it up to
+// date, so a link restores the gallery as it was. In the hash, a link needs nothing from the server
+// but the page itself (GitHub Pages has no single-page fallback).
+export const galleryModes = ['open', 'listen', 'booklet'] as const;
+export type GalleryMode = (typeof galleryModes)[number];
+export type GalleryLink = { album: string | null; mode: GalleryMode | null };
+
+export function galleryLink(params: { album?: string; mode?: string }): GalleryLink {
+  return { album: params.album ?? null, mode: (params.mode as GalleryMode | undefined) ?? null };
+}
+
+export function galleryPath(album: string, mode: GalleryMode | null = null): string {
+  return `/${encodeURIComponent(album)}${mode ? `/${mode}` : ''}`;
+}
+
+// Links from before the hash routes (?album=<id>&open or &listen, and the older ?band=<folder> and
+// ?home) still reach the page. Moves the album and its state into the hash at once, without adding a
+// history entry, and drops the query. An unknown album is left to the router, which goes to the
+// gallery's start.
+export function moveQueryToHash() {
+  if (!window.location.search) return;
   const params = new URLSearchParams(window.location.search);
-  return { album: params.get('album'), open: params.has('open') || params.has('listen'), listen: params.has('listen') };
-}
-
-export function galleryUrl(album: string, open = false, listen = false): string {
-  return `?album=${encodeURIComponent(album)}${listen ? '&listen' : open ? '&open' : ''}`;
-}
-
-// Old links and the history entries the earlier pages left in open tabs (?home, ?band=<folder>)
-// still reach the page. Rewrites the address at once to what the page reads, without adding a
-// history entry: only the album and its state, and with `albums` given, only an album that exists.
-export function tidyUrl(albums?: string[]) {
-  const { album, open, listen } = albumFromUrl();
-  const known = album && (!albums || albums.includes(album)) ? album : null;
-  const search = known ? galleryUrl(known, open, listen) : '';
-  if (window.location.search === search) return;
-  window.history.replaceState(window.history.state, '', `${window.location.pathname}${search}${window.location.hash}`);
+  const album = params.get('album');
+  const mode = params.has('listen') ? 'listen' : params.has('open') ? 'open' : null;
+  const hash = album && !window.location.hash ? `#${galleryPath(album, mode)}` : window.location.hash;
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${hash}`);
 }
 
 export async function loadBand(band: string): Promise<Band> {

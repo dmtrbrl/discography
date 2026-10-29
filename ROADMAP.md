@@ -22,9 +22,92 @@ decision changes.
 | Single page | Gallery as the only page: title screen, artist list, band label and Albums menu removed | Done (29 October 2026) |
 | Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
+| Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
+
+## Hash routes and jumps (29 October 2026)
+
+Solid stays (dropping it for plain TypeScript was considered: it is about 7 KB of the 315 KB
+gzipped bundle, nearly all of which is three.js, and `main.tsx` leans on its signals, effects and
+cleanup throughout), and its router now holds the page's state.
+
+- **Routes in the hash** (`HashRouter` from `@solidjs/router`): `#/<id>`, plus `/open`, `/listen`
+  or `/booklet`. A hash needs nothing from the server but the page, so links work on GitHub Pages,
+  which has no single-page fallback; `vite.config.ts` sets `base: './'` so the build runs from a
+  project subfolder. One route, `/:album?/:mode?`, with `matchFilters` for the album ids and the
+  modes: moving between its views keeps the same component, so the scene is never rebuilt. Any
+  other hash (an unknown album, a typo) goes to `#/`. Old `?album=<id>&open` and `&listen` links
+  are moved into the hash as the page loads (`moveQueryToHash()` in `band.ts`); `?band=` and
+  `?home` are dropped.
+- **The booklet has a route**: `#/<id>/booklet`. A link opens the case at once and the booklet
+  with the reveal.
+- **History** (`Gallery` in `main.tsx`): browsing the row replaces the entry; each view adds one
+  (the open case, then the player or the booklet), recording the path it came from in
+  `history.state.parent`. Leaving a view in the page (Back, Escape, Close, a click beside the open
+  case) goes back to that entry rather than adding another, so the browser's Back never has to step
+  through the same view twice. A change written while that back step is on its way waits for it.
+- **The wordmark** is a link to `#/`. From the player or the booklet it jumps there (below); on an
+  open case it only closes it, as Back does. Neither resets the gallery. On the row, where a click
+  would do nothing, it is plain text instead of a link: no bubble over it, not in the tab order,
+  and the pointer passes through to the row.
+- **Jumps**: any change of the hash the gallery didn't write (the wordmark from the player or the
+  booklet; the
+  browser's Back and Forward; a link pasted into the tab or the hash edited) no longer plays the
+  steps in between (eject, close, slide along the row). The view leaves in one move and the gallery
+  starts again on the link's view with the intro, as if the page had opened there
+  (`GalleryScene.show(index, open, listen, onShown)`). The player drops `leaveDrop` out of view
+  and the booklet slides down, over `leaveDuration` (0.6 s); the gallery fades out meanwhile (at
+  once behind the booklet, after the player has gone in the player view), and the bottom bar, Back
+  and the transport row fade with it. Then the scene resets unseen and the gallery fades in with
+  the intro (0.7 s, as on the first reveal). With reduced motion the new view appears at once.
+  Input is off while the view leaves, and a jump during a jump only changes where it lands. The
+  controls in the page keep their step animations.
+- **Rejected for jumps**: shrinking the cases away (the intro backwards) before the new intro. It
+  read as the gallery resetting itself in view. A first version also left each case where it was
+  (cases ease toward their place), so the old open case visibly shrank into the new intro;
+  `restart()` now marks every case unplaced so it starts where the intro starts.
+- **No input during a view change**: while the intro or a jump plays, a case opens or closes, or
+  the disc goes into the player or back (`viewBusy()`, reported as `busy` with the pointer state),
+  Back, Escape, Enter, Space, the wordmark, the caption, Booklet, Listen, clicks and drags on the
+  scene, and the wheel while a case opens or closes do nothing; before, they reversed or cut into
+  the animation. Moving along the row still works (arrows, keys, clicks on another case once
+  nothing is opening or closing). The browser's Back is a jump and still interrupts.
+- **The wordmark over the booklet**: the masthead sits above the booklet overlay while it is open,
+  level with its heading row (on phones the heading moves below it), with the plain cursor, since
+  the bubble is drawn under the overlay.
+
+Verified in headless Chrome at 1440 × 900 (390 × 844 with reduced motion): the hash and
+`history.length` after each step (reveal, open, player, wordmark, browser Back to the player,
+Escape, booklet, a hash edited from the booklet, open and Escape on another album, an old query
+link, an unknown album, a booklet link); screenshots of the player and the booklet half way out
+and of each landing view; the jumps from the player and the booklet recorded frame by frame with
+the DevTools screencast (no old view between the exit and the intro); the booklet with the
+wordmark at 390 × 844 and 844 × 390; no console errors. `scripts/check-insert-path.mjs` passes,
+`npm run build` passes.
 
 ## Mobile view (29 October 2026)
 
+- **Phones, the open case's disc half lit like the booklet's**: opened like a book, the disc's half
+  turns away from the bright part of the environment map, and the disc went dull and dark next to
+  the booklet (lying flat it reads silver). Measured on a patch of the disc, nearly all of its light
+  is the environment's (38 of 38 with the direct lights, 11 without the environment); moving the key
+  and fill lights to the middle changed it by 1 and was dropped. Instead each disc has its own
+  reference to the environment (`envMap`, at the scene's strength, so nothing changes elsewhere) and
+  its reflections turn back by the half's turn (`envTurn`, in `layout`), so it reads as it does flat:
+  the patch went from 38 to 63. Reset for a disc out in the player. The tray's material is shared
+  by all cases, so it stays as it was (satin black either way).
+- **Phones, links at 16 px**: Back, GitHub, Booklet, Listen, Apple Music and Buy the CD (18 px on
+  desktop, 15 px on landscape phones). Back and GitHub moved 1.1 px down to stay level with the
+  wordmark.
+- **Landscape phones, balanced gaps**: the wordmark is much shorter than the caption, so a case
+  centred on the screen had about 40 px above it and 20 px below (45 and 11 px open). The picture
+  is now raised by a view offset in `setLens` (no change of perspective, and nothing moves in the
+  scene, so the insert path is untouched): `rowRaiseShort` (10 px) for the row, blending into
+  `openRaiseShort` (17 px) as the case opens, gone in the player view. Measured at 844 × 390,
+  667 × 375, 932 × 430 and 740 × 360: the gaps above and below are within 3 px of each other.
+- **Landscape phones, player**: it had 17 px above it and 32 px down to the transport symbols. It
+  now sits lower (`playerRaiseShort` 0.24, was 0.28) and the transport row closer under it (its
+  margin, 12 px instead of 20 px, in `style.css`), the row at the same height as before (within
+  1 px): about 24 px above and below.
 - **Open case on phones, opened like a book**: on screens `narrowWidth` (650 px) wide or less the
   lid opens to `lidOpenAngleNarrow` (110°) instead of lying flat at 180°, and both halves rise
   equally from the hinge into a V toward the camera, the spine in the middle of the screen: the body
@@ -146,7 +229,11 @@ half-height up) and larger (`playerScale` 0.5 to 0.7, about the open case's heig
   never jumps.
 - **Bottom row stays in the player**: the caption (inactive there, it only names the album) with
   **Apple Music** left and **Buy the CD** right, the third pair in the arrows' places, handing over
-  from Booklet and Listen the same way.
+  from Booklet and Listen the same way. They appear once the disc has landed, with the transport
+  row (`seated`), not as it leaves the case, and fade in and out exactly as it does (`.store-link`:
+  no wait for the pair before, which is long gone by then). Booklet and Listen come back only once
+  an ejected disc is back in its case (`discOut`), not as the eject starts (both changed 29 October,
+  later; checked by sampling the opacities every frame).
 - **Playback** moved from the `Tracklist` component into `createPreviews` (no DOM): same buttons
   logic, tracks without a preview are skipped.
 - **Focus**: Enter on the caption or Listen by keyboard moves focus to Play; leaving the player
@@ -333,8 +420,8 @@ bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
 bash scripts/download-covers.sh the-prodigy   # the same for any band folder
 node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 18+), same arguments
-# / opens the gallery; ?album=<id> brings an album to the front, &open opens it, &listen puts its
-# disc in the player (the page keeps these up to date).
+# #/ opens the gallery; #/<id> brings an album to the front, #/<id>/open opens it, /listen puts its
+# disc in the player and /booklet opens its booklet (the page keeps these up to date).
 ```
 
 ## Phase 0: what is implemented
@@ -356,8 +443,8 @@ node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 1
 
 `new GalleryScene(element, albums, onIndexChange, { onProgress, onReady, onPointer })`, then `reveal()` once
 `onReady` has fired and the page is ready to show it, `step(delta)`,
-`goTo(index, source)`, `toggle(index?)`, `open(index?)`, `close()`, `setAlbums(albums)` and
-`destroy()`. The scene owns the position and reports the front case through `onIndexChange`.
+`goTo(index, source)`, `toggle(index?)`, `open(index?)`, `close()`, `show(index, open, listen,
+onShown)` (a jump, see Hash routes and jumps), `setAlbums(albums)` and `destroy()`. The scene owns the position and reports the front case through `onIndexChange`.
 Phase 0 had `flip(index?)` instead of the open methods.
 
 ### Motion
@@ -449,7 +536,8 @@ These came from rounds of feedback on the look. Each was tried and rejected:
 
 - Changing the player's spin speed (29 October 2026). A real CD's speed, about 500 rpm on the
   first track slowing track by track toward 200 as a constant-linear-speed disc does, looked weird;
-  fixed 400 and 260 rpm looked too fast. `spinRpm` stays at 200.
+  fixed 400 and 260 rpm looked too fast. `spinRpm` stayed at 200, until the disc's moving metal
+  read as too much (same day, later): now 150, between that and the 100 rpm found too slow before.
 - Refraction through the hub (blurred artwork, double render cost).
 - Three stepped hub rings with ripples (looked like shadows and steps).
 - A wide, chrome-like rim (looked like a grinding disc). Later even the hairline clear rim read as a
@@ -751,7 +839,7 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
   The gradient is on `html` and the grain on `body::before`, not on each view: when the views
   each had their own, a switch faded them out too and showed the flat page colour underneath, a
   pale flash. Checked by sampling page pixels every 50 ms through switches.
-- **Album state in the URL**: `?band=<folder>&album=<id>`, plus `&open` while it is open
+- **Album state in the URL** (since replaced by hash routes, see Hash routes and jumps): `?band=<folder>&album=<id>`, plus `&open` while it is open
   (`galleryUrl`, `albumFromUrl` in `src/band.ts`). The gallery updates it with `replaceState`, so
   browsing and opening don't add history entries and the back button still steps between artists
   and the title screen; switching artist pushes one entry. It only writes while the URL is still
@@ -988,8 +1076,8 @@ lidless top-loading CD player (body about 210 × 210 × 45 mm, in black and in w
   row with the case slides up out of view while the player rises into its place, and the disc drops
   onto the spindle. The view then shows only the player, with the disc, and the tracklist. Nothing
   plays until a track is clicked. Back or Escape ejects: the same path backwards.
-- **Spin:** only while a track plays; pausing pauses it. 200 rpm (`spinRpm`), the slow end of a real
-  disc, spinning up and coasting down (`spinUp`, `spinDown`). 48 and then 100 rpm were too slow in
+- **Spin:** only while a track plays; pausing pauses it. 200 rpm (`spinRpm`; 150 since 29 October,
+  see the rejected list), the slow end of a real disc, spinning up and coasting down (`spinUp`, `spinDown`). 48 and then 100 rpm were too slow in
   review. At that speed the print would strobe at 60 fps, so it gets a rotational motion blur
   (`withSpinBlur`): the colour map is averaged over the arc the disc turns in `spinBlur` (25 ms, like
   a camera exposure), `spinBlurSamples` samples with a per-pixel jitter, a single sample at rest.
