@@ -16,7 +16,7 @@ decision changes.
 | 1 | Jewel cases instead of discs, opening the front case | Done |
 | Pre-2 | Title screen, artist selection and menu, four more artists | Done |
 | 2a | Booklet as a flip book with LeafThrough | Planned |
-| 2b | Disc to CD player animation, tracklist, 30-second previews | Planned |
+| 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
 | Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
 
 ## Artwork audit and complete discographies (28 October 2026)
@@ -138,8 +138,10 @@ npm run preview    # serve the build
 bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
 bash scripts/download-covers.sh the-prodigy   # the same for any band folder
+node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 18+), same arguments
 # / is the title screen; /?band=<folder> opens a band from public/bands/ directly,
-# &album=<id> brings an album to the front, &open opens it (the page keeps these up to date).
+# &album=<id> brings an album to the front, &open opens it, &listen puts its disc in the player
+# (the page keeps these up to date).
 ```
 
 ## Phase 0: what is implemented
@@ -153,6 +155,7 @@ bash scripts/download-covers.sh the-prodigy   # the same for any band folder
 | `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. `public/bands/index.json` lists the bands in order. |
 | `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band (cached, so the title screen and menu fetch each once), resolves its paths and adds the band name to each album; `loadBands()` loads the list. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
+| `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs <band> [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `band.json`. See phase 2b. |
 | `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
 | `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
 
@@ -196,7 +199,7 @@ Proportions follow a real disc and the reference photos, as fractions of the dis
 | Clear plastic hub | 0.127 to 0.31 | One flat ring, 8% opaque, faint moulded rings drawn in the shader. |
 | Mirror band | 0.31 to 0.345 | Front: the cover darkened 20% (only for square covers; scans have their own). Back: silver, slightly see-through. |
 | Label / data area | 0.345 to 0.995 | Front: artwork. Back: silver data side. |
-| Rim | 0.995 to 1 | Hairline clear plastic with a faint thin-film shimmer. |
+| Rim | 0.978 to 1 | No clear rim: the hairline rim (a faint thin-film shimmer) read as a white line round the disc and was removed (29 October 2026). The print stops at `discPrintEdge` (0.978) and the band outside it is the near-black `discFallback`, the colour wherever art is missing: a scan's last pixels can hold scanner background, which the spinning disc smeared into a white ring. |
 
 - **Front artwork:** a scan of the printed disc when one exists (`album.disc`), otherwise the square
   cover, otherwise a generated placeholder. `findDiscInScan` locates the disc in a scan by comparing
@@ -210,7 +213,7 @@ Proportions follow a real disc and the reference photos, as fractions of the dis
   X pattern. Also faint track lines and a few scratches whose direction is stored in the texture, so
   they only glint where their angle catches the light. Spectrum fit and grating maths follow Alan
   Zucconi's CD-ROM shader.
-- **Seams:** the rim and hub tuck under the artwork rings (`seamOverlap`) so no background shows
+- **Seams:** the hub tucks under the artwork rings (`seamOverlap`) so no background shows
   through the gap between differently segmented geometry. Lathed parts use three.js's own normals,
   because `computeVertexNormals()` splits them at the wrap-around seam.
 
@@ -253,7 +256,8 @@ These came from rounds of feedback on the look. Each was tried and rejected:
 
 - Refraction through the hub (blurred artwork, double render cost).
 - Three stepped hub rings with ripples (looked like shadows and steps).
-- A wide, chrome-like rim (looked like a grinding disc). Keep it a hairline.
+- A wide, chrome-like rim (looked like a grinding disc). Later even the hairline clear rim read as a
+  white line round the disc, in the case and in the player, so the disc has no rim now.
 - A diffraction rainbow on the front rim (looked unrealistic).
 - A rainbow in the clear hub.
 - A dark, grey or separately shaded outer zone on the data side, such as a "recording ends here"
@@ -324,7 +328,7 @@ follows the suggested order: one album (Nevermind) end to end, then the rest.
   (`caseSheen`, `caseSheenWidth`, `caseSheenDir`): a soft band with no ends that slides across the
   lid as the case tilts, like a softbox in product photos. Found by rendering the frame with each
   light switched off and comparing.
-- **Same lighting open and closed:** the disc print, its rim and its clear hub reflect the same
+- **Same lighting open and closed:** the disc print and its clear hub reflect the same
   soft strip light as the lid (`softReflection`, `withSoftReflection`, strength `discSheen`), not the
   direct lights. Before, the open case showed the disc lit the phase 0 way, with the strip light's
   hard white band across it. The gallery's lights are unchanged, so the disc's data side and the
@@ -745,27 +749,232 @@ Integration plan:
 
 ## Phase 2b: disc to player, tracklist and previews
 
-- **Animation:** the disc lifts from the tray, flips and drops into a CD player. The player model is
-  probably the largest single piece of work in the whole plan.
-- **Tracklist:** from MusicBrainz, per release.
-- **30-second previews** (checked during planning):
+First version landed on 28 October 2026, after a discussion with two product photos of a square,
+lidless top-loading CD player (body about 210 × 210 × 45 mm, in black and in white). Awaiting review.
 
-  | Service | Previews | Direct browser use | Notes |
-  | --- | --- | --- | --- |
-  | Apple iTunes Search API | Yes, no key | Yes (`Access-Control-Allow-Origin: *`) | A lookup by album can return all tracks with `previewUrl` in one request. Recommended. |
-  | Deezer API | Yes, no key; lookup by ISRC is precise | No (no CORS allow-origin header) | Needs JSONP or a small proxy. Preview URLs are signed and expire, so fetch them at play time. |
-  | Spotify Web API | Removed for new apps in late 2024, as far as known | | Skip unless an older app still has access. |
+### Decisions
 
-  Check each service's terms before shipping; previews usually require attribution or a store link.
-- **Data approach:** fetch tracklists and other static data in the download script and store them
-  locally, like the artwork. Fetch only short-lived preview URLs at runtime.
+- **Player:** a top-loader with an open circular well, so the disc stays visible while it plays.
+  Glossy graphite with a matte black edge round the top and a thin ring of polished dark metal round
+  the well, darker than the body, with fine scratches and wipe marks from use (the user's final
+  call, after white and black versions, and after a glossy light silver edge and ring), posed after a white product photo the user gave. Fixed pose, no hover tilt, in the same perspective scene and camera, so the disc's
+  flight into it matches. Shot like that product photo: the player stands level, turned 45° on its
+  stand so a corner faces the camera, and the camera is raised to see its top from 26°, still aimed
+  straight ahead, so verticals stay vertical (`setLens`; see below). It stands on the page with a soft
+  contact shadow; a floor reflection was tried and dropped by the user. Rejected on the way: tilting the player itself (30° and 56°) or turning it 45° like the
+  top-loader photos (isometric), which made it read as tipped or warped; and plain perspective from
+  the centre, which saw it from the right side since it sits left of centre.
+  Slim (18 mm) and only a little larger than the disc (146 mm square round the 120 mm disc). The
+  front has a screen that shows the album, then the track playing, and beside it four buttons
+  (previous, play, pause, next); the left side a 3.5 mm headphone jack and a band of speaker holes.
+  The jack and buttons were added on review (29 October 2026) to make it read as a real player, and
+  the buttons work. They were first on the left side by the corner, with a headphones mark printed
+  by the jack; the user moved the buttons to the screen's face and dropped the mark. Modelled, not painted (the
+  user's call): no textures on the player except its screen and contact shadow. Minimal but
+  realistic: no full set of controls, no maker's logo or text.
+  Rejected on the way: a brushed aluminium front panel with a "Discography" wordmark (Instrument
+  Serif); a speaker grille, side ports and engraved panel lines on the top; a 140 × 40 mm plain box
+  with six square buttons and a blue display, not elegant enough; a black anodised version with a
+  smoked glass top, a finger notch, round buttons and a knurled knob, after a second reference;
+  a glossy white version with the photo's eight buttons, a seven-segment display, a slide switch,
+  ports and printed labels (drawn in a small stroke font as shapes), which the user simplified to
+  the screen and the grille. Darker, thicker trim and ring were too heavy; later the user asked for
+  a thin dark ring and a matte black edge, which read well. The screen was amber, then beige; a 5×7
+  dot-matrix font (DM Mono thresholded to the dots) read badly, so the screen keeps DM Sans and DM
+  Mono, seen through a fine dot grid.
+- **Flow:** a click on the disc in the open case (or the caption, or Enter) switches to the player
+  view. The disc does not flip, since a top-loader takes it label up: it lifts out of the tray, the
+  row with the case slides up out of view while the player rises into its place, and the disc drops
+  onto the spindle. The view then shows only the player, with the disc, and the tracklist. Nothing
+  plays until a track is clicked. Back or Escape ejects: the same path backwards.
+- **Spin:** only while a track plays; pausing pauses it. 200 rpm (`spinRpm`), the slow end of a real
+  disc, spinning up and coasting down (`spinUp`, `spinDown`). 48 and then 100 rpm were too slow in
+  review. At that speed the print would strobe at 60 fps, so it gets a rotational motion blur
+  (`withSpinBlur`): the colour map is averaged over the arc the disc turns in `spinBlur` (25 ms, like
+  a camera exposure), `spinBlurSamples` samples with a per-pixel jitter, a single sample at rest.
+  Still with reduced motion.
+- **Previews:** Apple's iTunes Search API, chosen after comparing alternatives (below). No key,
+  works from the browser. Its terms tie previews to a store link, so the tracklist carries one.
+- **Links under the tracklist,** quiet and in our own type: "Apple Music" (the album there) and
+  "Buy the CD": the artist's official shop when it sells that CD (`buy` in `band.json`, picked by
+  hand), otherwise an Amazon search for the artist, title and CD (the user's call). MusicBrainz has
+  almost no physical shop links (checked on Nevermind and Sehnsucht: one each, from random
+  retailers). Official shops found so far, not yet linked per album: `shop.nirvana.com` (CD section,
+  mostly current reissues), `shop.rammstein.de` (CD category), a store on `theprodigy.com`
+  (catalogue not checked). The Crystal Castles store page only links to an old merch shop and Amazon;
+  The Knife have none.
+
+### What is implemented
+
+- **Model** (`makePlayer` and the `makePlayer*` functions in `src/scene.ts`, tuning in `C.player*`),
+  in millimetres, y up, the screen face +z and the grille face -x, turned `playerYaw` (45°) so the
+  corner between them faces the camera. Body: an extruded rounded square in glossy graphite with
+  softened edges, the well cut through it. Top: a glossy graphite pane just proud of the body
+  (`makePlayerTopGeometry`), with square edges in matte black (`playerTrim`), the fine line round the top (a
+  rounded edge showed at the back, seen almost edge on, as a dotted sub-pixel line); it is shaded
+  lighter toward the back in its vertex colours (`playerTopBack`, `playerTop`), as a glossy pane
+  mirrors the room. Body and top carry wear (`withPlayerWear`, `playerWear`): the case's wear map,
+  mapped onto each face from the model's millimetres, adds fine scratches and wipe marks where the
+  surface reflects the room. A thin ring of polished dark metal (`playerMetal`; `makeWellRingGeometry`, a lathe,
+  `playerRing`) lies on the pane and slopes down into the well, ending just inside the well's wall
+  (where it met the body's cut edge it flickered as a dotted line). The well follows the common
+  top-loader layout (the C.E.C. TL53Z manual's turntable and pickup, portable players such as the
+  FiiO DM13): a matte black floor (`playerWell`) with one rounded opening toward the back, over a
+  cavity drawn from inside (a back-faced box), where the lens (a glossy dome with an iridescent
+  coating, in a dark ring) shows on its black sled; the guide rails stay out of sight. Two chrome
+  rails and a chrome lens ring read as stray white lines and were removed. The wall is its own
+  lathe, so it shades round; the body's extruded cut edge is flat-shaded and showed facets. The
+  turntable (`makeSpindleGeometry`) has three steel clamp balls round the pin and turns with the
+  disc; it is matte graphite without wear, since it shows through the disc's clear centre (the
+  body's clearcoat glared there, and the top pane's gloss was worse). Its surface has a fine grain
+  in its colour (speckle, soft mottling and faint turning rings, `makeTurntableGrainCanvas`,
+  `playerTurntableSpeckle`) and the case tray's stipple as bumps (`playerTurntableBump`); no
+  roughness map, which would make it glossy. Bumps alone barely showed in the well's soft light. Front,
+  from the corner, all centred on one line: the screen (`playerScreenMargin` in from the face's
+  edges, up to `playerScreenGap` before the buttons), a glossy black pane with its content drawn
+  into a canvas (`drawPlayerScreen`; track names need a real font, the one texture besides the
+  shadow), lit through an unlit material in `playerScreenColor`, the page's beige, and cut into a
+  fine grid of round dots (`playerScreenDot`, 0.3 mm) over faint unlit ones; then the buttons, extruded
+  rounded caps in `playerButtonColor` standing proud of a dark seam, their transport symbols
+  printed on in the same beige (`playerMark`, flat shapes in `playerPrint`, glowing a little so they
+  read beige rather than grey, and half see-through, `playerPrintOpacity`). Left side, built in its own plane (x
+  toward the front) and laid out along it by `playerJackAt` and `playerGrilleFrom`/`To`: the jack
+  (a collar of the ring's dark metal 0.4 mm proud round a dark socket, near the back end) and a band of speaker holes (an
+  instanced mesh, `playerGrille*`). Holes, seams and printing lie a hair off their face with a
+  polygon offset so none loses the depth test. Under it, the contact shadow (`playerShadow`): a blurred
+  canvas with a tight dark band at the base inside a wide soft falloff.
+  The player takes a little more of the room's light (`playerEnvLift`), and the ambient light rises
+  by `playerAmbient` in the player view (setLens), which also brightens the disc in the player.
+  Black specks on glossy surfaces came from `softReflection`: taking out the direct highlight went
+  below zero at grazing angles; it is now clamped at zero (found by hiding the player's parts in
+  turn and counting dark pixels).
+  Earlier versions painted most of the detail (top plate lines, grille, ports, floor, icons, a
+  canvas display in DM Mono); review asked for real shapes.
+- **The disc in the player:** its clear outer rim showed as a white line against the dark well,
+  and in the open case too, so the disc has no rim (see the disc's zones). Its clear centre
+  (`makePlastic` with `side`) draws only the faces toward the viewer: drawn from both sides in one
+  pass, the top and bottom faces, 1.2 mm apart, blended in triangle order into a radial pattern
+  that read as scratches turning with the disc. The moulded rings on it take their radius per pixel.
+- **Buttons** (`pickButton`, `pressButton`, `onPlayerButton`): in the player view, once it is in
+  place, the caps are raycast under the pointer. The button under it lights its half see-through
+  symbol in full; it does not move (rising on hover looked odd). The cursor becomes a thin beige ring
+  round the button (the bubble's quiet mode, 26 px; 22 and 30 px were too small and too big), since a
+  grown dot covered the small buttons, and after the usual rest the label (Prev, Play, Pause or Next,
+  in DM Sans, not capitals) opens as a tag above the ring. Hiding the cursor there was tried and
+  dropped: with no pointer the buttons felt lost.
+- **Buttons for the keyboard and screen readers** (`PlayerControls` in `src/main.tsx`): four real
+  buttons (Previous track, Play, Pause, Next track) in a group named Player, before the tracklist in
+  Tab order, invisible and out of the pointer's way. A focused one is laid over its button
+  (`playerButtonRect` projects the cap), so its focus ring, in beige, goes round it, and the scene
+  lights its symbol (`focusButton`); Enter or Space presses it (`pressButton`). The cursor's tag is
+  only visual (the bubble is `aria-hidden`); these carry the names. A click presses the cap in `playerButtonPress` and lets
+  it spring back, and the page's tracklist acts on it as a CD player would: play resumes, or starts
+  the first track; pause holds the track; next skips ahead; previous restarts the track after its
+  first three seconds, and otherwise goes back one.
+- **Screen** (`setDisplay`, `setPlaying`, `drawPlayerScreen`): stopped, the album and artist and
+  the number of tracks (dropped when the name would not fit beside it); playing or paused, the play or pause mark, the track number, its title and
+  the elapsed time. A title too long for the screen scrolls, faded at both ends, redrawn every frame
+  while it does; the screen is redrawn once DM Mono and DM Sans have loaded.
+- **Pose and layout** (`resize`): on wide screens (aspect 1.1 and up) the player sits `playerShift`
+  of the half-width left of centre with the tracklist on the right; on narrow ones it sits above the
+  list (`playerRaise`) and shrinks to fit. It is never rotated.
+- **Camera** (`setLens`, driven by the same pan as the transfer): the field of view narrows from the
+  gallery's 40° to `playerFOV` (18°) while the camera backs off to keep the z = 0 plane framed (at 40°
+  the box was visibly distorted); the camera moves in front of the player and up until it sees it
+  from `playerView` (25°) above, still aimed straight ahead; and a lens shift (`setViewOffset`)
+  moves the image back by as much as the camera moved, so everything stays framed where it was and
+  only the viewpoint changes. `setViewOffset` also sets the aspect to full width over full height,
+  so the full size passed is the aspect by 1 (1 by 1 squeezed the image). The fog moves back with
+  the camera, and the blue rim light, which tinted the surfaces the raised camera looks down on,
+  fades out in the first 40% of the move, before the player is well in view, while the ambient light
+  rises (see the model above). Ejecting returns the camera exactly (checked against the open case before and after).
+- **Transfer** (`insert`, `eject`, `updatePlayer`): one `listen` value, tweened over
+  `insertDuration` (`ejectDuration` back), drives everything. 0 to 0.3: the disc lifts `insertLift`
+  off the tray toward the camera. 0.2 to 0.7: the gallery group moves up by `insertPan` and the
+  player rises from the same distance below, like a pan down. 0.35 to 0.8: the disc glides to
+  `insertHover` above the spindle, turning to lie in the well and scaling to the player's size;
+  then it drops. While out of its case the disc is a child of the scene; its start pose is the
+  tray's pose with the gallery's pan taken out, so it is held where it was lifted instead of
+  leaving with the case. When the eject finishes it goes back into the case body at its rest
+  transform (`discRest`). The open case stays open meanwhile, and `close`, `open`, `goTo`, clicks and
+  drags do nothing until the disc is back. Reduced motion jumps.
+- **Scene API added:** `insert()`, `eject()`, `setPlaying(playing)`, `setDisplay(track, seconds)`,
+  the `listenOnReveal` option, and `overDisc`, `listening` (player view wanted) and `discOut` (disc
+  out of its case, until the eject finishes) in the pointer state.
+- **Page** (`Tracklist` in `src/main.tsx`, styles under `.tracklist`): eyebrow, title, the tracks
+  (number, title, length; the current one shows a play or pause icon and its progress as a hairline),
+  then the two links. A click plays a track's preview, a second click pauses it, the next track with a
+  preview follows when one ends. Space plays and pauses, Escape and Back eject. The list fades in once
+  the disc has landed; the caption bar stays hidden until the disc is back in its case. The caption
+  is usable while the case is open ("Listen to …") and focus no longer moves from it to Back on
+  opening. Keyboard focus moves into the list when the disc goes in by keyboard, and back to the
+  caption when it comes out. The bubble cursor says "Listen" over the disc in the open case. The URL
+  gets `&listen` (implies `&open`), and a link with it restores the player view.
+- **Previews at runtime:** one `lookup?id=<collection>&entity=song&country=us` request per album,
+  cached for the visit, gives each Apple track ID's `previewUrl` (`loadPreviews`). Preview URLs
+  aren't stored, since Apple may change them.
+
+### Data (`scripts/fetch-tracks.mjs`)
+
+- **Tracklist** (`tracks`: `title`, `length` in seconds, `apple` track ID): from the CD on MusicBrainz,
+  `musicbrainz.release` when pinned, otherwise the earliest official single-CD release of the
+  release group (as in `download-covers.sh`). Replaces the old `tracks: string[]`; the generated back
+  insert reads the titles.
+- **Apple Music match** (`appleMusic`, a collection ID): the artist's Apple ID comes from the artist's
+  MusicBrainz links (`appleArtist` in `band.json` overrides). A plain iTunes search was too noisy
+  (Nevermind itself wasn't in the top 20 results), so the script lists the artist's albums by that
+  ID, takes those whose name matches ignoring edition notes ("(Deluxe Edition)", "(Remastered
+  2020)", "(Live)"), and compares up to four track by track: most tracks matched, then fewest extras.
+  Titles match exactly, then without version notes, then by position. Many albums exist on Apple only
+  as a remaster or deluxe edition, which this handles (Bleach, In Utero, Herzeleid). "ß" is compared
+  as "ss" (Weißes Fleisch).
+- **Coverage:** all 32 albums matched; 396 of 406 tracks have a preview. The rest are missing on
+  Apple's US store or are hidden tracks: Kept (Amnesty (I)), Where Did You Sleep Last Night
+  (Nirvana), the English versions of Engel and Du hast (Sehnsucht), [silence] and Pussy (Liebe ist
+  für alle da), Pussy (Made in Germany), Wind It Up, Hyperspeed and the Charly remix (Experience).
+- Rate limits: about one MusicBrainz request a second and 20 iTunes requests a minute, so a band
+  takes a minute or two.
+
+### Verification
+
+Headless Chrome with the GPU flags above, at 1440 × 900, 1024 × 768 and 390 × 844, on Nirvana,
+Rammstein and The Prodigy: the transition posed at fixed points (0.15 to 1, through a temporary
+debug handle, since removed), a real insert, play, pause, resume and eject (spin 5.0 rad/s, the
+48 rpm then set, while playing; coasting after pause; the URL switching between `&listen` and
+`&open`), the
+"Listen" label and a click on the disc, and a link with `&listen`. The insert, and playback with the
+motion blur, ran at a steady 60 fps (median frame 16.7 ms, none over 50 ms). `npm run typecheck` passes.
+The jack and buttons were checked at 4x close-ups (each face's parts on one line, the pressed cap
+sinking into its seam), and the buttons by clicking them in the browser, in both places, and from the keyboard (Tab to
+them, Enter on Play, Next and Pause). Ejecting with Escape now returns keyboard focus to the caption
+from the tracklist and from the buttons; before, it fell to the page, since the list went inert
+before focus was checked and the caption was still hidden. Clicking: play started track 1, pause held
+it, next went to track 2, previous went back to 1, and a second previous restarted it.
+
+### Possible follow-ups
+
+- Hand-pick official `buy` links per album (Nirvana, Rammstein, maybe The Prodigy).
+- Clicking the spinning disc to pause.
+- Previews from other storefronts for the tracks missing in the US store.
+
+### Preview services compared
+
+| Service | Previews | Direct browser use | Notes |
+| --- | --- | --- | --- |
+| Apple iTunes Search API | Yes, no key | Yes (`Access-Control-Allow-Origin: *`) | A lookup by album returns all tracks with `previewUrl` in one request. Chosen. |
+| Deezer API | Yes, no key; lookup by ISRC is precise | No (no CORS allow-origin header) | Needs JSONP or a small proxy; terms also require attribution. |
+| Spotify Web API | Removed for new apps in late 2024 | | Skip. |
+| YouTube embeds | Full songs | Only through the visible YouTube player | Would hide the CD player look. |
+| Hosting clips ourselves | | | Not allowed without a licence. |
 
 ## Open questions
 
-1. Player style: portable Discman, hi-fi deck with a sliding tray, or sketch both? (Phase 2b.)
+None at the moment.
 
 Answered: every album uses a standard jewel case; a drag on the closed case turns it to show the
-spines and back (both phase 1).
+spines and back (both phase 1). Player: a lidless top-loader in graphite; the case leaves upward and
+only the player and the tracklist stay; a click on the disc switches views and a click on a track
+plays (phase 2b).
 
 ## Later ideas (from the original README)
 

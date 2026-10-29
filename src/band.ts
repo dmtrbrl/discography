@@ -24,6 +24,14 @@ export interface MusicBrainzSource {
   bookletBack?: string;
 }
 
+// A track on the CD (scripts/fetch-tracks.mjs): its length in seconds and its Apple Music track
+// ID, when Apple has it, for the 30-second preview.
+export interface Track {
+  title: string;
+  length?: number;
+  apple?: number;
+}
+
 export interface AlbumConfig {
   id: string;
   title: string;
@@ -36,7 +44,11 @@ export interface AlbumConfig {
   back?: string;
   // The booklet's back page, seen inside the open lid.
   bookletBack?: string;
-  tracks?: string[];
+  tracks?: Track[];
+  // The album on Apple Music (an iTunes collection ID), for previews and the store link.
+  appleMusic?: number;
+  // Where to buy the CD, when the artist's own shop sells it; otherwise the page searches Amazon.
+  buy?: string;
   color?: string;
   accent?: string;
   motif?: Motif;
@@ -75,15 +87,17 @@ export function bandFromUrl(): string | null {
   return requested && /^[a-z0-9-]+$/.test(requested) ? requested : null;
 }
 
-// The album in front and whether it is open: ?band=<folder>&album=<id>, plus &open while it is open.
-// The page keeps these up to date, so a link restores the gallery as it was.
-export function albumFromUrl(): { album: string | null; open: boolean } {
+// The album in front and whether it is open: ?band=<folder>&album=<id>, plus &open while it is open,
+// or &listen while its disc is in the player. The page keeps these up to date, so a link restores
+// the gallery as it was.
+export function albumFromUrl(): { album: string | null; open: boolean; listen: boolean } {
   const params = new URLSearchParams(window.location.search);
-  return { album: params.get('album'), open: params.has('open') };
+  return { album: params.get('album'), open: params.has('open') || params.has('listen'), listen: params.has('listen') };
 }
 
-export function galleryUrl(band: string, album?: string, open = false): string {
-  return `?band=${encodeURIComponent(band)}${album ? `&album=${encodeURIComponent(album)}` : ''}${open ? '&open' : ''}`;
+export function galleryUrl(band: string, album?: string, open = false, listen = false): string {
+  const state = listen ? '&listen' : open ? '&open' : '';
+  return `?band=${encodeURIComponent(band)}${album ? `&album=${encodeURIComponent(album)}` : ''}${state}`;
 }
 
 // The title screen and the menu load every band, so each config is fetched once.

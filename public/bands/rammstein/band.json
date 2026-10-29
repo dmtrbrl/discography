@@ -17,7 +17,65 @@
       },
       "disc": "discs/herzeleid.jpg",
       "back": "backs/herzeleid.jpg",
-      "bookletBack": "booklets/herzeleid-back.jpg"
+      "bookletBack": "booklets/herzeleid-back.jpg",
+      "tracks": [
+        {
+          "title": "Wollt ihr das Bett in Flammen sehen?",
+          "length": 317,
+          "apple": 1532029382
+        },
+        {
+          "title": "Der Meister",
+          "length": 251,
+          "apple": 1532029690
+        },
+        {
+          "title": "Weißes Fleisch",
+          "length": 216,
+          "apple": 1532029694
+        },
+        {
+          "title": "Asche zu Asche",
+          "length": 232,
+          "apple": 1532029706
+        },
+        {
+          "title": "Seemann",
+          "length": 288,
+          "apple": 1532029711
+        },
+        {
+          "title": "Du riechst so gut",
+          "length": 289,
+          "apple": 1532029821
+        },
+        {
+          "title": "Das alte Leid",
+          "length": 345,
+          "apple": 1532029822
+        },
+        {
+          "title": "Heirate mich",
+          "length": 285,
+          "apple": 1532029824
+        },
+        {
+          "title": "Herzeleid",
+          "length": 223,
+          "apple": 1532029825
+        },
+        {
+          "title": "Laichzeit",
+          "length": 263,
+          "apple": 1532029831
+        },
+        {
+          "title": "Rammstein",
+          "length": 265,
+          "apple": 1532029835
+        }
+      ],
+      "appleMusic": 1532029367
     },
     {
       "id": "sehnsucht",
@@ -35,7 +93,73 @@
       },
       "disc": "discs/sehnsucht.jpg",
       "back": "backs/sehnsucht.jpg",
-      "bookletBack": "booklets/sehnsucht-back.jpg"
+      "bookletBack": "booklets/sehnsucht-back.jpg",
+      "appleMusic": 1390562159,
+      "tracks": [
+        {
+          "title": "Sehnsucht",
+          "length": 245,
+          "apple": 1390562682
+        },
+        {
+          "title": "Engel",
+          "length": 265,
+          "apple": 1390562683
+        },
+        {
+          "title": "Tier",
+          "length": 228,
+          "apple": 1390562684
+        },
+        {
+          "title": "Bestrafe mich",
+          "length": 219,
+          "apple": 1390562687
+        },
+        {
+          "title": "Du hast",
+          "length": 236,
+          "apple": 1390562691
+        },
+        {
+          "title": "Bück dich",
+          "length": 203,
+          "apple": 1390562692
+        },
+        {
+          "title": "Spiel mit mir",
+          "length": 287,
+          "apple": 1390562694
+        },
+        {
+          "title": "Klavier",
+          "length": 265,
+          "apple": 1390563046
+        },
+        {
+          "title": "Alter Mann",
+          "length": 264,
+          "apple": 1390563053
+        },
+        {
+          "title": "Eifersucht",
+          "length": 217,
+          "apple": 1390563056
+        },
+        {
+          "title": "Küss mich (Fellfrosch)",
+          "length": 211,
+          "apple": 1390563060
+        },
+        {
+          "title": "Engel (English version)",
+          "length": 265
+        },
+        {
+          "title": "Du hast (English version)",
+          "length": 236
+        }
+      ]
     },
     {
       "id": "live-aus-berlin",
@@ -52,7 +176,85 @@
       },
       "disc": "discs/live-aus-berlin.jpg",
       "back": "backs/live-aus-berlin.jpg",
-      "bookletBack": "booklets/live-aus-berlin-back.jpg"
+      "bookletBack": "booklets/live-aus-berlin-back.jpg",
+      "tracks": [
+        {
+          "title": "Spiel mit mir",
+          "length": 360,
+          "apple": 1440802076
+        },
+        {
+          "title": "Bestrafe mich",
+          "length": 229,
+          "apple": 1440802083
+        },
+        {
+          "title": "Weißes Fleisch",
+          "length": 276,
+          "apple": 1440802085
+        },
+        {
+          "title": "Sehnsucht",
+          "length": 265,
+          "apple": 1440802088
+        },
+        {
+          "title": "Asche zu Asche",
+          "length": 205,
+          "apple": 1440802212
+        },
+        {
+          "title": "Wilder Wein",
+          "length": 317,
+          "apple": 1440802215
+        },
+        {
+          "title": "Heirate mich",
+          "length": 377,
+          "apple": 1440802219
+        },
+        {
+          "title": "Du riechst so gut",
+          "length": 325,
+          "apple": 1440802224
+        },
+        {
+          "title": "Du hast",
+          "length": 268,
+          "apple": 1440802227
+        },
+        {
+          "title": "Bück dich",
+          "length": 358,
+          "apple": 1440802232
+        },
+        {
+          "title": "Engel",
+          "length": 357,
+          "apple": 1440802239
+        },
+        {
+          "title": "Rammstein",
+          "length": 330,
+          "apple": 1440802333
+        },
+        {
+          "title": "Laichzeit",
+          "length": 315,
+          "apple": 1440802336
+        },
+        {
+          "title": "Wollt ihr das Bett in Flammen sehen?",
+          "length": 353,
+          "apple": 1440802342
+        },
+        {
+          "title": "Seemann",
+          "length": 414,
+          "apple": 1440802347
+        }
+      ],
+      "appleMusic": 1440802069
     },
     {
       "id": "mutter",
@@ -70,7 +272,65 @@
       },
       "back": "backs/mutter.jpg",
       "disc": "discs/mutter.jpg",
-      "bookletBack": "booklets/mutter-back.jpg"
+      "bookletBack": "booklets/mutter-back.jpg",
+      "appleMusic": 1440770702,
+      "tracks": [
+        {
+          "title": "Mein Herz brennt",
+          "length": 280,
+          "apple": 1440771222
+        },
+        {
+          "title": "Links 2 3 4",
+          "length": 217,
+          "apple": 1440771243
+        },
+        {
+          "title": "Sonne",
+          "length": 273,
+          "apple": 1440771250
+        },
+        {
+          "title": "Ich will",
+          "length": 218,
+          "apple": 1440771494
+        },
+        {
+          "title": "Feuer frei!",
+          "length": 191,
+          "apple": 1440771498
+        },
+        {
+          "title": "Mutter",
+          "length": 273,
+          "apple": 1440771501
+        },
+        {
+          "title": "Spieluhr",
+          "length": 286,
+          "apple": 1440771505
+        },
+        {
+          "title": "Zwitter",
+          "length": 257,
+          "apple": 1440771510
+        },
+        {
+          "title": "Rein raus",
+          "length": 190,
+          "apple": 1440771520
+        },
+        {
+          "title": "Adios",
+          "length": 230,
+          "apple": 1440771762
+        },
+        {
+          "title": "Nebel",
+          "length": 295,
+          "apple": 1440771764
+        }
+      ]
     },
     {
       "id": "reise-reise",
@@ -87,7 +347,65 @@
       },
       "disc": "discs/reise-reise.jpg",
       "back": "backs/reise-reise.jpg",
-      "bookletBack": "booklets/reise-reise-back.jpg"
+      "bookletBack": "booklets/reise-reise-back.jpg",
+      "appleMusic": 1440734479,
+      "tracks": [
+        {
+          "title": "Reise, Reise",
+          "length": 251,
+          "apple": 1440734486
+        },
+        {
+          "title": "Mein Teil",
+          "length": 272,
+          "apple": 1440734495
+        },
+        {
+          "title": "Dalai Lama",
+          "length": 338,
+          "apple": 1440734500
+        },
+        {
+          "title": "Keine Lust",
+          "length": 223,
+          "apple": 1440734686
+        },
+        {
+          "title": "Los",
+          "length": 265,
+          "apple": 1440734688
+        },
+        {
+          "title": "Amerika",
+          "length": 227,
+          "apple": 1440734692
+        },
+        {
+          "title": "Moskau",
+          "length": 256,
+          "apple": 1440734702
+        },
+        {
+          "title": "Morgenstern",
+          "length": 240,
+          "apple": 1440734773
+        },
+        {
+          "title": "Stein um Stein",
+          "length": 236,
+          "apple": 1440734775
+        },
+        {
+          "title": "Ohne dich",
+          "length": 272,
+          "apple": 1440734776
+        },
+        {
+          "title": "Amour",
+          "length": 291,
+          "apple": 1440734777
+        }
+      ]
     },
     {
       "id": "rosenrot",
@@ -107,7 +425,65 @@
       },
       "disc": "discs/rosenrot.jpg",
       "back": "backs/rosenrot.jpg",
-      "bookletBack": "booklets/rosenrot-back.jpg"
+      "bookletBack": "booklets/rosenrot-back.jpg",
+      "appleMusic": 1440785589,
+      "tracks": [
+        {
+          "title": "Benzin",
+          "length": 226,
+          "apple": 1440786146
+        },
+        {
+          "title": "Mann gegen Mann",
+          "length": 231,
+          "apple": 1440786316
+        },
+        {
+          "title": "Rosenrot",
+          "length": 235,
+          "apple": 1440786324
+        },
+        {
+          "title": "Spring",
+          "length": 325,
+          "apple": 1440786522
+        },
+        {
+          "title": "Wo bist du",
+          "length": 235,
+          "apple": 1440786532
+        },
+        {
+          "title": "Stirb nicht vor mir (Don’t Die Before I Do)",
+          "length": 245,
+          "apple": 1440786542
+        },
+        {
+          "title": "Zerstören",
+          "length": 329,
+          "apple": 1440786548
+        },
+        {
+          "title": "Hilf mir",
+          "length": 284,
+          "apple": 1440786646
+        },
+        {
+          "title": "Te quiero puta!",
+          "length": 236,
+          "apple": 1440786655
+        },
+        {
+          "title": "Feuer und Wasser",
+          "length": 318,
+          "apple": 1440786664
+        },
+        {
+          "title": "Ein Lied",
+          "length": 223,
+          "apple": 1440786884
+        }
+      ]
     },
     {
       "id": "liebe-ist-fur-alle-da",
@@ -125,7 +501,63 @@
       },
       "disc": "discs/liebe-ist-fur-alle-da.jpg",
       "back": "backs/liebe-ist-fur-alle-da.jpg",
-      "bookletBack": "booklets/liebe-ist-fur-alle-da-back.jpg"
+      "bookletBack": "booklets/liebe-ist-fur-alle-da-back.jpg",
+      "appleMusic": 1440735807,
+      "tracks": [
+        {
+          "title": "Rammlied",
+          "length": 319,
+          "apple": 1440735818
+        },
+        {
+          "title": "[silence]",
+          "length": 4
+        },
+        {
+          "title": "Waidmanns Heil",
+          "length": 213,
+          "apple": 1440736109
+        },
+        {
+          "title": "Haifisch",
+          "length": 225,
+          "apple": 1440736113
+        },
+        {
+          "title": "B********",
+          "length": 254,
+          "apple": 1440736115
+        },
+        {
+          "title": "Frühling in Paris",
+          "length": 285,
+          "apple": 1440736361
+        },
+        {
+          "title": "Wiener Blut",
+          "length": 232,
+          "apple": 1440736368
+        },
+        {
+          "title": "Pussy",
+          "length": 239
+        },
+        {
+          "title": "Liebe ist für alle da",
+          "length": 208,
+          "apple": 1440736379
+        },
+        {
+          "title": "Mehr",
+          "length": 251,
+          "apple": 1440736385
+        },
+        {
+          "title": "Roter Sand",
+          "length": 239,
+          "apple": 1440736390
+        }
+      ]
     },
     {
       "id": "made-in-germany",
@@ -145,7 +577,89 @@
       "cover": "covers/made-in-germany.jpg",
       "disc": "discs/made-in-germany.jpg",
       "back": "backs/made-in-germany.jpg",
-      "bookletBack": "booklets/made-in-germany-back.jpg"
+      "bookletBack": "booklets/made-in-germany-back.jpg",
+      "appleMusic": 1456598880,
+      "tracks": [
+        {
+          "title": "Engel",
+          "length": 263,
+          "apple": 1456598883
+        },
+        {
+          "title": "Links 2 3 4",
+          "length": 220,
+          "apple": 1456598885
+        },
+        {
+          "title": "Keine Lust",
+          "length": 222,
+          "apple": 1456598886
+        },
+        {
+          "title": "Mein Teil",
+          "length": 279,
+          "apple": 1456598888
+        },
+        {
+          "title": "Du hast",
+          "length": 235,
+          "apple": 1456598890
+        },
+        {
+          "title": "Du riechst so gut",
+          "length": 273,
+          "apple": 1456598895
+        },
+        {
+          "title": "Ich will",
+          "length": 220,
+          "apple": 1456598896
+        },
+        {
+          "title": "Mein Herz brennt",
+          "length": 282,
+          "apple": 1456599068
+        },
+        {
+          "title": "Mutter",
+          "length": 272,
+          "apple": 1456599074
+        },
+        {
+          "title": "Pussy",
+          "length": 239
+        },
+        {
+          "title": "Rosenrot",
+          "length": 233,
+          "apple": 1456599083
+        },
+        {
+          "title": "Haifisch",
+          "length": 223,
+          "apple": 1456599084
+        },
+        {
+          "title": "Amerika",
+          "length": 227,
+          "apple": 1456599085
+        },
+        {
+          "title": "Sonne",
+          "length": 247,
+          "apple": 1456599090
+        },
+        {
+          "title": "Ohne dich",
+          "length": 272,
+          "apple": 1456599101
+        },
+        {
+          "title": "Mein Land",
+          "length": 233,
+          "apple": 1456599103
+        }
+      ]
     },
     {
       "id": "rammstein",
@@ -164,7 +678,65 @@
       "cover": "covers/rammstein.jpg",
       "disc": "discs/rammstein.jpg",
       "back": "backs/rammstein.jpg",
-      "bookletBack": "booklets/rammstein-back.jpg"
+      "bookletBack": "booklets/rammstein-back.jpg",
+      "appleMusic": 1456789831,
+      "tracks": [
+        {
+          "title": "Deutschland",
+          "length": 323,
+          "apple": 1456789852
+        },
+        {
+          "title": "Radio",
+          "length": 277,
+          "apple": 1456790073
+        },
+        {
+          "title": "Zeig dich",
+          "length": 256,
+          "apple": 1456790078
+        },
+        {
+          "title": "Ausländer",
+          "length": 232,
+          "apple": 1456790081
+        },
+        {
+          "title": "Sex",
+          "length": 237,
+          "apple": 1456790084
+        },
+        {
+          "title": "Puppe",
+          "length": 274,
+          "apple": 1456790090
+        },
+        {
+          "title": "Was ich liebe",
+          "length": 269,
+          "apple": 1456790186
+        },
+        {
+          "title": "Diamant",
+          "length": 154,
+          "apple": 1456790191
+        },
+        {
+          "title": "Weit weg",
+          "length": 261,
+          "apple": 1456790192
+        },
+        {
+          "title": "Tattoo",
+          "length": 252,
+          "apple": 1456790195
+        },
+        {
+          "title": "Hallomann",
+          "length": 252,
+          "apple": 1456790197
+        }
+      ]
     },
     {
       "id": "zeit",
@@ -183,7 +755,65 @@
       "cover": "covers/zeit.jpg",
       "disc": "discs/zeit.jpg",
       "back": "backs/zeit.jpg",
-      "bookletBack": "booklets/zeit-back.jpg"
+      "bookletBack": "booklets/zeit-back.jpg",
+      "appleMusic": 1612051984,
+      "tracks": [
+        {
+          "title": "Armee der Tristen",
+          "length": 206,
+          "apple": 1612052141
+        },
+        {
+          "title": "Zeit",
+          "length": 322,
+          "apple": 1612052142
+        },
+        {
+          "title": "Schwarz",
+          "length": 258,
+          "apple": 1612052143
+        },
+        {
+          "title": "Giftig",
+          "length": 188,
+          "apple": 1612052148
+        },
+        {
+          "title": "Zick Zack",
+          "length": 244,
+          "apple": 1612052149
+        },
+        {
+          "title": "OK",
+          "length": 244,
+          "apple": 1612052150
+        },
+        {
+          "title": "Meine Tränen",
+          "length": 237,
+          "apple": 1612052152
+        },
+        {
+          "title": "Angst",
+          "length": 225,
+          "apple": 1612052158
+        },
+        {
+          "title": "Dicke Titten",
+          "length": 219,
+          "apple": 1612052257
+        },
+        {
+          "title": "Lügen",
+          "length": 230,
+          "apple": 1612052259
+        },
+        {
+          "title": "Adieu",
+          "length": 279,
+          "apple": 1612052260
+        }
+      ]
     }
   ]
 }

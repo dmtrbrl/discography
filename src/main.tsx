@@ -1,10 +1,10 @@
 import { render } from 'solid-js/web';
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount } from 'solid-js';
+import { For, Match, Show, Switch, createComputed, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { GalleryScene } from './scene';
-import type { PointerState } from './scene';
+import type { PlayerButton, PointerState } from './scene';
 import { albumFromUrl, bandFromUrl, defaultTheme, galleryUrl, loadBand, loadBands } from './band';
-import type { Band, Theme } from './band';
+import type { Album, Band, Theme, Track } from './band';
 import './style.css';
 
 const website = 'https://dmytrobarylo.com';
@@ -31,6 +31,8 @@ const serifLoaded = (async () => {
 // from .button: the text buttons and the artists) it becomes a larger dot, and a white clone of the
 // element, laid over it and clipped to the dot, shows it white inside the dot. The clone sits in one
 // layer above the bubble, so it works inside the menu too, whose blur would trap a copy beneath it.
+// Over something that answers the pointer itself (options.quiet: the player's buttons, too small to
+// cover) the dot becomes a thin ring round it, and the label opens as a tag above the ring.
 const labelDelay = 3000;
 const restSlop = 3;
 const buttonDot = 20;
@@ -47,6 +49,8 @@ interface BubbleOptions {
   label: Accessor<string>;
   // Whether the page is showing yet.
   revealed: Accessor<boolean>;
+  // Whether the pointer is over something that shows its own hover.
+  quiet?: Accessor<boolean>;
 }
 
 // Event handlers for the surfaces the bubble moves over, and for text buttons and links.
@@ -77,6 +81,7 @@ function createBubble(options: BubbleOptions) {
   // A memo, so the wait restarts only when the label changes, not on every change of what it's
   // derived from.
   const label = createMemo(options.label);
+  const quiet = () => Boolean(options.quiet?.());
   // No label while something shows a keyboard focus ring: the keyboard is in use, and a tooltip by
   // the mouse would compete with it. A label already open closes when a ring appears.
   const keyboardFocus = () => Boolean(document.querySelector(':focus-visible'));
@@ -236,9 +241,10 @@ function createBubble(options: BubbleOptions) {
     view: () => (
       <>
         <div class="bubble" ref={bubble} aria-hidden="true">
-          <span class="bubble-body" classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over(), 'has-label': tip().shown && !over(), 'is-button': over(), 'is-pressed': pressed() }}>
+          <span class="bubble-body" classList={{ 'is-shown': shown() && options.revealed(), 'is-active': Boolean(label()) && !over(), 'has-label': tip().shown && !over() && !quiet(), 'is-button': over(), 'is-pressed': pressed(), 'is-ring': quiet() }}>
             <span class="bubble-label">{tip().text}</span>
           </span>
+          <span class="bubble-tag" classList={{ 'is-shown': shown() && options.revealed() && quiet() && tip().shown }}>{tip().text}</span>
         </div>
         <div class="bubble-copy" ref={layer} aria-hidden="true" />
       </>
@@ -343,6 +349,238 @@ function Home(props: { bands: Band[] | undefined; onSelect: Select }) {
   );
 }
 
+// 30-second previews from Apple Music: one lookup per album gives every track's preview URL, keyed
+// by the Apple track IDs that scripts/fetch-tracks.mjs stored. Preview URLs aren't kept in band.json
+// since Apple may change them. Each album is fetched once a visit.
+const previews = new Map<number, Promise<Map<number, string>>>();
+
+function loadPreviews(collection: number) {
+  let loading = previews.get(collection);
+  if (!loading) {
+    loading = fetch(`https://itunes.apple.com/lookup?id=${collection}&entity=song&limit=200&country=us`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`${response.status}`))))
+      .then(({ results }: { results: { wrapperType: string; trackId?: number; previewUrl?: string }[] }) =>
+        new Map(results.filter((result) => result.trackId && result.previewUrl).map((result) => [result.trackId!, result.previewUrl!])));
+    loading.catch(() => previews.delete(collection));
+    previews.set(collection, loading);
+  }
+  return loading;
+}
+
+// The bubble's label over each of the player's buttons, and the button's accessible name.
+const BUTTON_LABELS: Record<PlayerButton, string> = { previous: 'Prev', play: 'Play', pause: 'Pause', next: 'Next' };
+const BUTTON_NAMES: Record<PlayerButton, string> = { previous: 'Previous track', play: 'Play', pause: 'Pause', next: 'Next track' };
+
+// Stand-ins for the player's buttons, which are drawn in the scene: real buttons for screen readers
+// and the keyboard, invisible and out of the pointer's way. A focused one is laid over its button
+// (scene.playerButtonRect), so the focus ring goes round it, and the scene lights its symbol.
+function PlayerControls(props: { shown: boolean; scene: () => GalleryScene | undefined }) {
+  let focused: { kind: PlayerButton; element: HTMLButtonElement } | null = null;
+  function place(kind: PlayerButton, element: HTMLButtonElement) {
+    const rect = props.scene()?.playerButtonRect(kind);
+    if (!rect) return;
+    Object.assign(element.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+  }
+  const replace = () => {
+    if (focused) place(focused.kind, focused.element);
+  };
+  window.addEventListener('resize', replace);
+  onCleanup(() => window.removeEventListener('resize', replace));
+  return (
+    <div class="player-controls" role="group" aria-label="Player" inert={props.shown ? undefined : true}>
+      <For each={['previous', 'play', 'pause', 'next'] as PlayerButton[]}>
+        {(kind) => (
+          <button class="player-control" type="button" aria-label={BUTTON_NAMES[kind]} onClick={() => props.scene()?.pressButton(kind)}
+            onFocus={(event) => {
+              focused = { kind, element: event.currentTarget };
+              place(kind, event.currentTarget);
+              props.scene()?.focusButton(event.currentTarget.matches(':focus-visible') ? kind : null);
+            }}
+            onBlur={() => {
+              focused = null;
+              props.scene()?.focusButton(null);
+            }} />
+        )}
+      </For>
+    </div>
+  );
+}
+
+const duration = (seconds?: number) => (seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : '');
+
+// What the page can do with the tracklist: from the keyboard, and from the player's buttons.
+interface TracklistControls { toggle(): void; focus(): void; button(button: PlayerButton): void }
+
+// The player view's tracklist, right of the player (below it on narrow screens). A click on a track
+// plays its preview, a second click pauses it, and the next track follows when one ends. Tracks
+// Apple has no preview for are listed but can't be played. Below the list: the album on Apple
+// Music, and where to buy the CD (the artist's shop when band.json names one, otherwise an Amazon
+// search). Playing and pausing spin and stop the disc (onPlaying); the display follows the track
+// and time (onDisplay). Hiding the list stops the music.
+function Tracklist(props: {
+  album: Album; shown: boolean; bubble: ButtonProps; controls: (controls: TracklistControls) => void;
+  onPlaying: (playing: boolean) => void; onDisplay: (track: number | null, seconds: number) => void;
+}) {
+  const audio = new Audio();
+  audio.preload = 'none';
+  const [current, setCurrent] = createSignal(-1);
+  const [state, setState] = createSignal<'stopped' | 'loading' | 'playing' | 'paused'>('stopped');
+  const [progress, setProgress] = createSignal(0);
+  const [failed, setFailed] = createSignal(false);
+  const tracks = () => props.album.tracks ?? [];
+  let list!: HTMLOListElement;
+  let request = 0;
+  let second = -1;
+
+  function stop() {
+    request++;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    setCurrent(-1);
+    setState('stopped');
+    setProgress(0);
+    second = -1;
+    props.onPlaying(false);
+    props.onDisplay(null, 0);
+  }
+
+  async function play(index: number) {
+    const track = tracks()[index];
+    if (!track?.apple || !props.album.appleMusic) return;
+    if (index === current() && state() !== 'stopped') {
+      if (audio.paused) audio.play().catch(() => {});
+      else audio.pause();
+      return;
+    }
+    const ticket = ++request;
+    audio.pause();
+    setCurrent(index);
+    setState('loading');
+    setProgress(0);
+    second = -1;
+    props.onDisplay(index + 1, 0);
+    const urls = await loadPreviews(props.album.appleMusic).catch(() => null);
+    if (ticket !== request) return;
+    const url = urls?.get(track.apple);
+    if (!url) {
+      setFailed(!urls);
+      stop();
+      return;
+    }
+    setFailed(false);
+    audio.src = url;
+    audio.play().catch(() => {
+      if (ticket === request) stop();
+    });
+  }
+
+  // The next track with a preview after `index`, or -1.
+  const nextTrack = (index: number) => tracks().findIndex((track, n) => n > index && track.apple);
+  // The last track with a preview before `index`, or -1.
+  const previousTrack = (index: number) => tracks().reduce((found, track, n) => (n < index && track.apple ? n : found), -1);
+
+  // The player's buttons, as on a CD player. Play resumes, or starts the first track; pause holds
+  // the track; next skips ahead; previous restarts the track after its first three seconds, and
+  // otherwise goes back one.
+  function button(kind: PlayerButton) {
+    const index = state() === 'stopped' ? -1 : current();
+    if (kind === 'play') {
+      if (index < 0) play(nextTrack(-1));
+      else if (state() === 'paused') audio.play().catch(() => {});
+    } else if (kind === 'pause') {
+      if (state() === 'playing') audio.pause();
+    } else if (kind === 'next') {
+      const next = nextTrack(index);
+      if (next >= 0) play(next);
+    } else if (index >= 0) {
+      const previous = previousTrack(index);
+      if (audio.currentTime > 3 || previous < 0) audio.currentTime = 0;
+      else play(previous);
+    }
+  }
+
+  audio.addEventListener('playing', () => {
+    setState('playing');
+    props.onPlaying(true);
+  });
+  audio.addEventListener('pause', () => {
+    if (audio.ended || state() === 'stopped' || !audio.src) return;
+    setState('paused');
+    props.onPlaying(false);
+  });
+  audio.addEventListener('ended', () => {
+    const next = nextTrack(current());
+    if (next >= 0) play(next);
+    else stop();
+  });
+  audio.addEventListener('timeupdate', () => {
+    if (!audio.duration) return;
+    setProgress(audio.currentTime / audio.duration);
+    const now = Math.floor(audio.currentTime);
+    if (now === second) return;
+    second = now;
+    props.onDisplay(current() + 1, now);
+  });
+
+  props.controls({
+    toggle: () => (current() >= 0 && state() !== 'stopped' ? play(current()) : play(nextTrack(-1))),
+    focus: () => list.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true }),
+    button,
+  });
+  createEffect(on(() => props.shown, (shown) => {
+    if (!shown) stop();
+  }, { defer: true }));
+  onCleanup(() => {
+    request++;
+    audio.pause();
+    audio.removeAttribute('src');
+  });
+
+  const appleLink = () => `https://music.apple.com/us/album/${props.album.appleMusic}`;
+  const buyLink = () => props.album.buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${props.album.artist} ${props.album.title} CD`)}&i=popular`;
+  const label = (track: Track, n: number) => {
+    if (!track.apple) return `${track.title}, no preview`;
+    if (n === current() && state() === 'playing') return `Pause ${track.title}`;
+    return `Play ${track.title}`;
+  };
+
+  return (
+    <section class="tracklist" classList={{ 'is-shown': props.shown }} inert={props.shown ? undefined : true} aria-label={`${props.album.title} tracklist`}>
+      <p class="eyebrow">{props.album.year}<span class="eyebrow-separator">/</span>{props.album.kind}</p>
+      <h2 class="album-title">{props.album.title}</h2>
+      <ol class="tracks" ref={list}>
+        <For each={tracks()}>
+          {(track, n) => (
+            <li>
+              <button class="track" classList={{ 'is-current': n() === current(), 'is-playing': n() === current() && (state() === 'playing' || state() === 'loading'), 'has-bubble': canBubble }}
+                type="button" disabled={!track.apple || !props.album.appleMusic} aria-label={label(track, n())} onClick={() => play(n())}
+                style={{ '--progress': n() === current() ? progress() : 0 }} {...props.bubble}>
+                <span class="track-number" aria-hidden="true">
+                  <span class="track-index">{String(n() + 1).padStart(2, '0')}</span>
+                  <svg class="track-icon is-play" viewBox="0 0 10 10"><path d="M2.5 1.5v7l6-3.5z" /></svg>
+                  <svg class="track-icon is-pause" viewBox="0 0 10 10"><path d="M2.5 1.5h1.8v7H2.5zM5.7 1.5h1.8v7H5.7z" /></svg>
+                </span>
+                <span class="track-title">{track.title}</span>
+                <span class="track-length" aria-hidden="true">{duration(track.length)}</span>
+              </button>
+            </li>
+          )}
+        </For>
+      </ol>
+      <Show when={failed()}>
+        <p class="tracklist-note" role="status">Previews couldn't be loaded. Try again in a moment.</p>
+      </Show>
+      <p class="tracklist-links">
+        <Show when={props.album.appleMusic}>
+          <a classList={{ 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener" {...props.bubble}>Apple Music</a>
+        </Show>
+        <a classList={{ 'has-bubble': canBubble }} href={buyLink()} target="_blank" rel="noopener" {...props.bubble}>Buy the CD</a>
+      </p>
+    </section>
+  );
+}
+
 function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select }) {
   const { albums, name: artist, theme } = props.band;
   let stage!: HTMLDivElement;
@@ -369,19 +607,23 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
   let backButton!: HTMLButtonElement;
   let backByKeyboard = false;
   let captionButton!: HTMLButtonElement;
-  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false });
+  const [pointer, setPointer] = createSignal<PointerState>({ hovered: -1, active: 0, opened: -1, dragging: false, overDisc: false, listening: false, discOut: false, overButton: null });
+  // The disc is in the player (or going in): the tracklist shows and the row is out of view.
+  const listening = createMemo(() => pointer().listening);
+  let tracklist: TracklistControls | undefined;
   const bubbleLabel = () => {
     if (menuOpen()) return 'Close';
-    const { hovered, active: front, opened, dragging } = pointer();
+    const { hovered, active: front, opened, dragging, overDisc, overButton } = pointer();
+    if (listening()) return overButton ? BUTTON_LABELS[overButton] : '';
     // While a case is open, a click beside it closes it; over the case itself the bubble stays a
-    // plain dot, keeping those clicks for the disc and booklet.
-    if (opened >= 0) return hovered === opened ? '' : 'Close';
+    // plain dot, keeping those clicks for the booklet, except over the disc, which goes in the player.
+    if (opened >= 0) return hovered === opened ? (overDisc ? 'Listen' : '') : 'Close';
     if (dragging) return 'Drag';
     if (hovered < 0) return '';
     if (hovered === front) return 'Open';
     return hovered < front ? 'Prev' : 'Next';
   };
-  const cursor = createBubble({ label: bubbleLabel, revealed });
+  const cursor = createBubble({ label: bubbleLabel, revealed, quiet: () => listening() && Boolean(pointer().overButton) });
 
   function goHome(event: MouseEvent) {
     if (!isPlainClick(event)) return;
@@ -432,32 +674,65 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
   // browser's back button still goes to the previous artist or the title screen. Only while the URL
   // is still this band's: a gallery fading out mustn't overwrite the next one's address.
   createEffect(() => {
-    const url = galleryUrl(props.band.folder, albums[active()]?.id, pointer().opened >= 0);
+    const url = galleryUrl(props.band.folder, albums[active()]?.id, pointer().opened >= 0, listening());
     if (!revealed() || bandFromUrl() !== props.band.folder || window.location.search === url) return;
     window.history.replaceState(window.history.state, '', url);
   });
 
-  // Focus moves only when the control holding it is about to go away: from the caption (inactive
-  // while open) to Back when the case opens, and from Back (hidden) to the caption when it closes.
-  // Anywhere else it stays put, so opening by clicking the case and closing with Escape leaves focus
-  // alone, and a mouse click on the caption doesn't send focus to Back. Focus returns to the caption
-  // only if Back got focus by keyboard; otherwise closing lets it go. How Back got focus is noted
-  // when it gets it (backByKeyboard): any key press, Escape included, makes the focused element
-  // count as keyboard-focused from then on. A memo, so this runs only when the case opens or
-  // closes, not on every pointer change.
+  // Focus moves only when the control holding it is about to go away: from Back (hidden) to the
+  // caption when the case closes. The caption stays usable while the case is open (it puts the disc
+  // in the player then), so opening leaves focus on it. Anywhere else focus stays put. Focus returns
+  // to the caption only if Back got focus by keyboard; otherwise closing lets it go. How Back got
+  // focus is noted when it gets it (backByKeyboard): any key press, Escape included, makes the
+  // focused element count as keyboard-focused from then on. A memo, so this runs only when the case
+  // opens or closes, not on every pointer change.
   const isOpen = createMemo(() => pointer().opened >= 0);
   createEffect(on(isOpen, (open) => {
     if (menuOpen()) return;
     const focused = document.activeElement;
-    const keyboardCaption = focused === captionButton && captionButton.matches(':focus-visible');
     requestAnimationFrame(() => {
-      if (open && keyboardCaption) backButton.focus({ preventScroll: true });
       if (!open && focused === backButton) {
         if (backByKeyboard) captionButton.focus({ preventScroll: true });
         else backButton.blur();
       }
     });
   }, { defer: true }));
+
+  // The same for the player view: from the caption (hidden in it) to the first track when the disc
+  // goes in by keyboard, and from the tracklist or the player's buttons (inert once the disc comes
+  // out) back to the caption, if they had keyboard focus; otherwise focus is let go. Which it was is
+  // noted before they go inert (a computation runs before the DOM updates), and the caption takes
+  // focus once the disc is back in its case and its bar is visible again (it is inert until then,
+  // and fades back in after a delay, hidden until it starts).
+  let captionAfterEject = false;
+  createEffect(on(listening, (listen) => {
+    if (menuOpen() || !listen) return;
+    const focused = document.activeElement as HTMLElement | null;
+    const byKeyboard = Boolean(focused?.matches(':focus-visible'));
+    requestAnimationFrame(() => {
+      if (focused === captionButton && byKeyboard) tracklist?.focus();
+    });
+  }, { defer: true }));
+  createComputed(on(listening, (listen) => {
+    const focused = document.activeElement as HTMLElement | null;
+    if (!listen && !menuOpen() && focused?.closest('.tracklist, .player-controls')) captionAfterEject = focused.matches(':focus-visible');
+  }, { defer: true }));
+  createEffect(on(() => pointer().discOut, (out) => {
+    if (out || !captionAfterEject) return;
+    captionAfterEject = false;
+    const started = performance.now();
+    const focusCaption = () => {
+      if (getComputedStyle(captionButton).visibility === 'visible') captionButton.focus({ preventScroll: true });
+      else if (performance.now() - started < 1500) requestAnimationFrame(focusCaption);
+    };
+    requestAnimationFrame(focusCaption);
+  }, { defer: true }));
+
+  // Back: from the player to the open case, from the open case to the row.
+  function back() {
+    if (listening()) scene?.eject();
+    else scene?.close();
+  }
 
   // The scene owns the motion and reports the case in front back through setActive.
   function onKeyDown(event: KeyboardEvent) {
@@ -476,9 +751,14 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
     // Space toggles the front case and Enter opens it, unless a control has focus: then the key is
     // that control's (Enter on an arrow steps, on the caption opens).
     const onControl = Boolean((event.target as Element | null)?.closest?.('button, a, input, textarea, select'));
-    if (event.key === ' ' && !onControl) { event.preventDefault(); scene.toggle(); }
-    if (event.key === 'Enter' && !onControl && browse) { event.preventDefault(); scene.open(); }
-    if (event.key === 'Escape') scene.close();
+    // In the player view Space plays and pauses; Enter on an open case puts its disc in the player.
+    if (event.key === ' ' && !onControl) {
+      event.preventDefault();
+      if (listening()) tracklist?.toggle();
+      else scene.toggle();
+    }
+    if (event.key === 'Enter' && !onControl && !listening()) { event.preventDefault(); if (browse) scene.open(); else scene.insert(); }
+    if (event.key === 'Escape') back();
   }
 
   // The loading screen fades out first; only then does the gallery fade in and play its intro.
@@ -497,8 +777,10 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
       fogColor: theme.background,
       startIndex,
       openOnReveal: linked.open && albums[startIndex]?.id === linked.album,
+      listenOnReveal: linked.listen,
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
+      onPlayerButton: (button) => tracklist?.button(button),
       onReady: () => {
         setReady(true);
         // Without the fade there is no transitionend to wait for.
@@ -524,7 +806,7 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
         <svg class="cross" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3 17 17M17 3 3 17" /></svg>
         <BandMark band={props.band} onReady={() => setMarkReady(true)} />
       </header>
-      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={() => scene?.close()} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
+      <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0, 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
         <span aria-hidden="true">←</span> Back
       </button>
       <nav class="menu" classList={{ 'is-open': menuOpen(), 'has-bubble': canBubble }} id="menu" aria-label="Artists" inert={menuOpen() ? undefined : true} onClick={(event) => event.target === event.currentTarget && toggleMenu(false)} {...cursor.surface}>
@@ -546,15 +828,20 @@ function App(props: { band: Band; bands: Band[] | undefined; onSelect: Select })
           <span class="preloader-fill" style={{ transform: `scaleX(${percent() / 100})` }} />
         </span>
       </div>
+      <PlayerControls shown={listening()} scene={() => scene} />
+      <Tracklist album={selected()} shown={listening()} bubble={cursor.button} controls={(controls) => { tracklist = controls; }}
+        onPlaying={(playing) => scene?.setPlaying(playing)} onDisplay={(track, seconds) => scene?.setDisplay(track, seconds)} />
       {/* The caption, with arrows to the previous and next album level with it. The caption is a button
-          that opens the album (Tab reaches it between the arrows). The arrows hide while a case is
-          open, which keeps the row where it is; the caption stays but goes inactive. */}
-      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() }}>
+          that opens the album (Tab reaches it between the arrows), and once it is open puts its disc
+          in the player. The arrows hide while a case is open, which keeps the row where it is; the
+          whole bar hides while the disc is out of its case, since the tracklist names the album. */}
+      <footer class="bottom-bar" classList={{ 'is-hidden': !revealed() || pointer().discOut }} inert={pointer().discOut ? true : undefined}>
         <button class="album-arrow is-prev" classList={{ 'is-shown': pointer().opened < 0, 'has-bubble': canBubble }} type="button" aria-label="Previous album"
           disabled={active() === 0} inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.step(-1)} {...cursor.button}>←</button>
         <div class="album-caption" classList={{ 'is-switching': captionHidden() }} aria-live="polite">
-          <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton} aria-label={`Open ${selected().title} (${selected().year}, ${selected().kind})`}
-            inert={pointer().opened < 0 ? undefined : true} onClick={() => scene?.open()} {...cursor.button}>
+          <button class="album-open" classList={{ 'has-bubble': canBubble }} type="button" ref={captionButton}
+            aria-label={`${pointer().opened < 0 ? 'Open' : 'Listen to'} ${selected().title} (${selected().year}, ${selected().kind})`}
+            onClick={() => (pointer().opened < 0 ? scene?.open() : scene?.insert())} {...cursor.button}>
             <span class="eyebrow">{selected().year}<span class="eyebrow-separator">/</span>{selected().kind}</span>
             <span class="album-title">{selected().title}</span>
           </button>
