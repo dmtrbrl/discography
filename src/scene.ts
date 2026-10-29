@@ -1552,6 +1552,14 @@ function makeDisc(shared: SharedResources, seed: number): Disc {
   };
 }
 
+// The page object's place inside the booklet's bounds: a page (120 mm) to its unit, the cover's
+// spine edge at the bounds' left and its pages at their back face.
+function seatInBooklet(model: LeafThroughObject) {
+  model.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
+  model.quaternion.identity();
+  model.scale.setScalar(C.bookletSize * MM);
+}
+
 // A jewel case holding the disc. The layout moves `group`, a drag turns `spin`, and `body` slides
 // right as the lid opens so the open case stays centred on the spin pivot. The lid rotates about
 // the hinge line. Prints start in the album colour until their artwork is set.
@@ -1611,8 +1619,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   // Invisible bounds for picking; the actual object is already a stack of formed paper sheets.
   const booklet = new THREE.Mesh(geometries.booklet, materials.pick);
   booklet.add(bookletModel);
-  bookletModel.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
-  bookletModel.scale.setScalar(C.bookletSize * MM);
+  seatInBooklet(bookletModel);
   booklet.position.set((CASE.bookletX - CASE.hingeX) * MM, 0, CASE.booklet * MM);
   booklet.updateMatrix();
   const bookletRest = booklet.matrix.clone();
@@ -3041,6 +3048,9 @@ export class GalleryScene {
     if (item) {
       item.booklet.visible = true;
       item.booklet.add(item.bookletModel);
+      // At once: this can run within updateBooklet, after it has placed the booklet for this frame,
+      // and the object still held its pose in the scene, so the frame drew it 2.5% large and off.
+      seatInBooklet(item.bookletModel);
       item.bookletModel.update({ layout: 'spread' });
     }
     this.bookletShown = false;
@@ -3064,9 +3074,7 @@ export class GalleryScene {
       booklet.add(item.bookletModel);
       item.bookletModel.goTo(0);
       if (item.bookletModel.layout !== 'spread') item.bookletModel.update({ layout: 'spread' });
-      item.bookletModel.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
-      item.bookletModel.quaternion.identity();
-      item.bookletModel.scale.setScalar(C.bookletSize * MM);
+      seatInBooklet(item.bookletModel);
       item.bookletModel.traverse((node) => {
         if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = false;
       });
@@ -3910,9 +3918,7 @@ export class GalleryScene {
       backUp.setFromAxisAngle(twist, Math.PI).premultiply(readQuaternion);
       booklet.quaternion.slerpQuaternions(restQuaternion, backUp, carry).multiply(turn.setFromAxisAngle(twist, Math.PI * over));
       booklet.scale.setScalar(restScale.x + (size / (C.bookletSize * MM) - restScale.x) * carry);
-      item.bookletModel.position.set(-C.bookletSize * MM / 2, 0, -C.bookletThickness * MM / 2);
-      item.bookletModel.quaternion.identity();
-      item.bookletModel.scale.setScalar(C.bookletSize * MM);
+      seatInBooklet(item.bookletModel);
     }
 
     // The light comes in as the booklet arrives, and its shadow on the floor as it lands (high above
