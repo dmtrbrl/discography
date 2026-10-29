@@ -54,6 +54,12 @@ half-height up) and larger (`playerScale` 0.5 to 0.7, about the open case's heig
   away. Stopped counts as sitting at the first track, so Next from a stop cues track 2 and Previous
   cues track 1. Changing track drops the old preview at once, so Play pressed while
   the new one loads can't resume the old one.
+- **The player leans toward the cursor** once the disc has landed, like the open case, at
+  `playerHoverTilt` (0.35, first 0.5, which felt too strong) of the open case's tilt: up to about
+  1.7° (the open case about 4.8°). It
+  eases in and out like a case's hover, back to rest as the disc leaves or the pointer leaves the
+  stage; the landed disc moves with it. `playerBottom()` measures the player level, so the
+  transport row stays put.
 - **Ejecting brakes the spin**: a disc taken out while it turns slows with `spinDownEject` (0.25 s)
   instead of the pause's `spinDown` (1 s): from 200 rpm it is at 49 after 0.4 s and nearly still by
   1 s, against 134 and 73 after a pause.
@@ -391,6 +397,9 @@ update the paths there.
 
 These came from rounds of feedback on the look. Each was tried and rejected:
 
+- Changing the player's spin speed (29 October 2026). A real CD's speed, about 500 rpm on the
+  first track slowing track by track toward 200 as a constant-linear-speed disc does, looked weird;
+  fixed 400 and 260 rpm looked too fast. `spinRpm` stays at 200.
 - Refraction through the hub (blurred artwork, double render cost).
 - Three stepped hub rings with ripples (looked like shadows and steps).
 - A wide, chrome-like rim (looked like a grinding disc). Later even the hairline clear rim read as a

@@ -54,8 +54,9 @@ const C = {
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
   // A drag on the front case turns it over to its back when released past halfway, or when faster
   // than flipFlickVelocity (radians per frame). It stays there until the gallery moves. An open case doesn't turn; it only
-  // tilts toward the cursor at openHoverTilt of the usual hover tilt.
-  flipFlickVelocity: 0.07, flipDuration: 0.9, openHoverTilt: 0.4,
+  // tilts toward the cursor at openHoverTilt of the usual hover tilt. Once a disc has landed, the
+  // player leans toward the cursor too, at playerHoverTilt of the open case's tilt.
+  flipFlickVelocity: 0.07, flipDuration: 0.9, openHoverTilt: 0.4, playerHoverTilt: 0.35,
   flowLean: 0.055, flowLeanMax: 0.3, flowBank: 0.32, flowDip: 0.014, flowDipMax: 0.09,
   followTight: 15, followBase: 11, followFalloff: 1.15, followMin: 6.5, snapFreq: 9.5, snapDamping: 12,
   wipePush: 0.012, wipePushMax: 0.5, wipeSpin: 0.009, wipeSpinMax: 0.4, wipeMinSpeed: 9, pushDamping: 4.5, pushReturn: 3.4, pressDepth: 0.55, pressTilt: 1.5,
@@ -111,7 +112,8 @@ const C = {
   // does, the disc never goes into the player: it is pushed up to insertClearance mm over the top
   // (see updatePlayer).
   insertDuration: 2.4, ejectDuration: 1.9, insertLift: 0.45, insertPan: 4.4, insertHover: 0.3, insertClearance: 3,
-  // Spin while playing, in turns a minute (a real disc turns 200 to 500), and how long it takes to
+  // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
+  // one, 500 falling to about 200 across the disc, were tried and rejected, see ROADMAP.md), and how long it takes to
   // spin up and coast down (time constants in seconds; spinDownEject, much quicker, when the disc is
   // taken out while it turns, so it brakes as it leaves). At this speed the print is blurred over the
   // arc it turns in spinBlur seconds, like a camera's exposure, so it reads as a spinning disc
@@ -2005,6 +2007,8 @@ export class GalleryScene {
   private listenOnReveal: boolean;
   private player: Player;
   private playerRest: THREE.Vector3;
+  // How far the player leans toward the cursor, 0 to 1 (eased like a case's hover).
+  private playerLean = 0;
   // Not private: its tween animates it through tween(), which takes a plain object. 0 is the disc
   // in the case, 1 the disc on the spindle with the player in view.
   listen: number;
@@ -2589,9 +2593,11 @@ export class GalleryScene {
     const { group } = this.player;
     const lens = this.lens;
     const position = group.position.clone();
+    const rotation = group.rotation.clone();
     this.setLens(1);
     this.camera.updateMatrixWorld();
     group.position.copy(this.playerRest);
+    group.rotation.set(0, THREE.MathUtils.degToRad(C.playerYaw), 0);
     group.updateWorldMatrix(true, true);
     const body = group.children[0] as THREE.Mesh;
     if (!body.geometry.boundingBox) body.geometry.computeBoundingBox();
@@ -2604,6 +2610,7 @@ export class GalleryScene {
       bottom = Math.max(bottom, (1 - point.y) / 2);
     }
     group.position.copy(position);
+    group.rotation.copy(rotation);
     group.updateWorldMatrix(true, true);
     this.setLens(lens);
     const canvas = this.renderer.domElement.getBoundingClientRect();
@@ -3135,6 +3142,14 @@ export class GalleryScene {
     const player = this.player.group;
     player.visible = pan > 0.001;
     player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan, this.playerRest.z);
+    // With the disc landed, the player leans toward the cursor like the open case, only less; it
+    // eases back as the disc leaves or the pointer goes.
+    const lean = this.seated && this.pointerInside && !this.reducedMotion ? 1 : 0;
+    this.playerLean += (lean - this.playerLean) * Math.min(1, dt * 10);
+    if (Math.abs(lean - this.playerLean) < 0.001) this.playerLean = lean;
+    else this.forceFrames = Math.max(this.forceFrames, 2);
+    const tilt = this.playerLean * C.hoverTiltStrength * C.openHoverTilt * C.playerHoverTilt;
+    player.rotation.set(tilt * this.pointer.y, THREE.MathUtils.degToRad(C.playerYaw) + tilt * this.pointer.x, 0);
 
     const target = this.playing && !this.reducedMotion ? (C.spinRpm / 60) * Math.PI * 2 : 0;
     const slowing = this.inPlayer ? C.spinDown : C.spinDownEject;
