@@ -15,8 +15,8 @@ const repository = 'https://github.com/dmtrbrl/discography';
 // little, and once the pointer has rested for labelDelay it opens like a tooltip and says what a
 // click will do (options.label). Moving more than restSlop pixels, or a change of action (say Next
 // becoming Open after a click), hides the label and restarts the wait. Over a button or link (props
-// from .button: the text buttons and links) it becomes a larger dot, and a white clone of the
-// element, laid over it and clipped to the dot, shows it white inside the dot. The clone sits in one
+// from .button: the text buttons and links) it becomes a larger dot, and a clone of the
+// element in the page's beige, laid over it and clipped to the dot, shows it beige inside the dot. The clone sits in one
 // layer above the bubble, so it works over blurred overlays too, whose blur would trap a copy beneath it.
 // Over something that answers the pointer itself (options.quiet: the player's buttons, too small to
 // cover) the dot becomes a thin ring round it, and the label opens as a tag above the ring.
@@ -113,10 +113,16 @@ function createBubble(options: BubbleOptions) {
     if (!shown()) setShown(true);
     if (!mouse.raf) mouse.raf = requestAnimationFrame(follow);
   }
-  // The element whose clone is shown, and what it looked like when cloned.
+  // The element under the pointer, and what it looked like when cloned. A button inside a group
+  // ([data-bubble-group], such as the transport row) has the whole group cloned (`source`), so the
+  // dot shows every symbol under it in beige, not the hovered one alone: with small symbols closer
+  // together than the dot is wide, a single copy left a neighbour half under the dot in its own
+  // colour, and the hovered symbol cut at the dot's edge.
   let target: HTMLElement | null = null;
+  let source: HTMLElement | null = null;
   let cloned = '';
   let clonedBox = '';
+  const copied = (element: HTMLElement) => element.closest<HTMLElement>('[data-bubble-group]') ?? element;
   const box = (element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
     return [rect.left, rect.top, rect.width, rect.height].join('|');
@@ -129,25 +135,37 @@ function createBubble(options: BubbleOptions) {
     target = element;
     cloned = signature(element);
     clonedBox = box(element);
-    const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.removeAttribute('id');
-    clone.removeAttribute('data-bubble');
+    // Moving between buttons of a group keeps the group's clone where it is.
+    const next = copied(element);
+    if (next !== element && next === source && layer.firstElementChild && box(next) === layer.dataset.box) {
+      setOver(true);
+      setShown(true);
+      if (!mouse.raf) mouse.raf = requestAnimationFrame(follow);
+      return;
+    }
+    source = next;
+    const rect = source.getBoundingClientRect();
+    const style = getComputedStyle(source);
+    const clone = source.cloneNode(true) as HTMLElement;
+    for (const node of [clone, ...clone.querySelectorAll<HTMLElement>('[id], [data-bubble]')]) {
+      node.removeAttribute('id');
+      node.removeAttribute('data-bubble');
+    }
     for (const name of cloneStyles) clone.style[name] = style[name];
     // Inline boxes ignore translate (used below to line the clone up), and an inline-block would sit
     // on the layer's baseline.
     if (style.display === 'inline') clone.style.display = 'block';
     Object.assign(clone.style, {
       position: 'static', inset: 'auto', translate: 'none', transform: 'none', transition: 'none', opacity: '1', visibility: 'visible',
-      margin: '0', width: '100%', height: '100%', boxSizing: 'border-box', color: '#fff', textDecorationColor: '#fff', pointerEvents: 'none',
+      margin: '0', width: '100%', height: '100%', boxSizing: 'border-box', color: 'var(--bg)', textDecorationColor: 'var(--bg)', pointerEvents: 'none',
     });
     layer.replaceChildren(clone);
+    layer.dataset.box = box(source);
     Object.assign(layer.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
     // Inline text lays out its line box differently once it stands alone, so line the clone's
     // content up with the original's.
     const from = contentRect(clone);
-    const to = contentRect(element);
+    const to = contentRect(source);
     clone.style.translate = `${to.left - from.left}px ${to.top - from.top}px`;
     mouse.left = rect.left;
     mouse.top = rect.top;
@@ -196,8 +214,9 @@ function createBubble(options: BubbleOptions) {
   // own transitions run inside the dot as they do on the page. Returns false if it needs a rebuild.
   function syncClone(element: HTMLElement) {
     const clone = layer.firstElementChild;
-    if (!clone || clone.textContent !== element.textContent) return false;
-    const from = element.querySelectorAll('*');
+    const original = copied(element);
+    if (!clone || original !== source || clone.textContent !== original.textContent) return false;
+    const from = original.querySelectorAll('*');
     const to = clone.querySelectorAll('*');
     if (from.length !== to.length) return false;
     from.forEach((node, index) => {
@@ -778,7 +797,7 @@ function App(props: { band: Band }) {
           its symbol on the player. */}
       <div class="transport" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} style={{ top: transportTop() === null ? undefined : `${transportTop()}px` }}
         role="group" aria-label="Player" inert={seated() ? undefined : true} {...cursor.surface}>
-        <div class="transport-buttons">
+        <div class="transport-buttons" data-bubble-group>
           <For each={PLAYER_BUTTONS}>{(kind) => (
             <button class="transport-button" classList={{ 'is-pressed': pressed() === kind, 'has-bubble': canBubble }} type="button" ref={(element) => { if (kind === 'play') playButton = element; }}
               aria-label={BUTTON_NAMES[kind]} disabled={!previews.playable()} onClick={() => scene?.pressButton(kind)} {...lightOnFocus(kind)} {...cursor.button}>

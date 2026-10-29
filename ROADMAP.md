@@ -36,7 +36,8 @@ half-height up) and larger (`playerScale` 0.5 to 0.7, about the open case's heig
   so the player's own buttons move too; keyboard focus on one lights its symbol (`focusButton`). They replace the
   invisible stand-ins laid over the 3D buttons (`PlayerControls`, `playerButtonRect`, removed).
   It fades in once the disc has landed (1.7 s), as the tracklist did. Tuned after review: 13 px
-  symbols, 12 px apart, 40% opacity (full on hover or keyboard focus), and 20 px under the
+  symbols, 12 px apart, the row one 40% see-through layer (full while a button has a keyboard
+  focus ring; per-button fades left half-faded symbols round the dot on a quick sweep), and 20 px under the
   player's lowest edge, which the scene measures (`playerBottom()`, the player at rest in the
   player-view camera) when the view starts and after a resize; a fixed CSS offset could not follow
   the player, which scales with the height on wide screens and with the width on narrow ones.
@@ -64,6 +65,14 @@ half-height up) and larger (`playerScale` 0.5 to 0.7, about the open case's heig
   buttons now touch (padding 8 px 15 px, same symbol spacing) and the row is a bubble surface.
   Checked by sweeping the pointer across the row a pixel at a time: no system cursor, the dot
   always shown and the right size.
+- **The dot shows the whole transport row**: moving slowly right to left across the row still
+  left a neighbouring symbol half under the dot in its own colour, since each button had its own
+  clone and the symbols sit closer together than the dot is wide. The row is now a bubble group
+  (`data-bubble-group`): hovering any of its buttons clones the whole row once, and moving along
+  it keeps that clone, so every symbol under the dot shows in beige, whichever way the pointer
+  goes. Per-button changes (the press dip) are still mirrored into the clone.
+- **Hovered text and icons are the page beige** (`--bg`), not white: the clone inside the dot, the
+  bubble's label and the tag.
 - **Bubble clone in step with the dot.** Moving fast between the small transport buttons showed a
   symbol half white: the clone's clipping circle grew on its own easing while the dot grew on its
   CSS transition. The circle's radius is now read from the dot's rendered size every frame while
