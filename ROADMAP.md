@@ -65,6 +65,12 @@ cleanup throughout), and its router now holds the page's state.
   read as the gallery resetting itself in view. A first version also left each case where it was
   (cases ease toward their place), so the old open case visibly shrank into the new intro;
   `restart()` now marks every case unplaced so it starts where the intro starts.
+- **Back is now Close or Eject**: the top-left button says what it does, in the words the bubble
+  already uses over the scene: "Close" on an open case (back to the row), "Eject" in the player
+  (the disc back to its case), without the arrow "Back" had, since the word says it. The word changes as the disc goes in or out, fading
+  out and in over 0.2 s like the caption. "Back" didn't say where it went. Elsewhere in this file
+  "Back" still names this button. It and GitHub now only fade in and out; they used to slide 8 px
+  in from the left as well, the only slide among the page's controls.
 - **No input during a view change**: while the intro or a jump plays, a case opens or closes, or
   the disc goes into the player or back (`viewBusy()`, reported as `busy` with the pointer state),
   Back, Escape, Enter, Space, the wordmark, the caption, Booklet, Listen, clicks and drags on the

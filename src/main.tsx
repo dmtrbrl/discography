@@ -769,7 +769,29 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     requestAnimationFrame(focusCaption);
   }, { defer: true }));
 
-  // Back: from the player to the open case, from the open case to the row.
+  // The corner button says what it does, in the words the bubble uses over the scene: Close on an
+  // open case (back to the row), Eject in the player (the disc back to its case). When it changes
+  // in view, the old word fades out first.
+  const [backLabel, setBackLabel] = createSignal<'Close' | 'Eject'>(props.link.mode === 'listen' ? 'Eject' : 'Close');
+  const [backSwitching, setBackSwitching] = createSignal(false);
+  let backTimer = 0;
+  createEffect(on(listening, (listen) => {
+    const label = listen ? 'Eject' : 'Close';
+    clearTimeout(backTimer);
+    if (reducedMotion || pointer().opened < 0 || label === backLabel()) {
+      setBackLabel(label);
+      setBackSwitching(false);
+      return;
+    }
+    setBackSwitching(true);
+    backTimer = window.setTimeout(() => {
+      setBackLabel(label);
+      setBackSwitching(false);
+    }, 200);
+  }, { defer: true }));
+  onCleanup(() => clearTimeout(backTimer));
+
+  // The corner button (Close or Eject): from the player to the open case, from the open case to the row.
   function back() {
     if (busy()) return;
     if (listening()) scene?.eject();
@@ -870,7 +892,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
         </Show>
       </header>
       <button class="corner-button back-button" classList={{ 'is-shown': pointer().opened >= 0 && !leaving(), 'has-bubble': canBubble }} type="button" ref={backButton} onFocus={() => { backByKeyboard = backButton.matches(':focus-visible'); }} onClick={back} tabIndex={pointer().opened >= 0 ? 0 : -1} aria-hidden={pointer().opened < 0} {...cursor.button}>
-        <span aria-hidden="true">←</span> Back
+        <span class="back-label" classList={{ 'is-switching': backSwitching() }}>{backLabel()}</span>
       </button>
       <a class="corner-button github-link" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} href={repository} target="_blank" rel="noopener" {...cursor.button}>GitHub</a>
       {cursor.view()}
