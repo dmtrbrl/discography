@@ -512,6 +512,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   const { albums, theme } = props.band;
   let stage!: HTMLDivElement;
   let scene: GalleryScene | undefined;
+  let removeDevSpeed: (() => void) | undefined;
   // A link can name the album in front and its view; without one the row starts at the first.
   const indexOf = (album: string | null) => Math.max(0, albums.findIndex((item) => item.id === album));
   let linked = props.link;
@@ -955,11 +956,19 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
         if (reducedMotion) reveal();
       },
     });
-    // The dev server hands the scene to scripted checks (the insert path test in ROADMAP.md).
-    if (import.meta.env.DEV) Object.assign(window, { scene });
+    // The dev server hands the scene to scripted checks (the insert path test in ROADMAP.md), and
+    // shows a slow motion control for its animations.
+    if (import.meta.env.DEV) {
+      Object.assign(window, { scene });
+      const shown = scene;
+      import('./devSpeed').then(({ mountDevSpeed }) => {
+        if (scene === shown) removeDevSpeed = mountDevSpeed(shown);
+      });
+    }
     window.addEventListener('keydown', onKeyDown);
   });
   onCleanup(() => {
+    removeDevSpeed?.();
     clearTimeout(captionTimer);
     cancelAnimationFrame(percentRaf);
     window.removeEventListener('keydown', onKeyDown);

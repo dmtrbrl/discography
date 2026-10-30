@@ -81,8 +81,10 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
    }
    // The stored stack can exceed reading size on short screens. Check the zoom once
    // extraction is complete; resizing the paper still under the holders would break its fit.
-   // Release is geometric, independent of the paper's (now constant) depth multiplier.
-   if(item.bend.value.x+item.bend.value.y-1>=14/60) heights.push(frameHigh-frameLow);
+   // Release is geometric, independent of the paper's (now constant) depth multiplier. The fit
+   // comes in over 140 mm once the booklet starts round the cylinder (bookletTurnFrom, some 34 mm
+   // after release), so check from 175 mm released.
+   if(item.bend.value.x+item.bend.value.y-1>=175/60) heights.push(frameHigh-frameLow);
    if(t>=0.72){
     landingY.push(projected.copy(item.booklet.position).project(s.camera).y);
     normal.set(0,0,1).applyQuaternion(item.booklet.quaternion);
@@ -96,6 +98,8 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   const reversal=values=>{const direction=Math.sign(values.at(-1)-values[0]);let worst=0;for(let i=1;i<values.length;i++)worst=Math.max(worst,-direction*(values[i]-values[i-1]));return worst;};
   const maxAngleError=reversal(angles);
   const handoffScaleError=Math.abs(item.booklet.scale.x-s.bookletRig.scale.x/2);
+  // The whole pose, not only its pitch: a phone's case turned 35 degrees once survived to the landing.
+  const handoffTurn=item.booklet.quaternion.angleTo(s.bookletRig.quaternion);
   const landingDrift=reversal(landingY);
   for(let n=200;n>=0;n--){
    s.read=n/200;s.updatePlayer(0);s.updateBooklet(0);
@@ -115,12 +119,14 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   const constantCaseDepth=casePath.every(p=>Math.abs(p[0])<1e-12&&Math.abs(p[2])<1e-12);
   spineDepths.sort((a,b)=>a-b);
   const minSpineGap=Math.min(...spineDepths.slice(1).map((z,i)=>z-spineDepths[i]));
-  return {maxZoomRatio,maxAngleError,handoffScaleError,landingDrift,lidHits,lidExample,tabs,tabSamples,worstTray,insideRange,flatError,rollSag,steadyCase,reverseError,constantCaseDepth,minSpineGap,pause,pauseAt,speedProfile:speeds.filter((_,i)=>i%10===0).map(v=>+v.toFixed(1))};
+  return {maxZoomRatio,maxAngleError,handoffScaleError,handoffTurn,landingDrift,lidHits,lidExample,tabs,tabSamples,worstTray,insideRange,flatError,rollSag,steadyCase,reverseError,constantCaseDepth,minSpineGap,pause,pauseAt,speedProfile:speeds.filter((_,i)=>i%10===0).map(v=>+v.toFixed(1))};
  });
+ console.log(`${width} × ${height}: pause ${(result.pause*100).toFixed(1)}% at ${result.pauseAt}, speed px/step ${result.speedProfile.join(' ')}`);
  assert.ok(result.minSpineGap>1e-5,`Sheets have distinct depths at the spine instead of overlapping: ${result.minSpineGap}`);
  assert.ok(result.landingDrift<0.001,`The landing does not dip and rise: ${result.landingDrift}`);
  assert.ok(result.maxZoomRatio<1.01,`No oversized zoom before landing: ${result.maxZoomRatio}`);
  assert.ok(result.maxAngleError<0.5,`No flatten-then-tilt during landing: ${result.maxAngleError}`);
+ assert.ok(result.handoffTurn<1e-4,`The booklet lands in the reader's pose: ${result.handoffTurn} rad off`);
  assert.ok(result.handoffScaleError<1e-6,`No size change at reader handoff: ${result.handoffScaleError}`);
  assert.ok(result.constantCaseDepth,'The box stays at constant depth without zooming');
  assert.ok(result.steadyCase,'The case pans upward without direction reversals');
@@ -131,7 +137,6 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
  assert.ok(result.insideRange.low>=2.39 && result.insideRange.high<3.7,'The formed resting stack fits inside the lid');
  assert.ok(result.flatError<1e-5,'Fully unrolled sheets match the reader geometry without a swap or snap');
  assert.ok(result.rollSag>5,'The paper itself curves around the roll during extraction');
- console.log(`${width} × ${height}: pause ${(result.pause*100).toFixed(1)}% at ${result.pauseAt}, speed px/step ${result.speedProfile.join(' ')}`);
  console.log(`${width} × ${height}: steady case, landing reversal ${result.landingDrift.toExponential(1)} / ${result.maxAngleError.toFixed(3)}°, no lid/holder/tray intersections; ${result.rollSag.toFixed(1)} mm bend, zoom ratio ${result.maxZoomRatio.toFixed(4)}, angle variation ${result.maxAngleError.toFixed(3)}°, flat handoff error ${result.flatError}`);
  await page.close();
 }

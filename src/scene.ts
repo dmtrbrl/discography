@@ -57,7 +57,7 @@ const C = {
   // caption, so the picture is raised rowRaiseShort px (the row) or openRaiseShort px (an open case)
   // to leave the same gap above the front case as below it (setLens).
   openDuration: 1.3, lidOpenAngle: 180, lidOpenAngleNarrow: 110, narrowWidth: 650, openFitPadding: 32,
-  shortHeight: 500, openFitShortMargin: 72, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
+  shortHeight: 500, openFitShortMargin: 100, openTilt: 24, openScale: 0.62, openForward: 0.3, openSpread: 5, openRecede: 1.6,
   rowRaiseShort: 10, openRaiseShort: 17,
   // hGap spaces the row; on screens narrowWidth px wide or less, hGapNarrow of it, so the
   // neighbours show beside the front case rather than at the screen's edges.
@@ -138,18 +138,25 @@ const C = {
   // fades the gallery out meanwhile, and in again with the intro), then the intro plays into the new
   // view (show()). The cases don't shrink back first: seen, that read as the gallery resetting.
   leaveDuration: 0.6, leaveDrop: 4.4,
-  // Pull the same page stack over a cylinder beside the spine. Each point follows the
-  // straight entry, circular surface and straight exit, so the bend travels through the paper.
-  // The travel follows a bookletRollDiameter mm cylinder (two closed case widths); the paper
-  // itself curls bookletBendAngle degrees across its width, independently of that. It first lifts
-  // into a bookletEntrySpan mm, bookletEntryAngle degree bend beside the holders. On phones the
+  // Take the page stack out as by hand: from the holders it rises on an arc that eases, first
+  // bookletEntrySpan mm to bookletEntryAngle degrees, steep enough to clear the hinge strip beside
+  // it, then bookletLiftRun mm on a bookletLiftRadius mm arc (one gentle arc reached the strip,
+  // and a straight line after the bend read as one angle), then goes round a big cylinder, its axis
+  // along the spine, bookletCylinder mm in radius (more than the booklet is wide). Each point
+  // follows that path, so the paper bends round the cylinder and the whole booklet goes round its
+  // axis, not its own centre. Its centre starts round the cylinder some 30 mm after the paper
+  // leaves the holders (bookletTurnFrom), past the hinge pins, and from there its pose changes
+  // once, smoothly, to the reader's: from lying tilted in the open case to flat, growing to reading
+  // size, and shifting so the way round ends at the reader's centre (the case leaves upward on
+  // its own). On phones the
   // paper leaves the other way, fore-edge first over the open edge of the partly open lid (over
-  // the hinge it ran into the raised disc half), bending bookletEntryAngleNarrow degrees to rise
-  // over the lid's stops, round a wider bookletRollDiameterNarrow mm cylinder; it may leave the
-  // screen on the way. The roll takes bookletRollUntil of the way, eased by a smootherstep
-  // (bookletEase: 0 linear, 1 full); the paper's bend relaxes as it is carried, so it lands flat.
-  // Once the trailing edge is
-  // free, it is carried to the reader from bookletCarryFrom to bookletCarryUntil of the way, and
+  // the hinge it ran into the raised disc half), bent bookletEntryAngleNarrow degrees over
+  // bookletEntrySpanNarrow mm to rise over the lid's stops at once, then on for
+  // bookletLiftRunNarrow mm on a gentle bookletLiftRadiusNarrow mm arc (straight, it read as one
+  // angle), and round a wider, bookletCylinderNarrow mm cylinder, off the screen's side on the way.
+  // The roll takes bookletRollUntil of the way, eased by a smootherstep
+  // (bookletEase: 0 linear, 1 full); free, it eases to a stop on the cylinder's line nearest the
+  // camera as it lands, and
   // the row pans away as for the player, no earlier than bookletPanFrom. Carrying and settling
   // overlap the roll; there is no rigid flip. In flight it is kept bookletFlightMargin px
   // (bookletFlightMarginShort on short screens) inside the screen's top and bottom, counting
@@ -162,9 +169,11 @@ const C = {
   // height (one page at a time on screens narrowWidth px wide or less, bookletFitNarrow of the
   // width). It stays on the cover until a page is turned; the spread then glides to stay
   // centred as it opens and closes (bookletCentreFollow, a rate a second).
-  readDuration: 2.4, unreadDuration: 1.9, bookletRollDiameter: 284, bookletRollDiameterNarrow: 720, bookletBendAngle: 75,
-  bookletEntrySpan: 14, bookletEntryAngle: 22, bookletEntryAngleNarrow: 40,
-  bookletRollUntil: 1, bookletEase: 1, bookletCarryFrom: 0.36, bookletCarryUntil: 0.7,
+  readDuration: 2.4, unreadDuration: 1.9, bookletCylinder: 100, bookletCylinderNarrow: 150,
+  bookletEntrySpan: 25, bookletEntryAngle: 28, bookletLiftRun: 69, bookletLiftRadius: 400,
+  bookletEntrySpanNarrow: 14, bookletEntryAngleNarrow: 40, bookletLiftRunNarrow: 110, bookletLiftRadiusNarrow: 200,
+  bookletFrameSpan: 140, bookletLipSteep: 10, bookletLevelUntil: 0.7,
+  bookletRollUntil: 1, bookletEase: 1,
   bookletPanFrom: 0.4,
   bookletFlightMargin: 64, bookletFlightMarginShort: 44, bookletFlightDepth: 6, bookletClearance: 1, bookletClearanceApron: 10,
   bookletTilt: 0, bookletRaise: 0.03,
@@ -417,7 +426,7 @@ const BOOKLET_SCRATCH = {
   restPosition: new THREE.Vector3(), restQuaternion: new THREE.Quaternion(), restScale: new THREE.Vector3(),
   readPosition: new THREE.Vector3(), readQuaternion: new THREE.Quaternion(), backUp: new THREE.Quaternion(), turn: new THREE.Quaternion(),
   matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), tilt: new THREE.Vector3(1, 0, 0),
-  centre: new THREE.Vector3(), trajectory: new THREE.Vector3(), point: new THREE.Vector3(), caseMatrix: new THREE.Matrix4(), lidMatrix: new THREE.Matrix4(), bounds: new Float64Array(17 * 9 * 2 * 3), roll: new THREE.Vector4(), ray: new THREE.Ray(),
+  centre: new THREE.Vector3(), normal: new THREE.Vector3(), heading: new THREE.Vector3(), shift: new THREE.Vector3(), untilt: new THREE.Quaternion(), still: new THREE.Quaternion(), point: new THREE.Vector3(), caseMatrix: new THREE.Matrix4(), lidMatrix: new THREE.Matrix4(), bounds: new Float64Array(17 * 9 * 2 * 3), roll: new THREE.Vector4(), ray: new THREE.Ray(),
 };
 
 // Points over a disc of radius 1 in its plane (rings out to the rim), for keeping it out of the player.
@@ -1476,21 +1485,67 @@ function viewPan(t: number) {
   return ease.power3InOut(clamp((t - C.viewPanFrom) / (C.viewPanUntil - C.viewPanFrom), 0, 1));
 }
 
-// Wait until the trailing edge leaves its holders, then give the case the complete Listen
-// pan interval. Multiplying by the extraction amount used to compress/accelerate that pan.
-function bookletPanStart(lidAngle: number, side: number) {
-  const radius = C.bookletSize * MM / THREE.MathUtils.degToRad(C.bookletBendAngle);
-  const angle = bookletEntryAngle(lidAngle, side);
-  const total = C.bookletEntrySpan * MM + (Math.PI - angle) * radius + C.bookletSize * MM;
-  const inset = (C.lidTabInset - C.lidTabRadius - 1) * MM;
-  const extracted = (C.bookletSize * MM - inset) / total;
+// The point of the way at which `fed` of the roll's whole length has been fed through.
+function bookletFedAt(lidAngle: number, side: number, fed: number) {
+  const total = bookletFrontArc(lidAngle, side) + C.bookletSize * MM;
   let low = 0, high = 1;
   for (let n = 0; n < 20; n++) {
     const middle = (low + high) / 2;
-    if (bookletEase(middle) < extracted) low = middle;
+    if (bookletEase(middle) < fed / total) low = middle;
     else high = middle;
   }
-  return Math.max(C.bookletPanFrom, high * C.bookletRollUntil);
+  return high * C.bookletRollUntil;
+}
+
+// Wait until the booklet starts round the cylinder, out from under the lid, then give the case the
+// complete Listen pan interval. Multiplying by the extraction amount used to compress/accelerate
+// that pan; started as the paper left the holders, the lid's flange rose into its trailing corner.
+function bookletPanStart(lidAngle: number, side: number) {
+  return Math.max(C.bookletPanFrom, bookletFedAt(lidAngle, side, bookletTurnFrom(side)));
+}
+
+// The way out of the holders, in mm: the bend up to the entry angle, and the run after it, on a
+// gentle arc (its turn, radians a scene unit).
+function bookletEntrySpan(side: number) {
+  return side > 0 ? C.bookletEntrySpan : C.bookletEntrySpanNarrow;
+}
+function bookletLiftRun(side: number) {
+  return side > 0 ? C.bookletLiftRun : C.bookletLiftRunNarrow;
+}
+// The cylinder's radius, scene units: wider on phones, where the booklet may leave the screen.
+function bookletCylinder(side: number) {
+  return (side > 0 ? C.bookletCylinder : C.bookletCylinderNarrow) * MM;
+}
+function bookletLiftTurn(side: number) {
+  return 1 / ((side > 0 ? C.bookletLiftRadius : C.bookletLiftRadiusNarrow) * MM);
+}
+
+// The length of the path up to the cylinder's line nearest the camera.
+function bookletFrontArc(lidAngle: number, side: number, radius = bookletCylinder(side)) {
+  const lifted = bookletEntryAngle(lidAngle, side) + bookletLiftRun(side) * MM * bookletLiftTurn(side);
+  return (bookletEntrySpan(side) + bookletLiftRun(side)) * MM + (Math.PI - lifted) * radius;
+}
+
+// How far the paper has been pulled when its centre starts round the cylinder: out of the holders
+// (110 mm) and some 30 mm on, past the hinge pins. The pose change starts there too: started as the
+// paper left the holders, the booklet turned and dropped the moment its edge came free.
+function bookletTurnFrom(side: number) {
+  return (bookletEntrySpan(side) + bookletLiftRun(side) + C.bookletSize / 2 - (C.lidTabInset - C.lidTabRadius - 1)) * MM;
+}
+
+// How far the roll has gone, from the eased feed: exactly that while the paper is held, then
+// easing to a stop (a Hermite curve, monotone) with its centre on the cylinder's line nearest the
+// camera as it lands, the turn done with everything else. Followed on, the centre went off the
+// cylinder along the exit; stopped there sooner, the paper went on unrolling about it after the
+// booklet had stopped, a pause and then more.
+function bookletPlaced(rolled: number, lidAngle: number, side: number) {
+  const inset = (C.lidTabInset - C.lidTabRadius - 1) * MM;
+  const total = bookletFrontArc(lidAngle, side) + C.bookletSize * MM;
+  const held = (C.bookletSize * MM - inset) / total;
+  const front = (bookletFrontArc(lidAngle, side) + C.bookletSize * MM / 2 - inset) / total;
+  if (rolled <= held) return rolled;
+  const u = (rolled - held) / (1 - held);
+  return held + (1 - held) * u * (1 - u) * (1 - u) + (front - held) * u * u * (3 - 2 * u);
 }
 
 function bookletEase(t: number) {
@@ -1499,6 +1554,7 @@ function bookletEase(t: number) {
   const eased = t * t * t * (t * (t * 6 - 15) + 10);
   return t + (eased - t) * C.bookletEase;
 }
+
 // The entry bend beside the holders, in radians. Over the hinge of a partly open case it adds
 // the lid's tilt, to clear the raised disc half; over the open edge it only rises over the stops.
 function bookletEntryAngle(lidAngle: number, side: number) {
@@ -1509,9 +1565,9 @@ function bookletEntryAngle(lidAngle: number, side: number) {
 // side 1 feeds the paper out spine first, over the hinge; -1, the mirror image, fore-edge first
 // over the lid's open edge and its stops.
 // progress: how much of it has been fed through, 0 to 1, already eased.
-function setBookletRoll(progress: number, lidAngle: number, side: number, roll: THREE.Vector4, radius = C.bookletSize * MM / THREE.MathUtils.degToRad(C.bookletBendAngle)) {
+function setBookletRoll(progress: number, lidAngle: number, side: number, roll: THREE.Vector4, radius = bookletCylinder(side)) {
   const angle = bookletEntryAngle(lidAngle, side);
-  const arc = C.bookletEntrySpan * MM + (Math.PI - angle) * radius;
+  const arc = bookletFrontArc(lidAngle, side, radius);
   const feed = (arc + C.bookletSize * MM) * progress;
   const inset = (C.lidTabInset - C.lidTabRadius - 1) * MM;
   const entry = -C.bookletSize * MM / 2 + inset * ease.power3Out(clamp(feed / inset, 0, 1));
@@ -1519,28 +1575,53 @@ function setBookletRoll(progress: number, lidAngle: number, side: number, roll: 
   return Math.max(0, feed + entry - C.bookletSize * MM / 2);
 }
 
-// Bends the booklet along its width, preserving the paper's length and both printed faces.
-// Roll uniform: entry x, distance fed, radius, and the entry angle for a partly open lid. A
-// negative radius mirrors the whole path across the booklet's centre (see setBookletRoll).
-// Both CPU placement and the sheet shader sample this same length-preserving path. The sheet
-// is expressed relative to its centre/tangent so it is flat again at either end of the flight.
+// The roll's path, as how far the paper has turned `feed` along it: flat in the case, its edge
+// lifted the entry angle over bookletEntrySpan, slid out straight for bookletLiftRun with that
+// lift (clear of the tray beside it), then round the cylinder to its line nearest the camera
+// (pi), and straight on. The shader's bookletAngleAt is the same.
+function bookletPathAngle(feed: number, roll: THREE.Vector4) {
+  const side = Math.sign(roll.z), entrySpan = roll.w > 1e-4 ? bookletEntrySpan(side) * MM : 0;
+  const run = entrySpan + bookletLiftRun(side) * MM, turn = bookletLiftTurn(side);
+  if (feed <= 0) return 0;
+  if (feed < entrySpan) return roll.w * feed / entrySpan;
+  if (feed < run) return roll.w + (feed - entrySpan) * turn;
+  return Math.min(Math.PI, roll.w + (run - entrySpan) * turn + (feed - run) / Math.abs(roll.z));
+}
+
+// The paper's direction integrated along the path from 0 to `feed`, its angle less `centre` and
+// scaled by k (see bookletBent): exact, as the paper turns evenly on the arcs and runs straight
+// between them. The shader's bookletAlong is the same.
+function bookletAlong(feed: number, roll: THREE.Vector4, k: number, centre: number, out: THREE.Vector2) {
+  if (feed <= 0) return out.set(Math.cos(-k * centre), Math.sin(-k * centre)).multiplyScalar(feed);
+  const radius = Math.abs(roll.z), side = Math.sign(roll.z), entrySpan = roll.w > 1e-4 ? bookletEntrySpan(side) * MM : 0;
+  const run = entrySpan + bookletLiftRun(side) * MM, turn = bookletLiftTurn(side), lifted = roll.w + (run - entrySpan) * turn;
+  const rounded = run + (Math.PI - lifted) * radius;
+  out.set(0, 0);
+  const piece = (start: number, end: number, angle: number, rate: number) => {
+    if (end <= start) return;
+    const a = k * (angle - centre), b = k * (angle + rate * (end - start) - centre);
+    if (Math.abs(b - a) < 1e-4) out.x += (end - start) * Math.cos((a + b) / 2), out.y += (end - start) * Math.sin((a + b) / 2);
+    else out.x += (end - start) / (b - a) * (Math.sin(b) - Math.sin(a)), out.y += (end - start) / (b - a) * (Math.cos(a) - Math.cos(b));
+  };
+  if (entrySpan > 0) piece(0, Math.min(feed, entrySpan), 0, roll.w / entrySpan);
+  piece(entrySpan, Math.min(feed, run), roll.w, turn);
+  piece(run, Math.min(feed, rounded), lifted, 1 / radius);
+  piece(rounded, feed, Math.PI, 0);
+  return out;
+}
+
+// Where the point of the booklet at x is on the roll's path, in its rest frame: across, out
+// (negative, toward the open case), and its angle. Roll uniform: entry x, distance fed, radius,
+// and the entry angle. A negative radius mirrors the whole path across the booklet's centre (see
+// setBookletRoll). Both CPU placement and the sheet shader sample this same length-preserving
+// path, the shader relative to the booklet's centre (bookletBent).
 function bookletRoll(x: number, roll: THREE.Vector4, result: THREE.Vector3) {
   if (roll.z === 0) return result.set(x, 0, 0);
-  const side = Math.sign(roll.z), radius = Math.abs(roll.z);
-  const feed = roll.x + roll.y - side * x;
-  if (feed <= 0) return result.set(x - side * roll.y, 0, 0);
-  const entrySpan = roll.w > 1e-4 ? C.bookletEntrySpan * MM : 0;
-  const entry = Math.min(feed, entrySpan);
-  const entryRadius = entrySpan > 0 ? entrySpan / roll.w : 0;
-  const entryAngle = entrySpan > 0 ? entry / entryRadius : 0;
-  const angle = Math.min(Math.PI, entryAngle + Math.max(0, feed - entrySpan) / radius);
-  const exit = Math.max(0, feed - entrySpan - (Math.PI - roll.w) * radius);
-  return result.set(
-    side * (roll.x - entryRadius * Math.sin(entryAngle) - radius * (Math.sin(angle) - Math.sin(entryAngle)) + exit),
-    -entryRadius * (1 - Math.cos(entryAngle)) - radius * (Math.cos(entryAngle) - Math.cos(angle)),
-    -side * angle,
-  );
+  const side = Math.sign(roll.z), feed = roll.x + roll.y - side * x;
+  const along = bookletAlong(feed, roll, 1, 0, BENT_SCRATCH.along);
+  return result.set(side * (roll.x - along.x), -along.y, -side * bookletPathAngle(feed, roll));
 }
+
 // LeafThrough's deform hook: it forms each sheet (and its pile gap), then hands us the point to
 // bend in the closed booklet's frame. It applies to the colour and shadow passes alike in both
 // reading layouts, and the library takes normals from the bent shape.
@@ -1551,10 +1632,11 @@ function bookletDeform(bend: THREE.IUniform<THREE.Vector4>, flatten: THREE.IUnif
 uniform vec4 bookletBend;
 uniform float bookletFlatten;
 uniform float bookletTuck;
-float bookletAngleAt(float feed, float entrySpan, float radius) {
+float bookletAngleAt(float feed, float entrySpan, float run, float turn, float radius) {
   if (feed <= 0.0) return 0.0;
   if (feed < entrySpan) return bookletBend.w * feed / entrySpan;
-  return min(PI, bookletBend.w + (feed - entrySpan) / radius);
+  if (feed < run) return bookletBend.w + (feed - entrySpan) * turn;
+  return min(PI, bookletBend.w + (run - entrySpan) * turn + (feed - run) / radius);
 }
 vec2 bookletPiece(float start, float end, float angle, float rate, float k, float centre) {
   if (end <= start) return vec2(0.0);
@@ -1562,23 +1644,26 @@ vec2 bookletPiece(float start, float end, float angle, float rate, float k, floa
   if (abs(b - a) < 1e-4) return (end - start) * vec2(cos((a + b) / 2.0), sin((a + b) / 2.0));
   return (end - start) / (b - a) * vec2(sin(b) - sin(a), cos(a) - cos(b));
 }
-vec2 bookletAlong(float feed, float entrySpan, float radius, float k, float centre) {
+vec2 bookletAlong(float feed, float entrySpan, float run, float turn, float radius, float k, float centre) {
   if (feed <= 0.0) return feed * vec2(cos(-k * centre), sin(-k * centre));
-  float rounded = entrySpan + (PI - bookletBend.w) * radius;
+  float lifted = bookletBend.w + (run - entrySpan) * turn, rounded = run + (PI - lifted) * radius;
   vec2 sum = vec2(0.0);
   if (entrySpan > 0.0) sum += bookletPiece(0.0, min(feed, entrySpan), 0.0, bookletBend.w / entrySpan, k, centre);
-  sum += bookletPiece(entrySpan, min(feed, rounded), bookletBend.w, 1.0 / radius, k, centre);
+  sum += bookletPiece(entrySpan, min(feed, run), bookletBend.w, turn, k, centre);
+  sum += bookletPiece(run, min(feed, rounded), lifted, 1.0 / radius, k, centre);
   return sum + bookletPiece(rounded, feed, PI, 0.0, k, centre);
 }
 // As bookletBent on the CPU.
 vec3 bookletBent(float x) {
   if (bookletBend.z == 0.0) return vec3(x, 0.0, 0.0);
   float side = sign(bookletBend.z), radius = abs(bookletBend.z), k = 1.0 - bookletFlatten;
-  float entrySpan = bookletBend.w > 1e-4 ? ${C.bookletEntrySpan * MM} : 0.0;
+  float entrySpan = bookletBend.w > 1e-4 ? (side > 0.0 ? ${C.bookletEntrySpan * MM} : ${C.bookletEntrySpanNarrow * MM}) : 0.0;
+  float run = entrySpan + (side > 0.0 ? ${C.bookletLiftRun * MM} : ${C.bookletLiftRunNarrow * MM});
+  float turn = side > 0.0 ? ${1 / (C.bookletLiftRadius * MM)} : ${1 / (C.bookletLiftRadiusNarrow * MM)};
   float centreFeed = bookletBend.x + bookletBend.y, feed = centreFeed - side * x;
-  float centre = bookletAngleAt(centreFeed, entrySpan, radius);
-  vec2 delta = bookletAlong(feed, entrySpan, radius, k, centre) - bookletAlong(centreFeed, entrySpan, radius, k, centre);
-  return vec3(-side * delta.x, -delta.y, -side * k * (bookletAngleAt(feed, entrySpan, radius) - centre));
+  float centre = bookletAngleAt(centreFeed, entrySpan, run, turn, radius);
+  vec2 delta = bookletAlong(feed, entrySpan, run, turn, radius, k, centre) - bookletAlong(centreFeed, entrySpan, run, turn, radius, k, centre);
+  return vec3(-side * delta.x, -delta.y, -side * k * (bookletAngleAt(feed, entrySpan, run, turn, radius) - centre));
 }
 // From page units to the closed booklet's millimetre frame, bent, and back.
 vec3 deformSheet(vec3 p, vec2 uv) {
@@ -1597,33 +1682,14 @@ vec3 deformSheet(vec3 p, vec2 uv) {
 // The paper at x as the roll bends it, relative to its centre and the centre's tangent: along
 // that tangent, out from it, and its angle (the shader's bookletBent is the same). flatten (0 to 1)
 // relaxes the bend: every angle along the paper from its centre is scaled by 1 - flatten, which
-// keeps its length, so at 1 it lies flat wherever it is on the roll. The paper turns evenly on the
-// roll's two arcs and runs straight before and after them, so its direction integrates exactly.
+// keeps its length, so at 1 it lies flat wherever it is on the roll.
 function bookletBent(x: number, roll: THREE.Vector4, flatten: number, result: THREE.Vector3) {
   if (roll.z === 0) return result.set(x, 0, 0);
-  const side = Math.sign(roll.z), radius = Math.abs(roll.z), k = 1 - flatten;
-  const entrySpan = roll.w > 1e-4 ? C.bookletEntrySpan * MM : 0;
-  const rounded = entrySpan + (Math.PI - roll.w) * radius;
-  const angleAt = (feed: number) => feed <= 0 ? 0
-    : feed < entrySpan ? roll.w * feed / entrySpan : Math.min(Math.PI, roll.w + (feed - entrySpan) / radius);
-  const centreFeed = roll.x + roll.y, feed = centreFeed - side * x, centre = angleAt(centreFeed);
-  const along = (feed: number, out: THREE.Vector2) => {
-    if (feed <= 0) return out.set(Math.cos(-k * centre), Math.sin(-k * centre)).multiplyScalar(feed);
-    out.set(0, 0);
-    const piece = (start: number, end: number, angle: number, rate: number) => {
-      if (end <= start) return;
-      const a = k * (angle - centre), b = k * (angle + rate * (end - start) - centre);
-      if (Math.abs(b - a) < 1e-4) out.x += (end - start) * Math.cos((a + b) / 2), out.y += (end - start) * Math.sin((a + b) / 2);
-      else out.x += (end - start) / (b - a) * (Math.sin(b) - Math.sin(a)), out.y += (end - start) / (b - a) * (Math.cos(a) - Math.cos(b));
-    };
-    if (entrySpan > 0) piece(0, Math.min(feed, entrySpan), 0, roll.w / entrySpan);
-    piece(entrySpan, Math.min(feed, rounded), roll.w, 1 / radius);
-    piece(rounded, feed, Math.PI, 0);
-    return out;
-  };
+  const side = Math.sign(roll.z), k = 1 - flatten;
+  const centreFeed = roll.x + roll.y, feed = centreFeed - side * x, centre = bookletPathAngle(centreFeed, roll);
   const { along: at, alongCentre } = BENT_SCRATCH;
-  along(feed, at).sub(along(centreFeed, alongCentre));
-  return result.set(-side * at.x, -at.y, -side * k * (angleAt(feed) - centre));
+  bookletAlong(feed, roll, k, centre, at).sub(bookletAlong(centreFeed, roll, k, centre, alongCentre));
+  return result.set(-side * at.x, -at.y, -side * k * (bookletPathAngle(feed, roll) - centre));
 }
 const BENT_SCRATCH = { along: new THREE.Vector2(), alongCentre: new THREE.Vector2() };
 
@@ -2408,6 +2474,10 @@ export class GalleryScene {
   // The booklet view. Not private: its tween animates it through tween(), which takes a plain
   // object. 0 is the booklet in its lid, 1 out in the middle of the screen.
   read = 0;
+  // How fast the scene's time runs, 1 normal: the dev server's slow motion control sets it.
+  timeScale = 1;
+  // For that control's readout: how long the booklet takes to come out and to go back, at 1×.
+  readonly bookletDurations = { open: C.readDuration, close: C.unreadDuration };
   private readTween: Tween | null = null;
   // The case whose booklet is out of it (from openBooklet() until it is back in the lid), and whether the
   // booklet view is wanted (from openBooklet() until closeBooklet()).
@@ -3840,7 +3910,7 @@ export class GalleryScene {
   private frame(now: number) {
     this.raf = 0;
     const interval = Math.max(0, now - this.lastTime) / 1000;
-    const dt = Math.min(0.05, interval);
+    const dt = Math.min(0.05, interval) * this.timeScale;
     this.trackFrameTime(interval);
     const frames = Math.min(3, dt * 60);
     this.lastTime = now;
@@ -4021,7 +4091,7 @@ export class GalleryScene {
     }
     const t = this.read;
     item.bookletTuck.value = 1 - ease.power3InOut(clamp(t / C.bookletTuckUntil, 0, 1));
-    const { restPosition, restQuaternion, restScale, readPosition, readQuaternion, backUp, turn, matrix, axis, tilt, centre, trajectory, roll } = BOOKLET_SCRATCH;
+    const { restPosition, restQuaternion, restScale, readPosition, readQuaternion, backUp, turn, matrix, axis, tilt, centre, roll, shift, untilt, still, heading } = BOOKLET_SCRATCH;
     // The reader keeps the same camera as Listen. Account for its raised viewpoint during
     // the roll, keeping the intended reading height and angle without a second camera move.
     const halfHeight = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.position.z;
@@ -4044,37 +4114,71 @@ export class GalleryScene {
       const phase = (from: number, to: number) => clamp((t - from) / (to - from), 0, 1);
       // Material feeds through a fixed cylindrical path. Moving the centre alone would leave
       // the stack rigid: the vertex shader wraps each sheet point and turns its normal with it.
-      const rolled = bookletEase(clamp(t / C.bookletRollUntil, 0, 1));
-      const released = setBookletRoll(rolled, this.lidAngle, this.bookletSide, item.bend.value);
-      // The paper's curl and the hand's travel are independent: a 75-degree bend can follow
-      // the same broad trajectory without tightening the whole movement around the case.
-      setBookletRoll(rolled, this.lidAngle, this.bookletSide, roll, (this.bookletSide > 0 ? C.bookletRollDiameter : C.bookletRollDiameterNarrow) * MM / 2);
-      bookletRoll(0, roll, trajectory);
-      // Start carrying once the trailing edge clears the holders. The paper's own resting
-      // curve stays unchanged throughout extraction and reading.
-      const free = ease.power3InOut(clamp(released / (C.bookletEntrySpan * MM), 0, 1));
-      const carry = free * bookletEase(phase(C.bookletCarryFrom, C.bookletCarryUntil));
-      // The bend relaxes as the paper is carried, so it lands flat rather than straightening in
-      // place. Its centre, and so the whole motion, is the same: only the curl eases out. (Ending
-      // the roll sooner, or carrying for longer, gave the paper its own peak of speed and a pause.)
-      item.bookletFlatten.value = carry;
+      const rolled = bookletPlaced(bookletEase(clamp(t / C.bookletRollUntil, 0, 1)), this.lidAngle, this.bookletSide);
+      setBookletRoll(rolled, this.lidAngle, this.bookletSide, item.bend.value);
+      // Going round the cylinder, the booklet follows its own paper: placed and turned by its
+      // centre on the cylinder, not by a separate path.
       bookletRoll(0, item.bend.value, centre);
-      // Retained paper must follow its own bend. Blend in the wider travel only during
-      // carry, after it has cleared the holders, rather than offsetting the trapped stack.
-      trajectory.lerp(centre, 1 - carry);
-      axis.set(trajectory.x, 0, trajectory.y).applyQuaternion(restQuaternion);
-      restPosition.addScaledVector(axis, restScale.x);
-      booklet.position.lerpVectors(restPosition, readPosition, carry);
+      // One change of pose, eased over the whole flight from the release: the tilt, from lying in
+      // the open case in perspective to flat in the reader; the size; and a shift that brings the
+      // end of the way round to the reader's centre. The way round is a cylinder lying on the
+      // case, its axis along the spine, and stays one: turning that axis upright as the booklet
+      // went round made a cone of it, and the booklet's tilt changed more than once.
+      const settle = bookletEase(phase(bookletFedAt(this.lidAngle, this.bookletSide, bookletTurnFrom(this.bookletSide)), 1));
+      // The paper straightens with the same change, and lands flat. (Straightening from the
+      // cylinder's front on peaked after the booklet had stopped there: a pause, then more.)
+      item.bookletFlatten.value = settle * settle;
+      // Where the way round ends in the case's frame, and so the shift that lands it on the
+      // reader's centre (across and in depth; the height is the screen's, below).
+      const natural = (time: number, out: THREE.Vector3) => {
+        const progress = bookletPlaced(bookletEase(clamp(time / C.bookletRollUntil, 0, 1)), this.lidAngle, this.bookletSide);
+        setBookletRoll(progress, this.lidAngle, this.bookletSide, roll);
+        bookletRoll(0, roll, out);
+        return out.set(out.x, 0, out.y).applyQuaternion(restQuaternion).multiplyScalar(restScale.x).add(restPosition);
+      };
+      natural(1, shift).sub(readPosition).negate();
+      const placed = centre;
+      axis.set(placed.x, 0, placed.y).applyQuaternion(restQuaternion).multiplyScalar(restScale.x);
+      // The fit to the screen comes in once the booklet is out from under the lid and going round:
+      // started as the paper left the holders, it moved the paper still between the lid's lips.
+      const framed = ease.power3InOut(clamp((item.bend.value.y - bookletTurnFrom(this.bookletSide)) / (C.bookletFrameSpan * MM), 0, 1));
+      booklet.position.copy(restPosition).add(axis);
+      booklet.position.x += shift.x * settle;
+      booklet.position.z += shift.z * settle;
+      // The height on screen is one smooth curve. Pulled out, the booklet rises over the case as it
+      // lifts off the tilted lid; from where it starts round the cylinder (when the case's pan, and
+      // the lens with it, start), its height on screen carries on at the speed it had and eases
+      // into the reader's by bookletLevelUntil (a Hermite curve). Made of the rise, the levelling,
+      // the shift and the perspective of coming toward the camera, each with its own easing, it
+      // went in steps, up and down twice.
+      const turnAt = bookletFedAt(this.lidAngle, this.bookletSide, bookletTurnFrom(this.bookletSide));
+      if (t > turnAt) {
+        const lens = this.lens, lensRise = this.lensRise;
+        this.setLens(0);
+        this.camera.updateMatrixWorld();
+        const step = 0.005;
+        const from = natural(turnAt, heading).project(this.camera).y;
+        const before = natural(turnAt - step, heading).project(this.camera).y;
+        this.setLens(lens, lensRise);
+        this.camera.updateMatrixWorld();
+        const span = C.bookletLevelUntil - turnAt, u = clamp((t - turnAt) / span, 0, 1);
+        const to = heading.copy(readPosition).project(this.camera).y;
+        const target = (2 * u ** 3 - 3 * u ** 2 + 1) * from + (u ** 3 - 2 * u ** 2 + u) * (from - before) / step * span
+          + (3 * u ** 2 - 2 * u ** 3) * to;
+        const now = heading.copy(booklet.position).project(this.camera).y;
+        booklet.position.y += (target - now) * (this.camera.position.z - booklet.position.z) / this.camera.projectionMatrix.elements[5];
+      }
       booklet.position.y -= drop;
-      // Account for the centre's tangent while the shader handles curvature about that centre.
-      // The final tangent is -pi; the backing pose cancels it to leave the front cover facing us.
+      // Turned about its spine by the centre's tangent, the shader bending the paper about that
+      // centre; the case's pose turns into the reader's on top of that. The final tangent is -pi;
+      // the backing pose cancels it to leave the front cover facing us.
       axis.set(0, 1, 0);
       backUp.setFromAxisAngle(axis, Math.PI).premultiply(readQuaternion);
-      booklet.quaternion.slerpQuaternions(restQuaternion, backUp, carry)
-        .multiply(turn.setFromAxisAngle(axis, centre.z));
-      // Reach reading size while the paper is still rolling, with no zoom after the turn.
-      booklet.scale.setScalar(restScale.x + (size / (C.bookletSize * MM) - restScale.x) * carry);
-      this.frameFlyingBooklet(item, free, carry);
+      untilt.copy(restQuaternion).invert().premultiply(backUp);
+      still.identity().slerp(untilt, settle);
+      booklet.quaternion.copy(restQuaternion).multiply(turn.setFromAxisAngle(axis, centre.z)).premultiply(still);
+      booklet.scale.setScalar(restScale.x + (size / (C.bookletSize * MM) - restScale.x) * settle);
+      this.frameFlyingBooklet(item, framed);
       seatInBooklet(item.bookletModel);
     }
 
@@ -4111,16 +4215,20 @@ export class GalleryScene {
 
   // Frame the curved paper and keep it above the case. Fit by adjusting the paper's scale,
   // never by pushing it back through the tray. The case itself keeps its upward-only pan.
-  private frameFlyingBooklet(item: JewelCase, free: number, carry: number) {
+  // `free` (0 to 1) brings in the fit to the screen and the envelope for the stack's bulge over
+  // bookletFrameSpan mm once the booklet is out from under the lid. On short screens and phones the
+  // stored booklet shows larger than it lands, and the envelope lay below the paper: in at once,
+  // they jumped it 6 to 37 px in one frame. Clearance of the paper itself applies in full.
+  private frameFlyingBooklet(item: JewelCase, free: number) {
     if (free === 0) return;
     const { booklet, bend: { value: roll } } = item;
-    const { point, paper, matrix, caseMatrix, lidMatrix, bounds } = BOOKLET_SCRATCH;
+    const { point, paper, matrix, caseMatrix, lidMatrix, bounds, normal } = BOOKLET_SCRATCH;
     let count = 0;
     for (let n = 0; n <= 16; n++) {
       bookletBent((n / 16 - 0.5) * C.bookletSize * MM, roll, item.bookletFlatten.value, point);
       const bx = point.x, bz = point.y, angle = point.z;
       for (let m = 0; m <= 8; m++) for (const side of [-1, 1]) {
-        const z = side * C.bookletFlightDepth * MM;
+        const z = side * C.bookletFlightDepth * MM * free;
         bounds[count++] = bx + Math.sin(angle) * z;
         bounds[count++] = (m / 8 - 0.5) * C.bookletSize * MM;
         bounds[count++] = bz + Math.cos(angle) * z;
@@ -4158,19 +4266,13 @@ export class GalleryScene {
     item.lid.updateWorldMatrix(true, false);
     lidMatrix.copy(item.lid.matrixWorld).invert();
     const apron = C.bookletClearanceApron * MM;
-    const surface = (Math.max(CASE.trayFront + 2.5, CASE.disc + C.discThickness / MM / 2) + C.bookletClearance) * MM;
+    // The clearance margin comes in with the fit; the paper never goes into the plastic. Kept at
+    // once, the margin lifted the paper in one frame as it left the holders.
+    const spare = C.bookletClearance * MM * free;
+    const surface = Math.max(CASE.trayFront + 2.5, CASE.disc + C.discThickness / MM / 2) * MM + spare;
     // Alternate framing and clearance. Both use the same formed-paper bounds; a correction
     // to one cannot silently invalidate the other. There is no state carried between frames.
-    let appliedY = 0;
-    const landingY = BOOKLET_SCRATCH.readPosition.y;
-    const verticalCorrection = () => carry * (this.camera.position.y - landingY)
-      * booklet.position.z / this.camera.position.z;
     for (let pass = 0; pass < 8; pass++) {
-      // A forward lift under the elevated camera also projects downward. Compensate at
-      // the paper's actual depth so it approaches the reading position without dipping.
-      const y = verticalCorrection();
-      booklet.position.y += y - appliedY;
-      appliedY = y;
       matrix.compose(booklet.position, booklet.quaternion, booklet.scale);
       let lower = -Infinity, upper = Infinity, projectedLow = Infinity, projectedHigh = -Infinity;
       for (let i = 0; i < count; i += 3) {
@@ -4188,16 +4290,14 @@ export class GalleryScene {
       }
       const distance = this.camera.position.z - booklet.position.z;
       const back = Math.max(0, (lower - upper) / ((top - bottom) * tan));
-      const fit = Math.min(distance / (distance + back), maxSpan / (projectedHigh - projectedLow), 1);
-      const topAtCentre = top * distance * tan - (booklet.position.y - this.camera.position.y);
-      const bottomAtCentre = bottom * distance * tan - (booklet.position.y - this.camera.position.y);
-      upper = topAtCentre + (upper - topAtCentre) * fit;
-      lower = bottomAtCentre + (lower - bottomAtCentre) * fit;
+      // Only its size is fitted, not its place: the booklet may leave the screen on the way, and
+      // shifted to keep inside the margins it was pushed down as it went over the top of its arc,
+      // a second step in its height. (Its height on screen is set before, as one curve.)
+      const fit = 1 + (Math.min(distance / (distance + back), maxSpan / (projectedHigh - projectedLow), 1) - 1) * free;
       booklet.scale.multiplyScalar(fit);
-      const shift = clamp(0, lower, upper);
-      booklet.position.y += shift;
       let lift = 0;
       if (this.gallery.visible) {
+        let liftBody = 0, liftLid = 0;
         matrix.compose(booklet.position, booklet.quaternion, booklet.scale);
         matrix.premultiply(caseMatrix);
         for (let i = 0; i < count; i += 3) {
@@ -4205,9 +4305,8 @@ export class GalleryScene {
           // The 45-degree apron makes clearance start smoothly beside the case instead of
           // jumping when a sample crosses its edge, as in the disc's player clearance.
           const outside = Math.max(0, Math.abs(point.x) - C.caseWidth * MM / 2 - apron, Math.abs(point.y) - C.caseHeight * MM / 2 - apron);
-          lift = Math.max(lift, surface - outside - point.z);
+          liftBody = Math.max(liftBody, surface - outside - point.z);
         }
-        lift /= caseMatrix.elements[10];
         matrix.compose(booklet.position, booklet.quaternion, booklet.scale).premultiply(lidMatrix);
         for (let i = 0; i < count; i += 3) {
           point.fromArray(bounds, i).applyMatrix4(matrix);
@@ -4215,14 +4314,26 @@ export class GalleryScene {
           const outside = Math.max(across, Math.abs(point.y) - C.caseHeight * MM / 2 - apron, 0);
           let ceiling = CASE.lidInner * MM + outside;
           // The paper leaves beneath the lid: its top/bottom lips extend farther down
-          // than the plate and can catch the trailing edge during screen fitting.
-          const flangeOutside = Math.max(across, Math.abs(Math.abs(point.y) - (C.caseHeight - C.caseWall) * MM / 2) - C.caseWall * MM / 2 - apron, 0);
+          // than the plate and can catch the trailing edge during screen fitting. Beside a lip,
+          // inside it, the paper is clear at any depth: the limit rises steeply away from it (it
+          // rose at 45 degrees over the 10 mm apron, so the paper lying 1.5 mm beside the lips
+          // was pushed out several mm in one frame as it came free).
+          const beside = Math.max(0, (C.caseHeight / 2 - C.caseWall) * MM - Math.abs(point.y));
+          const flangeOutside = Math.max(across, beside * C.bookletLipSteep,
+            Math.abs(point.y) - C.caseHeight * MM / 2 - apron, 0);
           ceiling = Math.min(ceiling, (C.caseDepth / 2 - C.lidFlange) * MM + flangeOutside);
-          lift = Math.max(lift, (point.z - ceiling + C.bookletClearance * MM) / -lidMatrix.elements[10]);
+          liftLid = Math.max(liftLid, point.z - ceiling + spare);
         }
-        booklet.position.z += Math.max(0, lift);
+        // Under the lid, out along its normal: the case lies tilted, and moved toward the camera
+        // the paper slid along its spine into the lid's lip. Over the body, toward the camera: along
+        // its tilted normal it also rose on screen as it went round over the disc half. There it
+        // comes in with the fit: the paper still on the lid beside the hinge lies lower than the
+        // tray, and held to the tray's height at once, it jumped 7 mm as its edge left the holders.
+        if (liftBody > 0) booklet.position.z += liftBody * free / caseMatrix.elements[10];
+        if (liftLid > 0) booklet.position.addScaledVector(normal.setFromMatrixColumn(item.lid.matrixWorld, 2), -liftLid);
+        lift = Math.max(liftBody * free, liftLid);
       }
-      if (fit > 0.99999 && Math.abs(shift) < 1e-5 && lift < 1e-5 && Math.abs(verticalCorrection() - appliedY) < 1e-5) break;
+      if (fit > 0.99999 && lift < 1e-5) break;
     }
   }
 

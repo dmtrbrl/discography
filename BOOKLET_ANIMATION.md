@@ -106,7 +106,7 @@ target directly. Returning pages to the cover can add time before the 1.9-second
 | --- | --- |
 | `read = 0` | Gently formed stack fits under the holders at its normal depth. |
 | Roll interval `0..1` | Eased material feed travels through entry bend, main arc and exit. |
-| Carry interval `0.36..0.7` | Carrying, target orientation and reading scale blend in, multiplied by actual extraction freedom. These are nominal progress bounds, not independent timed steps. |
+| Carry interval `carryStart..1` | Carrying, target orientation and reading scale blend in, multiplied by actual extraction freedom. These are nominal progress bounds, not independent timed steps. |
 | Trailing-edge release | Case pan becomes eligible; resting curvature stays unchanged. |
 | Case pan | Starts at the later of `0.4` and computed holder-release progress; lasts a full `0.5` normalized interval. |
 | `0.3..0.9` | Travel sun fades in. |
@@ -129,22 +129,51 @@ At the default strength of one, velocity and acceleration are zero at both endpo
 The same function drives material feed and the normalized carry interval. The case uses
 the separate cubic `power3InOut` curve shared with Listen.
 
-## 5. Two independent radii
+## 5. Out by hand, then round one cylinder (30 October 2026, in review)
 
-The travel path and the curl of the paper are intentionally separate controls.
+The user's description of taking a booklet out of a real case: lift its edge (the hinge strip
+beside it stops it sliding out flat), pull it out on that lift, then turn it smoothly over a big
+cylinder, its axis along the spine. The paper's path, one piece, the same on the CPU and in the
+shader (`bookletPathAngle`, `bookletAlong`, `bookletBent`):
 
-| Quantity | Current setting | Meaning |
-| --- | --- | --- |
-| `bookletRollDiameter` | 284 mm | Diameter of the broad carrying trajectory: two 142 mm closed case widths; radius 142 mm. |
-| `bookletBendAngle` | 75° | Nominal curl across a 120 mm page on the main paper arc. It gives a paper radius of `120 / radians(75)`, approximately 91.7 mm. |
-| `bookletEntrySpan`, `bookletEntryAngle` | 14 mm, 22° | Short exposed-edge lift before the main arc, adjusted for lid orientation. |
+| Part | Desktop | Phones | Why |
+| --- | --- | --- | --- |
+| First arc | 25 mm to 28° | 14 mm to 40° | Up above the hinge strip at once (a single gentle 94 mm arc went 5.6 mm into it); on phones over the stops. |
+| Second arc | 69 mm on a 400 mm radius | 110 mm on a 200 mm radius | Eases into the turn; a straight line after a bend read as one angle. On phones, where the first bend has to be tight (18 mm already caught a stop), a tighter second arc keeps the curvature from dropping all at once. |
+| Cylinder | 100 mm radius | 150 mm | The paper bends round it and the booklet goes round its axis, not its own centre. Wider on phones, where it may leave the screen's side. |
 
-Increasing the travel diameter changes where the booklet travels. Increasing the paper bend
-angle tightens the sheet itself. A request about the paper's curl must not silently change its
-trajectory diameter. The short entry bend has its own radius and is separate from the nominal
-75° main-arc curl.
+The centre starts round the cylinder at `bookletTurnFrom` (144 mm pulled), some 34 mm after the
+paper leaves the holders, past the hinge pins. Started at the release, the booklet turned and
+dropped the moment its edge came free. From there, one change of pose eased to the landing
+(`settle`): the tilt from lying in the case in perspective to flat (a single slerp, applied on top
+of the turn about the spine), the size, the paper's straightening (`bookletFlatten`), and a shift
+across and in depth that brings the end of the way round to the reader's centre. The way round
+stays a cylinder in the case's frame; turning its axis upright as it went made a cone of it.
 
-### Material feed and the path
+The height on screen is one curve. Pulled out, the booklet rises over the case as it lifts off the
+tilted lid; from `bookletTurnFrom` (where the case's pan, and the lens, start) its projected height
+carries on at the speed it had and eases into the reader's by `bookletLevelUntil` (0.7), a Hermite
+curve in screen space, applied at the booklet's depth. Made of the rise, a levelling, the shift,
+the perspective of coming toward the camera and the flight's push into the screen's margins, each
+with its own easing, it went up and down twice, most visibly going back into the case. The roll eases to a stop as it lands
+(`bookletPlaced`, a monotone Hermite curve from the release), its centre on the cylinder's line
+nearest the camera, the turn done with everything else.
+
+The case's pan starts at `bookletTurnFrom` too. The flight's fit of its size (not its place: the
+booklet may leave the screen) and the envelope for the stack's bulge come in over
+`bookletFrameSpan` (140 mm) from there: on short screens and
+phones the stored booklet shows larger than it lands, and fitted at once it jumped 6 to 37 px in a
+frame. Clearance under the lid moves the paper along the lid's normal (toward the camera, on the
+tilted case, it slid along the spine into the lid's lip), over the body toward the camera (along
+its normal it rose on screen); over the body it comes in with the fit
+(the paper on the lid beside the hinge lies lower than the tray), under the lid it applies in
+full, and its 1 mm margin comes in with the fit. Beside the lid's lips the limit rises steeply
+(`bookletLipSteep`): at 45° over the 10 mm apron it pushed the paper lying 1.5 mm beside them out
+several mm in one frame as it came free.
+
+This replaces the two independent radii (a 284 mm travel path blended in during the carry, and
+a 92 mm paper curl): the carry began as the paper left the holders and pulled the booklet to the
+reader while it turned, about its own centre.
 
 `setBookletRoll` fills a `Vector4` with entry X, fed distance, radius and entry angle. With angles
 in radians and physical lengths converted to scene units:
@@ -155,15 +184,12 @@ arcLength = entrySpan + (π - entryAngle) × radius
 fedDistance = (arcLength + pageWidth) × bookletEase(clamp(read / rollUntil))
 ```
 
-**Landing flat.** The paper used to straighten in place after landing: the carry ends at 0.7,
-and the trailing half was still on the cylinder until 1. Now its bend relaxes as it is carried
-(`bookletFlatten` = carry): `bookletBent` scales every angle along the paper from its centre by
-`1 - flatten`, integrating the piecewise path exactly (straight, two arcs, straight), so the
-paper keeps its length and lies flat at 1 wherever it is on the roll. The centre, and with it the
-booklet's whole path, rotation and speed, are unchanged; the centre itself finishes its turn at
-about 0.69. Retiming was tried first and rejected: ending the roll at 0.75 gave the paper its own
-peak of speed before the carry's, which read as two mini pauses and a sudden stop, and a carry
-to 1 dragged the booklet up with the panning case. The roll check prints the paper's speed
+**Landing flat.** The paper's bend relaxes as it is carried (`bookletFlatten` = carry):
+`bookletBent` scales every angle along the paper from its centre by `1 - flatten`, integrating
+the piecewise path exactly (straight, entry arc, lifted straight, cylinder, straight), so the
+paper keeps its length and lies flat at 1 wherever it is on the roll. Retiming the roll was tried
+first and rejected: ending it at 0.75 gave the paper its own peak of speed before the carry's,
+which read as two mini pauses and a sudden stop. The roll check prints the paper's speed
 profile; compare it with the committed version after any timing change.
 
 The desktop lid opens to 180°, leaving the configured 22° entry angle.
@@ -172,10 +198,10 @@ The desktop lid opens to 180°, leaving the configured 22° entry angle.
 at 110°), and over the hinge the paper had to bend 92° to clear the raised disc half, then curled
 up inside the V. There the whole path is mirrored across the booklet's centre: the paper feeds
 out fore-edge first over the lid's open edge and its stops. A negative radius in the roll uniform
-marks the mirror, so `bookletRoll` and the shader's `bookletRollPoint` flip together and every
+marks the mirror, so `bookletRoll` and the shader's `bookletBent` flip together and every
 caller follows. The entry bend is `bookletEntryAngleNarrow` (40°): 22° caught the stops 2 mm past
-the fore-edge, and 92° read as a sharp kink at the holders. The travel cylinder is wider,
-`bookletRollDiameterNarrow` (720 mm); the booklet may leave the screen at the side on the way.
+the fore-edge, and 92° read as a sharp kink at the holders. The booklet leaves the screen at the
+side on the way round, which the user accepted on phones.
 
 The entry point shifts over the inset beyond the holders using `power3Out`. The released
 length is `max(0, fedDistance + entryX - pageWidth / 2)`. `bookletRoll` then samples a continuous
@@ -222,13 +248,10 @@ extra flattening animation is needed at either endpoint.
 at compression one; only the extraction roll changes its shape. Carrying is:
 
 ```text
-carry = free × bookletEase(clamp((read - 0.36) / (0.7 - 0.36)))
+carry = free × bookletEase(clamp((read - carryStart) / (1 - carryStart)))
 ```
 
-The shader always uses the paper's own radius. A second roll sample uses the 142 mm travel
-radius for the carried centre. The trajectory blends from the actual paper centre toward
-that broader travel sample only as carry increases. This prevents retained paper from being
-offset away from its holders before it has escaped.
+`carryStart` is when the leading edge reaches the cylinder's line nearest the camera (see 5).
 
 The reconstructed lid pose plus trajectory supplies the source position; the reading centre
 supplies the destination. Position and scale interpolate by carry. Orientation slerps toward
@@ -405,13 +428,12 @@ durations are seconds, angles degrees, physical dimensions millimetres, margins 
 | Parameter | Default | Effect |
 | --- | --- | --- |
 | `readDuration` / `unreadDuration` | 2.4 / 1.9 | Full extraction/return flight duration. |
-| `bookletRollDiameter` / `bookletRollDiameterNarrow` | 284 / 720 | Broad carrying trajectory diameter; phones. |
-| `bookletBendAngle` | 75 | Main-arc curl across a full page; larger means tighter paper curvature. |
-| `bookletEntrySpan` / `bookletEntryAngle` | 14 / 22 | Exposed-edge lift before the main roll, adjusted by lid angle. |
-| `bookletEntryAngleNarrow` | 40 | Phones' entry bend over the lid's open edge and stops. |
+| `bookletCylinder` | 100 | One radius for the paper's bend and its way round. |
+| `bookletEntrySpan` / `bookletEntryAngle` / `bookletLiftRun` / `bookletLiftRadius` | 25 / 28 / 69 / 400 | Desktop way out: the first arc, then the second, gentle one. |
+| `bookletEntrySpanNarrow` / `bookletEntryAngleNarrow` / `bookletLiftRunNarrow` / `bookletLiftRadiusNarrow` / `bookletCylinderNarrow` | 14 / 40 / 110 / 200 / 150 | Phones: a steep bend over the stops, a second arc, a wider cylinder. |
+| `bookletFrameSpan` / `bookletLipSteep` | 140 / 10 | Way over which the screen fit comes in; steepness of the limit beside the lid's lips. |
 | `bookletRollUntil` | 1 | Progress at which material feed completes (the carried paper is already flat). |
 | `bookletEase` | 1 | Blend from linear feed/carry at zero to full smootherstep at one. |
-| `bookletCarryFrom` / `bookletCarryUntil` | 0.36 / 0.7 | Nominal carry, orientation and reading-scale blend interval; gated by release. |
 | `bookletPanFrom` | 0.4 | Earliest case exit; holder release can delay it. |
 | `viewPanFrom` / `viewPanUntil` | 0.2 / 0.7 | Shared pan curve; its full interval is shifted for Booklet. |
 | `insertPan` | 4.4 scene units | Shared upward case travel, not millimetres. |
@@ -450,8 +472,11 @@ additional visual tuning, keep new defaults in `C` rather than adding scattered 
 | A rigid rectangle orbiting a cylinder | The bend must travel through the actual paper. |
 | Extract, level, carry, then perform an isolated flip | The movement should roll and turn continuously. |
 | Listen-style two-wave paper motion | Tried and explicitly reverted; retain shared case timing without splitting the paper into two waves. |
-| Interpreting a curl request as a travel-radius request | Keep paper bend angle and trajectory diameter separate. |
-| Increasing travel diameter to 355 mm | Reverted in review; the current diameter is 284 mm. |
+| Interpreting a curl request as a travel-radius request | Superseded 30 October 2026: the user asked for one cylinder for both. |
+| Increasing travel diameter to 355 mm | Superseded with the two radii; see 5. |
+| A round 180 mm cylinder toward the camera | Came within 112 mm of the camera and shrank to a quarter; now 100 mm, toward the camera without rising. |
+| One gentle exit arc, or a bend then a straight line | The arc went into the hinge strip; the line read as one angle. Two arcs, steep then gentle. |
+| Fitting, clearance or pan from the release | Each jumped the booklet as its edge came free; they come in once it is out from under the lid. |
 | Moving the case in response to paper overlap | Produced shaking; correct paper placement and clearance. |
 | Shrinking or retreating the box before removal | The case leaves upward at fixed world depth and scale. |
 | Pushing the paper backward to fit the screen | Caused case penetration; fit scale/Y and maintain forward clearance. |

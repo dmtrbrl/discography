@@ -81,9 +81,26 @@ Review, same day (details in BOOKLET_ANIMATION.md):
   booklet onto its cover; Next stays enabled there.
 - The roll check's landing assertions test for reversal (no dip and rise, no tilt back) instead
   of a stop by 0.72. All checks pass: roll (Nevermind, Kid A), lifecycle, case transition.
-- Found, not fixed: on landscape phones (844 × 390) the paper jumps about 50 px in one frame
-  as its trailing edge clears the holders (t ≈ 0.38), in the committed version too. Easing the
-  screen fit in with the release didn't remove it; the clearance lift is the next suspect.
+- **Out by hand, then round one cylinder** (in review): the edge lifts on a steep arc over the
+  hinge strip, eases on a second, gentle arc, and the booklet goes round one 100 mm cylinder,
+  its axis along the spine, instead of turning about its own centre. It turns only once out from
+  under the lid (34 mm after the holders), and from there its pose changes once, smoothly, to the
+  reader's: tilt, size, straightening and a shift to the reader's centre, landing at once in place.
+  The case's pan, the fit to the screen and the clearance margins wait for that too, and clearance
+  moves along the case's own normals: each, from the release, jumped the booklet as its edge came
+  free (this also fixes the landscape-phone jump noted below). Its height on screen is one curve,
+  carrying on from the pull into the reader's height by 0.7 (the sum of several eased parts went
+  up and down twice, worst going back). All checks pass; the paper's speed on screen has no step.
+- **Landscape phones, a smaller open case**: `openFitShortMargin` 72 → 100 px. The open case nearly
+  filled the screen, its booklet (213 px tall at 667 × 375) about as large as the reader's (240 px),
+  so the booklet swelled to 329 px coming toward the camera and shrank to land. Now 161 px in the
+  case, it grows to the reader's size, and turns on screen.
+- **Dev slow motion** (dev server only): Shift+D shows a panel to slow the scene's animations
+  (1×, 0.5×, 0.25×, 0.1×, pause) with the booklet's progress (t and the time at normal speed).
+  A scrub slider was tried and removed.
+- Fixed: on landscape phones (844 × 390) the paper jumped about 50 px in one frame as its
+  trailing edge cleared the holders, in the committed version too (the screen fit and clearance
+  switching on at once; see above).
 
 `npm run build` passes. The 201-pose GPU roll check passes at 1440 × 900, 390 × 844 and 844 × 390:
 no holder/lid/tray collisions, no landing size jump, constant paper depth, and the return retraces
