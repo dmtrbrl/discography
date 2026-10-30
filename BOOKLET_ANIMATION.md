@@ -1,7 +1,7 @@
 # Booklet animation: behavior, implementation and tuning
 
 Implementation reference for the booklet extraction, reading and return animation, as of
-29 October 2026. The current motion is still under visual review. This document describes the
+30 October 2026. The current motion is still under visual review. This document describes the
 implemented behavior and the decisions made during that review.
 
 The project overview and review history are in [ROADMAP.md](ROADMAP.md). The implementation
@@ -12,7 +12,7 @@ lives primarily in [src/scene.ts](src/scene.ts); page loading and interface cont
 
 The booklet should feel like a small stack of flexible printed paper being handled:
 
-1. It already has pages, thickness, grain, wrinkles and a formed cover while stored in the lid.
+1. It already has its pages, grain and gentle resting curvature while stored in the lid.
 2. The exposed edge lifts slightly, and the paper feeds out from beneath the plastic holders.
 3. A bend travels through the paper, as if it were being drawn over a cylinder near the spine.
    The carrying movement and turn overlap this extraction.
@@ -39,7 +39,7 @@ All visual and motion defaults belong in the top-level `C` object in `scene.ts`.
 | `openBooklet`, `animateRead` | Start extraction, request artwork and animate normalized progress. |
 | `bookletEase` | Continuous easing for paper feed and carrying. |
 | `setBookletRoll`, `bookletRoll` | Configure and sample the length-preserving roll path on the CPU. |
-| `withBend` | Apply the equivalent roll to LeafThrough's formed sheet vertices, normals and shadow materials. |
+| `bookletDeform` | The equivalent roll as LeafThrough's `deform` hook, applied to formed sheets in colour and shadow passes. |
 | `bookletPanStart`, `viewPan`, `updatePlayer` | Gate the case exit on extraction and share the Listen pan/camera. |
 | `updateBooklet` | Combine roll, carry, orientation, size, compression, lighting and the reading rig. |
 | `bookletReadingSize` | Solve the page size needed for the intended projected height under the shared camera. |
@@ -101,10 +101,10 @@ target directly. Returning pages to the cover can add time before the 1.9-second
 
 | Progress or event | Behavior |
 | --- | --- |
-| `read = 0` | Formed stack is compressed under the holders. |
+| `read = 0` | Gently formed stack fits under the holders at its normal depth. |
 | Roll interval `0..1` | Eased material feed travels through entry bend, main arc and exit. |
 | Carry interval `0.36..0.7` | Carrying, target orientation and reading scale blend in, multiplied by actual extraction freedom. These are nominal progress bounds, not independent timed steps. |
-| Trailing-edge release | Compression relaxes; case pan becomes eligible. |
+| Trailing-edge release | Case pan becomes eligible; resting curvature stays unchanged. |
 | Case pan | Starts at the later of `0.4` and computed holder-release progress; lasts a full `0.5` normalized interval. |
 | `0.3..0.9` | Travel sun fades in. |
 | `0.74..1` | Reading lighting replaces gallery lighting and ambient fill comes in. |
@@ -164,18 +164,31 @@ point's place on the path; the centre is not simply orbiting a cylinder as a rig
 
 ### Shader deformation
 
-LeafThrough first creates the sheet's own wrinkles, bulge and page structure. `withBend`
-then wraps that already-formed surface:
+LeafThrough (0.1.6) first creates the sheet's own wrinkles, bulge and page structure, and
+stands the sheets `paper.sheetGap` apart (`bookletSheetGap`, 0.007 mm a sheet, the 0.12 mm the
+17-sheet Kid A stack had before) so they sort by real depth at the spine, from the front and
+from behind. Its polygon depth bias is off by default in a scene. The camera near plane is one
+scene unit; 0.1 wasted the depth precision the gap needs. `bookletDeform`, passed as
+LeafThrough's `deform` option, then wraps the already-formed surface:
 
-1. Convert its page coordinates to the booklet's millimetre-based frame.
-2. Compress its depth using `bookletCompression`.
+1. Tuck the sheet in from its outer edges if it is under the outer one (see below).
+2. Convert its page coordinates to the booklet's millimetre-based frame.
 3. Evaluate the roll at the vertex's width coordinate and at the booklet centre.
 4. Express the difference relative to the centre's tangent.
 5. Offset the sheet thickness along the local bent normal and convert back to page coordinates.
 
-Normals are adjusted for compression and rotated with the bend. The same hook applies to
-regular, custom depth and custom distance materials, so shadows follow the paper rather than
-its undeformed bounds. The CPU and GLSL path definitions must stay equivalent.
+LeafThrough applies the hook to the colour, depth and distance passes, takes normals from the
+deformed shape and keeps it through rebuilds, so shadows follow the paper. The CPU and GLSL path
+definitions must stay equivalent.
+
+**Tucked sheets in the case.** The top sheet bulges most, so in a tilted view the flatter sheets
+under it showed past its edges as a broken white line (the white edge the user rejected for the
+old box booklet). In the case, every sheet but the one facing the camera (the cover from the
+front, the back page inside the open lid) draws in `bookletTuck` (1.5 mm) from its outer edges,
+under the outer one. Which sheet is outer is set per draw in each sheet's `onBeforeRender`, from
+the camera's side and LeafThrough's `renderOrder` (the pile depth; 0.1.6 has no public per-sheet
+data). The tuck goes over the first `bookletTuckUntil` (0.12) of extraction, under the holders,
+and comes back at the end of the return.
 
 Expressing deformation about the centre/tangent is essential: when the page has fully passed
 the cylinder, the deformation becomes its original formed geometry again. No object swap or
@@ -183,8 +196,8 @@ extra flattening animation is needed at either endpoint.
 
 ## 6. Release, carrying and front/back orientation
 
-`free` is cubic-eased released length over the 14 mm entry span. Compression interpolates
-from 0.14 to one using this value. Carrying is:
+`free` is cubic-eased released length over the 14 mm entry span. Paper depth stays unchanged
+at compression one; only the extraction roll changes its shape. Carrying is:
 
 ```text
 carry = free × bookletEase(clamp((read - 0.36) / (0.7 - 0.36)))
@@ -337,14 +350,16 @@ and live page announcements; LeafThrough's own keyboard handling is disabled.
 
 ## 11. Lighting and responsive behavior
 
-LeafThrough supplies the page geometry and spine shading. The reading view uses its full
-bulge, directional light and hemisphere fill rather than painting a spine shadow onto artwork.
+LeafThrough supplies the page geometry and spine shading. Resting bulge is 0.22 and wrinkles
+are 0.055 in both the case and reader. This gentle shape fits under the lid with compression
+fixed at one, so the paper does not inflate during extraction. Extraction and page turns still
+bend the sheets. The reading view retains directional light and hemisphere fill.
 The gallery's key, fill, strip, rim, ambient and environment lighting fade away as the reading
 lighting arrives, then restore on return.
 
 The directional sun ramps from travel intensity one to reading intensity two. Hemisphere
-intensity is 1.5 for spreads and 1.7 for single-page reading. The floor shadow fades in late,
-avoiding the large heavy shadow a high flying page would otherwise cast. Single-page sun
+intensity is 1.5 for spreads and 1.7 for single-page reading. Floor-shadow opacity is zero and
+the floor stays hidden, removing the drop shadow beneath the booklet. Single-page sun
 shadow intensity is 0.4. Sheets cast and receive shadows while out of the case.
 
 The sun remains shadow-capable even when dark, avoiding material recompilation when entering
@@ -382,16 +397,18 @@ durations are seconds, angles degrees, physical dimensions millimetres, margins 
 | `bookletFitHeight` | 0.64 | Page-size limit as a fraction of viewport height. |
 | `bookletFitNarrow` | 0.82 | Single-page size limit as a fraction of viewport width. |
 | `bookletCentreFollow` | 7 | Reading cover/spread centring follow rate. |
-| `bookletCompression` | 0.14 | Stored depth multiplier; relaxes to one after extraction. |
-| `bookletWrinkles` / `bookletBulge` | 0.25 / 1 | LeafThrough's formed paper shape, already present in the case. |
+| `bookletWrinkles` / `bookletBulge` | 0.055 / 0.22 | The same gentle resting curve in the case and reader. |
+| `bookletSheetGap` | 0.007 mm | LeafThrough's gap between stacked sheets, per sheet. |
+| `bookletTuck` / `bookletTuckUntil` | 1.5 mm / 0.12 | Inset of the sheets under the outer one in the case, gone by this much extraction. |
 | `bookletSun` / `bookletTravelSun` | 2 / 1 | Reading/travel directional light intensity. |
 | `bookletSunAt` | `[-3.5, 1.3, 4.1]` | Sun position in the reading rig's frame. |
 | `bookletAmbient` / `bookletAmbientSingle` | 1.5 / 1.7 | Hemisphere fill for spreads/single pages. |
 | `bookletAmbientSky` / `bookletAmbientGround` | `#ffffff` / `#a1aeaf` | Hemisphere colors. |
 | `bookletSingleShadow` | 0.4 | Directional shadow intensity for settled single-page reading. |
-| `bookletFloorShadow` | 0.15 | Settled floor-shadow opacity. |
+| `bookletFloorShadow` | 0 | Floor shadow disabled; the floor stays hidden. |
 | `bookletShadowReach` / `bookletShadowMap` | `[1.3, 0.9]` / 2048 | Shadow-camera horizontal/vertical reach in page widths and map resolution. |
 | `cameraFOV` / `playerFOV` | 40 / 18 | Gallery/shared Listen-Booklet FOV. |
+| `cameraNear` | 1 | Near clipping plane; improves precision for closely spaced paper layers. |
 | `playerView` | 26 | Shared camera elevation relative to the player reference. |
 
 Case dimensions, holder geometry and lid angles also affect extraction. The light fade intervals
@@ -461,7 +478,7 @@ upward case motion and reverse pose agreement.
 
 Landing assertions allow less than 1% projected-height overshoot after extraction, less than
 0.5° viewing-pitch variation from `read >= 0.72`, centre drift below 0.001 normalized device Y,
-and handoff-scale error below `1e-6`. Zoom is checked after the stack has relaxed: a stored
+and handoff-scale error below `1e-6`. Zoom is checked after geometric release: a stored
 booklet can legitimately be larger than its reading size on a short viewport. These checks
 measure height, centre and viewing pitch; they do not assert an identical curved-page silhouette
 or a full perspective homography throughout the turn.

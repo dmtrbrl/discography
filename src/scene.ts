@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LeafThroughObject } from 'leafthrough';
-import type { PageSource } from 'leafthrough';
+import type { LightingOptions, PageSource, PaperDeform } from 'leafthrough';
 import type { Album } from './band';
 
 // All visual and motion tuning. The disc radius is 1 unit.
@@ -62,7 +62,9 @@ const C = {
   // hGap spaces the row; on screens narrowWidth px wide or less, hGapNarrow of it, so the
   // neighbours show beside the front case rather than at the screen's edges.
   galleryScale: 1.08, hGap: 2.8, hGapNarrow: 0.9, depthGap: 1, activeDiscY: 0.06, galleryRotX: -22, galleryRotY: -22, inactiveScale: 0.8,
-  cameraDistance: 4.4, cameraFOV: 40, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
+  // Keep the near plane outside the scene but close enough to its objects to resolve paper
+  // layers reliably. A 0.1 near plane wasted most depth precision in empty space by the camera.
+  cameraDistance: 4.4, cameraFOV: 40, cameraNear: 1, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
   ambientIntensity: 0.25, keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
@@ -160,19 +162,28 @@ const C = {
   bookletFlightMargin: 64, bookletFlightMarginShort: 44, bookletFlightDepth: 6, bookletClearance: 1, bookletClearanceApron: 10,
   bookletTilt: 8, bookletRaise: 0.03,
   bookletFitWidth: 0.84, bookletFitHeight: 0.64, bookletFitNarrow: 0.82, bookletCentreFollow: 7,
-  // The same page stack in the lid and the reader. Hold its resting bulge down under the tabs;
-  // it relaxes to full depth once free. Interior artwork is only requested on opening.
-  bookletCompression: 0.14, bookletWrinkles: 0.25, bookletBulge: 1,
+  // Use the same gently formed paper in the lid and reader. Its resting curve fits under
+  // the lid without depth compression, so extraction never inflates it into a new shape.
+  bookletWrinkles: 0.055, bookletBulge: 0.22,
+  // LeafThrough's gap between stacked sheets, in mm a sheet, so they sort by real depth (also
+  // from behind, in the lid) instead of meeting at the spine. The 0.12 mm the 17-sheet Kid A
+  // stack had in review; the 1 unit camera near plane resolves far finer (see ROADMAP.md).
+  bookletSheetGap: 0.007,
+  // In the case, the sheets under the one facing the camera (the cover, or the back page inside
+  // the open lid) draw in bookletTuck mm from their outer edges. The cover bulges most, so in a
+  // tilted view the flatter sheets under it showed past its edges as a broken white line. The
+  // tuck goes in the first bookletTuckUntil of extraction, still under the holders.
+  bookletTuck: 1.5, bookletTuckUntil: 0.12,
   // The booklet view's own light, as LeafThrough lights its own scene: a directional light from
   // bookletSunAt in the magazine's frame (LeafThrough's default for a spread), bookletSun strong,
   // fading in as the booklet comes out. It casts the pages' shadows, on each other and on a floor
-  // under them (bookletFloorShadow opacity, LeafThrough's default), within bookletShadowReach page
+  // under them (bookletFloorShadow opacity; disabled for a clean landing), within bookletShadowReach page
   // widths of the spine (across, up and down) on a bookletShadowMap px map.
-  // Match the library demo's directional/hemisphere balance once reading. The gallery's fill
-  // lights and environment fade out as the row leaves, so they don't wash out the spine's fold.
+  // Keep directional/hemisphere lighting for page turns. The gallery's fill lights and
+  // environment fade out as the row leaves.
   bookletSun: 2, bookletTravelSun: 1, bookletSunAt: [-3.5, 1.3, 4.1], bookletAmbient: 1.5, bookletAmbientSingle: 1.7,
   bookletAmbientSky: '#ffffff', bookletAmbientGround: '#a1aeaf', bookletSingleShadow: 0.4,
-  bookletFloorShadow: 0.15, bookletShadowReach: [1.3, 0.9], bookletShadowMap: 2048,
+  bookletFloorShadow: 0, bookletShadowReach: [1.3, 0.9], bookletShadowMap: 2048,
   // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
   // one, 500 falling to about 200 across the disc, were tried and rejected, and 200 later read as too
   // busy, see ROADMAP.md), and how long it takes to
@@ -273,11 +284,12 @@ interface JewelCase extends Push {
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
   bookletModel: LeafThroughObject;
   bookletSources: PageSource[];
-  bookletCompression: THREE.IUniform<number>;
   bookletReady: boolean;
   bookletLoaded: boolean;
   // How the whole page stack bends, including its shadow passes.
   bend: THREE.IUniform<THREE.Vector4>;
+  // How far the sheets under the outer one are tucked in, 0 to 1 (see bookletTuck).
+  bookletTuck: { value: number };
   plastic: THREE.MeshPhysicalMaterial;
   disposed: boolean;
   open: number;
@@ -389,6 +401,7 @@ const PLAYER_SCRATCH = {
 const TURN_SCRATCH = { group: new THREE.Quaternion(), turn: new THREE.Quaternion(), axis: new THREE.Vector3(0, 1, 0) };
 
 // Reused by updateBooklet every frame.
+const TUCK_SCRATCH = { point: new THREE.Vector3(), matrix: new THREE.Matrix4() };
 const BOOKLET_SCRATCH = {
   restPosition: new THREE.Vector3(), restQuaternion: new THREE.Quaternion(), restScale: new THREE.Vector3(),
   readPosition: new THREE.Vector3(), readQuaternion: new THREE.Quaternion(), backUp: new THREE.Quaternion(), turn: new THREE.Quaternion(),
@@ -1507,19 +1520,16 @@ function bookletRoll(x: number, roll: THREE.Vector4, result: THREE.Vector3) {
     -angle,
   );
 }
-function withBend<T extends THREE.Material>(material: T, bend: THREE.IUniform<THREE.Vector4>, compression: THREE.IUniform<number>): T {
-  const compile = material.onBeforeCompile;
-  const key = material.customProgramCacheKey;
-  material.customProgramCacheKey = () => `${key.call(material)}-bent`;
-  material.onBeforeCompile = (shader, renderer) => {
-    compile.call(material, shader, renderer);
-    shader.uniforms.bookletBend = bend;
-    shader.uniforms.bookletCompression = compression;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>
+// LeafThrough's deform hook: it forms each sheet (and its pile gap), then hands us the point to
+// bend in the closed booklet's frame. It applies to the colour and shadow passes alike in both
+// reading layouts, and the library takes normals from the bent shape.
+function bookletDeform(bend: THREE.IUniform<THREE.Vector4>, tuck: THREE.IUniform<number>): PaperDeform {
+  return {
+    uniforms: { bookletBend: bend, bookletTuck: tuck },
+    glsl: `
 uniform vec4 bookletBend;
-uniform float bookletCompression;
-vec3 rollPoint(float x) {
+uniform float bookletTuck;
+vec3 bookletRollPoint(float x) {
   if (bookletBend.z == 0.0) return vec3(x, 0.0, 0.0);
   float feed = bookletBend.x + bookletBend.y - x;
   if (feed <= 0.0) return vec3(x - bookletBend.y, 0.0, 0.0);
@@ -1535,33 +1545,24 @@ vec3 rollPoint(float x) {
     -angle);
 }
 vec3 bookletBent(float x) {
-  vec3 centre = rollPoint(0.0);
-  vec3 point = rollPoint(x);
+  vec3 centre = bookletRollPoint(0.0);
+  vec3 point = bookletRollPoint(x);
   vec2 delta = point.xy - centre.xy;
   return vec3(cos(centre.z) * delta.x - sin(centre.z) * delta.y,
               sin(centre.z) * delta.x + cos(centre.z) * delta.y, point.z - centre.z);
-}`)
-      // LeafThrough has already formed each individual sheet. Bend that result in the closed
-      // booklet's frame, then put it back in page coordinates for the normal model transform.
-      .replace('#include <project_vertex>', `
-{
+}
+// From page units to the closed booklet's millimetre frame, bent, and back.
+vec3 deformSheet(vec3 p, vec2 uv) {
+  // A tucked sheet draws in from its outer edges; the spine stays where it is.
+  p.xy *= 1.0 - bookletTuck * vec2(${C.bookletTuck / C.bookletSize}, ${2 * C.bookletTuck / C.bookletSize});
   float size = ${(C.bookletSize * MM).toFixed(6)};
   float halfDepth = ${C.bookletThickness * MM / 2};
-  vec3 paper = vec3((transformed.x - 0.5) * size, transformed.y * size, transformed.z * size * bookletCompression - halfDepth);
+  vec3 paper = vec3((p.x - 0.5) * size, p.y * size, p.z * size - halfDepth);
   vec3 bent = bookletBent(paper.x);
   paper = vec3(bent.x + sin(bent.z) * paper.z, paper.y, bent.y + cos(bent.z) * paper.z);
-  transformed = vec3(paper.x / size + 0.5, paper.y / size, (paper.z + halfDepth) / size);
-}
-#include <project_vertex>`)
-      .replace('#include <defaultnormal_vertex>', `
-{
-  float a = bookletBent((sheetP.x - 0.5) * ${(C.bookletSize * MM).toFixed(6)}).z;
-  objectNormal.z /= bookletCompression;
-  objectNormal = vec3(objectNormal.x * cos(a) + objectNormal.z * sin(a), objectNormal.y, -objectNormal.x * sin(a) + objectNormal.z * cos(a));
-}
-#include <defaultnormal_vertex>`);
+  return vec3(paper.x / size + 0.5, paper.y / size, (paper.z + halfDepth) / size);
+}`,
   };
-  return material;
 }
 
 // Motion blur for a spinning disc's print: the colour map is averaged over an arc of `blur`
@@ -1641,6 +1642,13 @@ function seatInBooklet(model: LeafThroughObject) {
   model.scale.setScalar(C.bookletSize * MM);
 }
 
+// The page object's lighting options: the sun as the booklet view's, and whether its sheets cast
+// and take shadows, which only the booklet out of its case does. Shadows switch without a rebuild
+// as long as the rest stays the same, so every call passes the whole thing.
+function bookletLighting(shadows: boolean): LightingOptions {
+  return { sun: { position: [...C.bookletSunAt] }, shadows };
+}
+
 // A jewel case holding the disc. The layout moves `group`, a drag turns `spin`, and `body` slides
 // right as the lid opens so the open case stays centred on the spin pivot. The lid rotates about
 // the hinge line. Prints start in the album colour until their artwork is set.
@@ -1648,8 +1656,8 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const { geometries, materials } = shared;
   const print = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: album.color || '#3b3a36', roughness: C.printRough, side });
   const bend = { value: new THREE.Vector4() };
+  const bookletTuck = { value: 1 }, sheetTuck = { value: 0 };
   const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: print(THREE.DoubleSide) };
-  const bookletCompression = { value: C.bookletCompression as number };
   const blank = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
   const pageCount = Math.max(4, album.bookletPageCount ?? ((album.bookletScans?.length ?? 1) + 1) * 2);
   const bookletSources: PageSource[] = Array.from({ length: pageCount }, () => blank);
@@ -1657,24 +1665,30 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   bookletSources[pageCount - 1] = makeBookletBackCanvas(album);
   const bookletModel = new LeafThroughObject({ renderer, camera }, {
     pages: bookletSources, preload: pageCount, layout: 'spread', pageAspect: 1, loop: false,
-    paper: { wrinkles: C.bookletWrinkles, bulge: C.bookletBulge },
-    lighting: { sun: { position: [...C.bookletSunAt] } },
+    paper: { wrinkles: C.bookletWrinkles, bulge: C.bookletBulge, sheetGap: C.bookletSheetGap / C.bookletSize },
+    lighting: bookletLighting(false), deform: bookletDeform(bend, sheetTuck),
     interaction: { keyboard: false },
   });
   bookletModel.enabled = false;
-  // update() rebuilds the sheets when real artwork arrives. Hook their materials again, including
-  // the shadow pass, without depending on LeafThrough's private engine or geometry internals.
-  const bendSheets = () => bookletModel.traverse((node) => {
-    if (!(node instanceof THREE.Mesh) || node.userData.bookletBent) return;
-    node.userData.bookletBent = true;
-    const sheetMaterials = Array.isArray(node.material) ? node.material : [node.material];
-    for (const material of [...sheetMaterials, node.customDepthMaterial, node.customDistanceMaterial]) {
-      if (material) withBend(material, bend, bookletCompression);
-    }
-    node.castShadow = node.receiveShadow = Boolean(bookletModel.userData.out);
+  // Which sheet is outer is decided per draw: the deform's uniforms are uploaded with each
+  // sheet's own material, just after its onBeforeRender. At page 0, LeafThrough's renderOrder is
+  // each sheet's place in the pile, the cover's 0. Sheets come new with each rebuild.
+  const tuckSheets = () => bookletModel.traverse((node) => {
+    if (!(node instanceof THREE.Mesh) || node.userData.bookletTuck) return;
+    node.userData.bookletTuck = true;
+    node.onBeforeRender = (_renderer, _scene, camera) => {
+      if (bookletTuck.value === 0) {
+        sheetTuck.value = 0;
+        return;
+      }
+      const { point, matrix } = TUCK_SCRATCH;
+      const front = point.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(matrix.copy(node.matrixWorld).invert()).z > 0;
+      const outer = front ? 0 : Math.ceil(bookletModel.pageCount / 2) - 1;
+      sheetTuck.value = node.renderOrder === outer ? 0 : bookletTuck.value;
+    };
   });
-  bendSheets();
-  bookletModel.addEventListener('change', () => { bendSheets(); onChange(); });
+  tuckSheets();
+  bookletModel.addEventListener('change', () => { tuckSheets(); onChange(); });
   const plastic = makeCasePlastic(shared, seed);
   const group = new THREE.Group();
   const spin = new THREE.Group();
@@ -1709,7 +1723,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletCompression, bookletReady: false, bookletLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTuck, bookletReady: false, bookletLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -2440,7 +2454,7 @@ export class GalleryScene {
 
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog(fogColor, 7, 14);
-    this.camera = new THREE.PerspectiveCamera(C.cameraFOV, 1, 0.1, 100);
+    this.camera = new THREE.PerspectiveCamera(C.cameraFOV, 1, C.cameraNear, 100);
     this.camera.position.set(0, 0, C.cameraDistance);
     this.camera.lookAt(0, 0, 0);
     this.gallery = new THREE.Group();
@@ -2999,10 +3013,7 @@ export class GalleryScene {
       this.reading = this.opened;
       this.magazine = item.bookletModel;
       this.magazineReady = item.bookletLoaded && item.bookletReady;
-      item.bookletModel.userData.out = true;
-      item.bookletModel.traverse((node) => {
-        if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = true;
-      });
+      item.bookletModel.update({ lighting: bookletLighting(true) });
       // Out of the case the booklet hangs off the scene; updateBooklet moves it from the lid to the middle.
       this.scene.add(item.booklet);
       item.booklet.renderOrder = 1000;
@@ -3097,9 +3108,6 @@ export class GalleryScene {
       item.bookletLoaded = true;
       item.bookletReady = false;
       item.bookletModel.update({ pages, preload: pages.length });
-      item.bookletModel.traverse((node) => {
-        if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = true;
-      });
       this.request();
     });
   }
@@ -3150,15 +3158,12 @@ export class GalleryScene {
       booklet.castShadow = false;
       booklet.visible = true;
       item.bend.value.set(0, 0, 0, 0);
-      item.bookletCompression.value = C.bookletCompression;
-      item.bookletModel.userData.out = false;
+      item.bookletTuck.value = 1;
       booklet.add(item.bookletModel);
       item.bookletModel.goTo(0);
       if (item.bookletModel.layout !== 'spread') item.bookletModel.update({ layout: 'spread' });
       seatInBooklet(item.bookletModel);
-      item.bookletModel.traverse((node) => {
-        if (node instanceof THREE.Mesh) node.castShadow = node.receiveShadow = false;
-      });
+      item.bookletModel.update({ lighting: bookletLighting(false) });
     }
     this.onPage?.(0, 0, 0);
     this.updateCursor();
@@ -3940,6 +3945,7 @@ export class GalleryScene {
       return;
     }
     const t = this.read;
+    item.bookletTuck.value = 1 - ease.power3InOut(clamp(t / C.bookletTuckUntil, 0, 1));
     const { restPosition, restQuaternion, restScale, readPosition, readQuaternion, backUp, turn, matrix, axis, tilt, centre, trajectory, roll } = BOOKLET_SCRATCH;
     // The reader keeps the same camera as Listen. Account for its raised viewpoint during
     // the roll, keeping the intended reading height and angle without a second camera move.
@@ -3971,10 +3977,9 @@ export class GalleryScene {
       // the same broad trajectory without tightening the whole movement around the case.
       setBookletRoll(t, this.lidAngle, roll, C.bookletRollDiameter * MM / 2);
       bookletRoll(0, roll, trajectory);
-      // The portion still under the holders stays compressed. Relax the same formed stack
-      // once its trailing edge is outside.
+      // Start carrying once the trailing edge clears the holders. The paper's own resting
+      // curve stays unchanged throughout extraction and reading.
       const free = ease.power3InOut(clamp(released / (C.bookletEntrySpan * MM), 0, 1));
-      item.bookletCompression.value = C.bookletCompression + (1 - C.bookletCompression) * free;
       const carry = free * bookletEase(phase(C.bookletCarryFrom, C.bookletCarryUntil));
       // Retained paper must follow its own bend. Blend in the wider travel only during
       // carry, after it has cleared the holders, rather than offsetting the trapped stack.
@@ -3995,16 +4000,16 @@ export class GalleryScene {
       seatInBooklet(item.bookletModel);
     }
 
-    // The light comes in as the booklet arrives, and its shadow on the floor as it lands (high above
-    // the floor in flight, its shadow there was large and heavy).
+    // The light comes in as the booklet arrives. Optional floor shading follows the landing;
+    // with zero opacity the floor stays hidden, including while pages turn.
     const lighting = ease.power3InOut(clamp((t - 0.74) / 0.26, 0, 1));
     this.bookletSun.intensity = (C.bookletTravelSun + (C.bookletSun - C.bookletTravelSun) * lighting)
       * ease.power3InOut(clamp((t - 0.3) / 0.6, 0, 1));
     this.bookletSun.shadow.intensity = this.bookletSingle && this.bookletShown ? C.bookletSingleShadow : 1;
     this.bookletAmbient.intensity = (this.bookletSingle ? C.bookletAmbientSingle : C.bookletAmbient) * lighting;
     const landing = ease.power3InOut(clamp((t - 0.75) / 0.25, 0, 1));
-    this.bookletFloor.visible = landing > 0;
     this.bookletFloor.material.opacity = C.bookletFloorShadow * landing;
+    this.bookletFloor.visible = this.bookletFloor.material.opacity > 0;
 
     const magazine = this.magazine;
     if (magazine) this.updateShift(magazine, dt);

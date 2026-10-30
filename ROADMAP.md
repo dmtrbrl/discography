@@ -24,13 +24,56 @@ decision changes.
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
 
+## Consistent paper curvature (30 October 2026, in review)
+
+The perfectly flat experiment was rejected in review. The booklet now uses a gentle resting
+curve from the beginning: `bookletWrinkles` is 0.055 and `bookletBulge` is 0.22, with
+`bookletCompression` fixed at one in the case, flight and reader. These settings fit under the
+lid without compressing the paper and then inflating its depth after extraction. They replace
+the full demo-style resting bulge described in the 29 October review below. The floor shadow
+remains disabled. Extraction curl, page-turn bending, grain, page-to-page shading, lighting,
+camera and timing are retained. The same paper settings apply to phone single-page layout.
+
+Follow-up: the flatter curve exposed depth fighting at the left edge/spine, where LeafThrough's
+sheets meet at exactly the same depth. `bookletLayerDepth` adds 0.12 mm across the stack, ordered
+by each sheet's current pile depth. The shader applies it before the extraction bend and shares
+it with normal and shadow calculations in both layouts. Before/after cover and spread captures
+of the 17-sheet Kid A booklet showed an improvement, but review still found artifacts in the
+reader and closed case. The completed fix also disables LeafThrough's camera-facing polygon
+depth bias before each sheet draw, increases the camera near plane from 0.1 to 1 for better
+depth precision, and counts all pages (not pairs) for single-layout layer spacing. The user
+confirmed the artifacts are gone after this update. The curvature and 0.12 mm spacing stay.
+The GPU clearance check passes at all three sizes; a new assertion checks distinct sheet
+depths at the spine. Retina captures cover the closed case, open case, cover and reading pages.
+
+LeafThrough 0.1.6 (same day) took in the integration feedback, and the workarounds above are
+gone: the sheet gap is the library's `paper.sheetGap` (`bookletSheetGap`, 0.007 mm a sheet), its
+depth bias is off in a scene, the extraction bend is its `deform` hook (`bookletDeform`), and
+sheet shadows switch through `lighting.shadows` without a rebuild. `bookletCompression` was
+removed (it was fixed at one). The near plane stays at 1.
+
+Follow-up: a broken white line along the closed booklet's lower and right edges in the gallery
+(reported on Nevermind) was the blank sheets under the cover. The cover bulges most, so in a
+tilted view the flatter sheets showed past its edge by about a pixel. It was there with the old
+spacing and bias too. In the case, the sheets under the one facing the camera now draw in
+`bookletTuck` (1.5 mm) from their outer edges; the tuck goes in the first part of extraction.
+Retina captures of Nevermind and Kid A (gallery, open lid, cover, spread, phone) show no line
+and no artwork through the pages. Build, roll (Nevermind and Kid A), lifecycle and case-transition
+checks pass.
+
+`npm run build` passes. The 201-pose GPU roll check passes at 1440 × 900, 390 × 844 and 844 × 390:
+no holder/lid/tray collisions, no landing size jump, constant paper depth, and the return retraces
+extraction. The zoom check detects geometric release independently of depth compression.
+The booklet lifecycle check also passes across those layouts and reduced motion, including
+page turns, reopening, Close/Escape, lazy interior loading and restoration of gallery lighting.
+
 ## Booklet in the scene (29 October 2026, prototype in review)
 
 Detailed implementation and tuning reference: [BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md).
 It covers the roll geometry, object lifecycle, shared camera, landing corrections, current
 parameters, rejected approaches and regression checks.
 
-The booklet is no longer an overlay with its own LeafThrough canvas. LeafThrough 0.1.5's
+The booklet is no longer an overlay with its own LeafThrough canvas. LeafThrough's (0.1.6 now)
 `LeafThroughObject` draws it in the gallery's own scene, with our renderer, camera, lights and
 environment, so it is a third view beside the open case and the player, built the same way.
 
@@ -1213,7 +1256,7 @@ Possible latent issues the types exposed, left as they were:
 
 Use [LeafThrough](https://github.com/dmtrbrl/leafthrough), the user's own library (npm
 `leafthrough`, MIT, 0.1.3 at the time of writing; 0.1.5 since the booklet moved into the scene,
-see Booklet in the scene).
+0.1.6 since its sheet gap and deform hook, see Booklet in the scene).
 
 What it is: a three.js flip book (needs three r160 or newer; this project uses r186) with spread and
 single layouts, bending paper, drag and keyboard turning, accessibility, reduced motion support, and

@@ -19,9 +19,10 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   model.traverse(n=>{if(n.isMesh)meshes.push(n);});
   const gl=new OffscreenCanvas(1,1).getContext('webgl2');
   const samplers=meshes.map(mesh=>{
-   const shader={vertexShader:'#include <common>\nvoid main(){\n#include <project_vertex>\n}',fragmentShader:'',uniforms:{}};
+   // LeafThrough shapes the sheet, with its gap and our deform, in these two chunks.
+   const shader={vertexShader:'#include <common>\nvoid main(){\nvec3 objectNormal;\n#include <beginnormal_vertex>\n#include <begin_vertex>\n#include <project_vertex>\n}',fragmentShader:'',uniforms:{}};
    mesh.material.onBeforeCompile(shader,s.renderer);
-   let source=shader.vertexShader.replace('#include <common>','').replaceAll('attribute ','in ').replaceAll('varying ','out ').replace('void main(){','void main(){ vec3 transformed=sheetPosition(uv,aNoise.x);').replace('#include <project_vertex>','outPosition=transformed; gl_Position=vec4(0);');
+   let source=shader.vertexShader.replace('#include <project_vertex>','outPosition=transformed; gl_Position=vec4(0);').replace(/^\s*#include <\w+>\s*$/gm,'').replaceAll('attribute ','in ').replaceAll('varying ','out ');
    const program=gl.createProgram();
    for(const [type,text] of [[gl.VERTEX_SHADER,'#version 300 es\nprecision highp float;\n#define PI 3.141592653589793\nin vec2 uv;out vec3 outPosition;'+source],[gl.FRAGMENT_SHADER,'#version 300 es\nprecision highp float;\n#define PI 3.141592653589793\nout vec4 color;void main(){color=vec4(0);}']]){
     const sh=gl.createShader(type);gl.shaderSource(sh,text);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));gl.attachShader(program,sh);
@@ -36,19 +37,20 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   });
   gl.enable(gl.RASTERIZER_DISCARD);
   const p=model.position.clone(),lidInverse=item.lid.matrixWorld.clone(),bodyInverse=item.body.matrixWorld.clone();
-  const casePath=[],bookletPath=[],heights=[],angles=[],landingY=[];
+  const casePath=[],bookletPath=[],heights=[],angles=[],landingY=[],spineDepths=[];
   const projected=p.clone(),normal=p.clone();
   let lidHits=0,lidExample=null,reverseError=0,flatError=0,rollSag=0,tabs=0,tabSamples=[],worstTray={depth:0,t:0},insideRange={low:Infinity,high:-Infinity};
   for(let n=0;n<=200;n++){
    const t=n/200;s.read=t;s.updatePlayer(0);s.updateBooklet(0);s.scene.updateMatrixWorld(true);s.camera.updateMatrixWorld(true);
    let frameLow=Infinity,frameHigh=-Infinity;
    casePath.push(s.gallery.position.toArray());
-   bookletPath.push([...item.booklet.position.toArray(),...item.booklet.quaternion.toArray(),...item.booklet.scale.toArray(),...item.bend.value.toArray(),item.bookletCompression.value]);
+   bookletPath.push([...item.booklet.position.toArray(),...item.booklet.quaternion.toArray(),...item.booklet.scale.toArray(),...item.bend.value.toArray()]);
    lidInverse.copy(item.lid.matrixWorld).invert();bodyInverse.copy(item.body.matrixWorld).invert();
    for(const sample of samplers){
     gl.useProgram(sample.program);gl.bindVertexArray(sample.vao);gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER,0,sample.buffer);gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER,sample.buffer);
     for(const [name,uniform] of Object.entries(sample.uniforms)){const loc=gl.getUniformLocation(sample.program,name);if(loc===null)continue;const v=uniform.value;if(typeof v==='number')gl.uniform1f(loc,v);else if(v?.isVector2)gl.uniform2fv(loc,v.toArray());else if(v?.isVector4)gl.uniform4fv(loc,v.toArray());else if(v?.isVector3)gl.uniform3fv(loc,v.toArray());}
     gl.beginTransformFeedback(gl.POINTS);gl.drawArrays(gl.POINTS,0,sample.count);gl.endTransformFeedback();gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER,0,sample.output);
+    if(t===0) spineDepths.push(sample.output[sample.middle[0]*3+2]);
     if(t===0.4){
      const points=sample.middle.map(index=>p.clone().fromArray(sample.output,index*3));
      rollSag=Math.max(rollSag,points[1].distanceTo(points[0].add(points[2]).multiplyScalar(0.5))*120);
@@ -77,7 +79,8 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
    }
    // The stored stack can exceed reading size on short screens. Check the zoom once
    // extraction is complete; resizing the paper still under the holders would break its fit.
-   if(item.bookletCompression.value>0.999) heights.push(frameHigh-frameLow);
+   // Release is geometric, independent of the paper's (now constant) depth multiplier.
+   if(item.bend.value.x+item.bend.value.y-1>=14/60) heights.push(frameHigh-frameLow);
    if(t>=0.72){
     landingY.push(projected.copy(item.booklet.position).project(s.camera).y);
     normal.set(0,0,1).applyQuaternion(item.booklet.quaternion);
@@ -91,14 +94,17 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   const landingDrift=Math.max(...landingY.map(y=>Math.abs(y-landingY.at(-1))));
   for(let n=200;n>=0;n--){
    s.read=n/200;s.updatePlayer(0);s.updateBooklet(0);
-   const pose=[...item.booklet.position.toArray(),...item.booklet.quaternion.toArray(),...item.booklet.scale.toArray(),...item.bend.value.toArray(),item.bookletCompression.value];
+   const pose=[...item.booklet.position.toArray(),...item.booklet.quaternion.toArray(),...item.booklet.scale.toArray(),...item.bend.value.toArray()];
    for(let i=0;i<pose.length;i++)reverseError=Math.max(reverseError,Math.abs(pose[i]-bookletPath[n][i]));
    for(let axis=0;axis<3;axis++)reverseError=Math.max(reverseError,Math.abs(s.gallery.position.getComponent(axis)-casePath[n][axis]));
   }
   const steadyCase=casePath.every((p,n)=>!n||(p[1]>=casePath[n-1][1]-1e-9&&p[2]<=casePath[n-1][2]+1e-9));
   const constantCaseDepth=casePath.every(p=>Math.abs(p[0])<1e-12&&Math.abs(p[2])<1e-12);
-  return {maxZoomRatio,maxAngleError,handoffScaleError,landingDrift,lidHits,lidExample,tabs,tabSamples,worstTray,insideRange,flatError,rollSag,steadyCase,reverseError,constantCaseDepth};
+  spineDepths.sort((a,b)=>a-b);
+  const minSpineGap=Math.min(...spineDepths.slice(1).map((z,i)=>z-spineDepths[i]));
+  return {maxZoomRatio,maxAngleError,handoffScaleError,landingDrift,lidHits,lidExample,tabs,tabSamples,worstTray,insideRange,flatError,rollSag,steadyCase,reverseError,constantCaseDepth,minSpineGap};
  });
+ assert.ok(result.minSpineGap>1e-5,`Sheets have distinct depths at the spine instead of overlapping: ${result.minSpineGap}`);
  assert.ok(result.landingDrift<0.001,`The landing does not dip and rise: ${result.landingDrift}`);
  assert.ok(result.maxZoomRatio<1.01,`No oversized zoom before landing: ${result.maxZoomRatio}`);
  assert.ok(result.maxAngleError<0.5,`No flatten-then-tilt during landing: ${result.maxAngleError}`);

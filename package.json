@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@solidjs/router": "^1.0.0",
-    "leafthrough": "^0.1.5",
+    "leafthrough": "^0.1.6",
     "solid-js": "1.9.14",
     "three": "0.186.1"
   },
