@@ -66,6 +66,11 @@ const C = {
   // layers reliably. A 0.1 near plane wasted most depth precision in empty space by the camera.
   cameraDistance: 4.4, cameraFOV: 40, cameraNear: 1, exposure: 0.86, environmentIntensity: 1, fogColor: '#ebe3d4',
   ambientIntensity: 0.25, keyIntensity: 0.75, keyColor: '#fff9e8', keyX: 3.5, keyY: -8, fillIntensity: 0.3, rimIntensity: 0.75, rimColor: '#499ff5', topStripIntensity: 1.9,
+  // The booklet's shadow (its sun's, see bookletSun) has its edges softened over shadowSoft texels,
+  // with LeafThrough's demo's depth and normal biases (shadowBias) against acne. The key light was
+  // tried as the caster too: from below and to the right, its shadow fell where the paper hid it
+  // and only hazed the cover with self-shadowing, and every lit material sampled a second map.
+  shadowSoft: 3, shadowBias: [-0.0007, 0.002],
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
   // A drag on the front case turns it over to its back when released past halfway, or when faster
@@ -130,9 +135,13 @@ const C = {
   // view by insertPan while the player rises into its place, then the disc glides over the well,
   // insertHover above the spindle, and drops onto it. Ejecting plays it backwards. Whatever that path
   // does, the disc never goes into the player: it is pushed up to insertClearance mm over the top
-  // (see updatePlayer). The row's pan runs from viewPanFrom to viewPanUntil of the way, the same
-  // for the booklet view (viewPan).
-  insertDuration: 2.4, ejectDuration: 1.9, viewPanFrom: 0.2, viewPanUntil: 0.7, insertLift: 0.45, insertPan: 4.4, insertHover: 0.3, insertClearance: 3,
+  // (see updatePlayer); nor back into its case, which is tipped back (openTilt) so its lower part
+  // sweeps forward as it slides up past the hanging disc: the disc stays insertClearance in front of
+  // the case's walls the same way. insertLift is set so the case passes behind the disc with at most
+  // a few millimetres of that push (0.45 let the tray draw over the disc as its bottom edge passed).
+  // The row's pan runs from viewPanFrom to viewPanUntil of the way, the same for the booklet view
+  // (viewPan).
+  insertDuration: 2.4, ejectDuration: 1.9, viewPanFrom: 0.2, viewPanUntil: 0.7, insertLift: 0.6, insertPan: 4.4, insertHover: 0.3, insertClearance: 3,
   // A jump to another view (the wordmark, the browser's Back, a pasted link) doesn't play the steps
   // in between: the player drops leaveDrop down out of view over leaveDuration seconds (the page
   // fades the gallery out meanwhile, and in again with the intro), then the intro plays into the new
@@ -181,10 +190,16 @@ const C = {
   // Use the same gently formed paper in the lid and reader. Its resting curve fits under
   // the lid without depth compression, so extraction never inflates it into a new shape.
   bookletWrinkles: 0.055, bookletBulge: 0.22,
-  // LeafThrough's gap between stacked sheets, in mm a sheet, so they sort by real depth (also
-  // from behind, in the lid) instead of meeting at the spine. The 0.12 mm the 17-sheet Kid A
-  // stack had in review; the 1 unit camera near plane resolves far finer (see ROADMAP.md).
-  bookletSheetGap: 0.007,
+  // LeafThrough's gap between stacked sheets in the lid, in mm a sheet, so they sort by real depth
+  // (also from behind, in the lid) instead of meeting at the spine. The 0.12 mm the 17-sheet Kid A
+  // stack had in review; the 1 unit camera near plane resolves far finer (see ROADMAP.md). The
+  // formed cover already lies against the lid plate's inside face: a thicker stack in the lid
+  // (0.16 to 0.4 mm) came through the plate, as spots on the closed case. Out from under the lid
+  // the stack opens up to bookletStackOut mm, as a pressed booklet springs open when it is let go
+  // (the gap scaled per sheet, in over the same way the fit to the screen comes in, and back
+  // under the holders on the way back): pressed, the booklet flew like a single sheet, with no
+  // edges to see in the curl.
+  bookletSheetGap: 0.007, bookletStackOut: 1.2,
   // In the case, the sheets under the one facing the camera (the cover, or the back page inside
   // the open lid) draw in bookletTuck mm from their outer edges. The cover bulges most, so in a
   // tilted view the flatter sheets under it showed past its edges as a broken white line. The
@@ -192,14 +207,25 @@ const C = {
   bookletTuck: 1.5, bookletTuckUntil: 0.12,
   // The booklet view's own light, as LeafThrough lights its own scene: a directional light from
   // bookletSunAt in the magazine's frame (LeafThrough's default for a spread), bookletSun strong,
-  // fading in as the booklet comes out. It casts the pages' shadows, on each other and on a floor
-  // under them (bookletFloorShadow opacity; disabled for a clean landing), within bookletShadowReach page
-  // widths of the spine (across, up and down) on a bookletShadowMap px map.
+  // coming in to bookletTravelSun over the bookletSunIn part of the way out (from the start, so
+  // the lifting paper's shadow is on the disc and tray at once; from 0.3 it had none until it was
+  // clear of the case) and to bookletSun over bookletLightIn, when the reader's fill comes in and
+  // the gallery's lights and environment go. That part of the way ends while the paper still
+  // moves: over the last 0.26 it went on after the paper had all but stopped (from 0.9 the roll
+  // moves under a pixel a step), so the settled booklet was lit differently from the landing one. It casts the pages' shadows, on each other and on a floor
+  // under them (bookletFloorShadow opacity, LeafThrough's default, for a spread as in the library),
+  // within bookletShadowReach page widths of the spine (across, up and down) on a bookletShadowMap
+  // px map. The floor's shadow fades in over bookletShadowIn s once the booklet has landed and the
+  // pages answer, and out over bookletShadowOut s as the way back starts: in flight, high over the
+  // floor, it was large and heavy, and switched on at the landing it read as a step. The floor lies
+  // bookletFloorGap mm under the pages: with the gentle resting curve the shadow is a hairline along
+  // the cover's right and lower edges (a booklet flat on a table casts no more); a wider gap would
+  // move it out from under the paper.
   // Keep directional/hemisphere lighting for page turns. The gallery's fill lights and
   // environment fade out as the row leaves.
-  bookletSun: 2, bookletTravelSun: 1, bookletSunAt: [-3.5, 1.3, 4.1], bookletAmbient: 1.5, bookletAmbientSingle: 1.7,
+  bookletSun: 2, bookletTravelSun: 1.6, bookletSunIn: [0, 0.35], bookletLightIn: [0.6, 0.86], bookletSunAt: [-3.5, 1.3, 4.1], bookletAmbient: 1.5, bookletAmbientSingle: 1.7,
   bookletAmbientSky: '#ffffff', bookletAmbientGround: '#a1aeaf', bookletSingleShadow: 0.4,
-  bookletFloorShadow: 0, bookletShadowReach: [1.3, 0.9], bookletShadowMap: 2048,
+  bookletFloorShadow: 0.15, bookletShadowIn: 0.6, bookletShadowOut: 0.25, bookletFloorGap: 0.24, bookletShadowReach: [1.3, 0.9], bookletShadowMap: 2048,
   // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
   // one, 500 falling to about 200 across the disc, were tried and rejected, and 200 later read as too
   // busy, see ROADMAP.md), and how long it takes to
@@ -234,6 +260,9 @@ export interface SceneOptions {
   bookletPages?: (index: number) => Promise<PageSource[]>;
   // loops: whether the last page turns too, back onto the cover (see bookletLayout).
   onPage?: (first: number, last: number, count: number, loops: boolean) => void;
+  // Where the landed booklet's pages end at the bottom, in CSS px from the top of the element,
+  // whenever it changes (the spread glides as it is centred); null once it is not out and landed.
+  onBookletEdge?: (bottom: number | null) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
@@ -309,6 +338,10 @@ interface JewelCase extends Push {
   bookletTuck: { value: number };
   // How far the bend has relaxed, 0 to 1 (see bookletBent): the carried paper lands flat.
   bookletFlatten: { value: number };
+  // LeafThrough's gap between the sheets in the lid, in mm, and how many times wider it draws now
+  // (1 under the holders, up to bookletStackOut's thickness out of the case; see C.bookletSheetGap).
+  sheetGap: number;
+  stackLoft: { value: number };
   plastic: THREE.MeshPhysicalMaterial;
   disposed: boolean;
   open: number;
@@ -413,7 +446,7 @@ function bookletReadingSize(page: number, cameraY: number, distance: number, pit
 const PLAYER_SCRATCH = {
   trayPosition: new THREE.Vector3(), trayQuaternion: new THREE.Quaternion(), trayScale: new THREE.Vector3(),
   seatPosition: new THREE.Vector3(), seatQuaternion: new THREE.Quaternion(), seatScale: new THREE.Vector3(),
-  matrix: new THREE.Matrix4(), axis: new THREE.Vector3(), point: new THREE.Vector3(),
+  matrix: new THREE.Matrix4(), inverse: new THREE.Matrix4(), axis: new THREE.Vector3(), forward: new THREE.Vector3(), point: new THREE.Vector3(),
 };
 
 // Reused by layout for the disc's turned reflections (see envTurn).
@@ -1749,6 +1782,8 @@ function makeDisc(shared: SharedResources, seed: number): Disc {
   const hub = new THREE.Mesh(geometries.hub, hubMaterial);
   front.position.z = C.discThickness / 2 + 6e-4;
   back.position.z = -C.discThickness / 2 - 6e-4;
+  // The booklet's sun's shadow falls on the disc as the booklet comes out of its case (see addLights).
+  front.receiveShadow = back.receiveShadow = true;
   back.rotation.y = Math.PI;
   hub.rotation.x = Math.PI / 2;
   spin.add(front, back, hub);
@@ -1795,12 +1830,14 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: print(THREE.DoubleSide) };
   const blank = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
   const pageCount = Math.max(4, album.bookletPageCount ?? ((album.bookletScans?.length ?? 1) + 1) * 2);
+  const sheetGap = C.bookletSheetGap;
+  const stackLoft = { value: 1 };
   const bookletSources: PageSource[] = Array.from({ length: pageCount }, () => blank);
   bookletSources[0] = makeFallbackArt(album, seed);
   bookletSources[pageCount - 1] = makeBookletBackCanvas(album);
   const bookletModel = new LeafThroughObject({ renderer, camera }, {
     pages: bookletSources, preload: pageCount, layout: 'spread', pageAspect: 1, loop: false,
-    paper: { wrinkles: C.bookletWrinkles, bulge: C.bookletBulge, sheetGap: C.bookletSheetGap / C.bookletSize },
+    paper: { wrinkles: C.bookletWrinkles, bulge: C.bookletBulge, sheetGap: sheetGap / C.bookletSize },
     lighting: bookletLighting(false), deform: bookletDeform(bend, bookletFlatten, sheetTuck),
     interaction: { keyboard: false },
   });
@@ -1811,7 +1848,23 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const tuckSheets = () => bookletModel.traverse((node) => {
     if (!(node instanceof THREE.Mesh) || node.userData.bookletTuck) return;
     node.userData.bookletTuck = true;
-    node.onBeforeRender = (_renderer, _scene, camera) => {
+    // The sheet's stand-off from the spine (LeafThrough's uStackGap, its sheet gap times the sheets
+    // under it, written as the pages move) is the same uniform object in its colour and shadow
+    // programs: caught as they compile, so each draw can widen it by stackLoft. A value other
+    // than the one written last is the library's own, the base to widen.
+    const material = node.material as THREE.Material;
+    const compile = material.onBeforeCompile;
+    material.onBeforeCompile = (shader, renderer) => {
+      compile.call(material, shader, renderer);
+      node.userData.stackGap = shader.uniforms.uStackGap;
+    };
+    const loft = { base: 0, lofted: NaN };
+    node.onBeforeRender = (renderer, _scene, camera) => {
+      const gap = (node.userData.stackGap ?? (renderer.properties.get(material) as { uniforms?: { uStackGap?: THREE.IUniform<number> } }).uniforms?.uStackGap) as THREE.IUniform<number> | undefined;
+      if (gap) {
+        if (gap.value !== loft.lofted) loft.base = gap.value;
+        gap.value = loft.lofted = loft.base * stackLoft.value;
+      }
       if (bookletTuck.value === 0) {
         sheetTuck.value = 0;
         return;
@@ -1838,13 +1891,11 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   disc.shade.value = C.discClosedShade;
   disc.group.updateMatrix();
   const discRest = disc.group.matrix.clone();
-  body.add(
-    new THREE.Mesh(geometries.baseShell, plastic),
-    new THREE.Mesh(geometries.insert, prints.insert),
-    new THREE.Mesh(geometries.tray, materials.tray),
-    disc.group,
-    lid,
-  );
+  const insert = new THREE.Mesh(geometries.insert, prints.insert);
+  const tray = new THREE.Mesh(geometries.tray, materials.tray);
+  // The booklet's sun's shadow falls on them as the booklet comes out (see addLights).
+  insert.receiveShadow = tray.receiveShadow = true;
+  body.add(new THREE.Mesh(geometries.baseShell, plastic), insert, tray, disc.group, lid);
   lid.position.x = CASE.hingeX * MM;
   // Invisible bounds for picking; the actual object is already a stack of formed paper sheets.
   const booklet = new THREE.Mesh(geometries.booklet, materials.pick);
@@ -1858,7 +1909,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTuck, bookletFlatten, bookletReady: false, bookletLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -2360,6 +2411,8 @@ export class GalleryScene {
   private onPlayerButton: SceneOptions['onPlayerButton'];
   private bookletPages: SceneOptions['bookletPages'];
   private onPage: SceneOptions['onPage'];
+  private onBookletEdge: SceneOptions['onBookletEdge'];
+  private bookletEdge: number | null = null;
   private pointerState: string;
   private ready: boolean;
   // Not private: nothing reads it, which noUnusedLocals rejects for a private field.
@@ -2491,6 +2544,9 @@ export class GalleryScene {
   private magazine: LeafThroughObject | null = null;
   private magazineReady = false;
   private bookletShown = false;
+  // How much of the floor's shadow shows under the landed booklet, 0 to 1 (see C.bookletShadowIn).
+  floorShade = 0;
+  private floorShadeTween: Tween | null = null;
   private bookletShift = 0.5;
   private bookletTarget = 0.5;
   private closingBooklet = false;
@@ -2511,7 +2567,7 @@ export class GalleryScene {
   // onPointer({ hovered, active, opened, dragging }) reports what the pointer is over, for a custom cursor.
   // fogColor should match the page background, so distant cases fade into it. startIndex and
   // openOnReveal restore a gallery from a link: that case in front, already open as it appears.
-  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, bookletPages, onPage, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false, readOnReveal = false }: SceneOptions = {}) {
+  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, bookletPages, onPage, onBookletEdge, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false, readOnReveal = false }: SceneOptions = {}) {
     this.element = element;
     this.startIndex = startIndex;
     this.openOnReveal = openOnReveal;
@@ -2537,6 +2593,7 @@ export class GalleryScene {
     this.onPlayerButton = onPlayerButton;
     this.bookletPages = bookletPages;
     this.onPage = onPage;
+    this.onBookletEdge = onBookletEdge;
     this.pointerState = '';
     this.ready = false;
     this.albums = [];
@@ -2773,14 +2830,16 @@ export class GalleryScene {
     // The booklet view's light and floor (C.bookletSun), in the magazine's units (updateBooklet
     // poses the rig like the magazine). The light always casts shadows, even while dark: turning
     // that on and off, or hiding it, would recompile every material. The shadow map is only drawn
-    // while a booklet is out.
+    // while a booklet is out. Out of the case, the booklet's sheets cast it on each other, on the
+    // tray, insert and disc as it comes out (makeCase, makeDisc), and on the floor once landed.
     const sun = new THREE.DirectionalLight('#ffffff', 0);
     sun.position.set(...C.bookletSunAt);
     sun.castShadow = true;
     sun.shadow.mapSize.set(C.bookletShadowMap, C.bookletShadowMap);
-    sun.shadow.bias = -0.001;
+    [sun.shadow.bias, sun.shadow.normalBias] = C.shadowBias;
+    sun.shadow.radius = C.shadowSoft;
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ opacity: 0 }));
-    floor.position.z = -0.002;
+    floor.position.z = -C.bookletFloorGap / C.bookletSize;
     floor.receiveShadow = true;
     floor.visible = false;
     this.bookletRig = new THREE.Group();
@@ -3265,6 +3324,7 @@ export class GalleryScene {
     this.bookletShift = this.bookletTarget = 0.5;
     this.scene.add(magazine);
     if (this.bookletSingle) magazine.update(bookletLayout('single'));
+    this.fadeFloorShadow(1, C.bookletShadowIn);
     item.booklet.visible = false;
     magazine.visible = true;
     magazine.enabled = true;
@@ -3273,9 +3333,25 @@ export class GalleryScene {
     this.request(3);
   }
 
+  // The floor's shadow under the landed booklet fades in or out over `duration` seconds (at once
+  // with reduced motion). Only a spread lies on a floor, as in LeafThrough; a phone's single page
+  // has none.
+  private fadeFloorShadow(to: number, duration: number) {
+    this.killTween(this.floorShadeTween);
+    this.floorShadeTween = null;
+    if (this.bookletSingle && to > 0) to = 0;
+    if (this.reducedMotion || this.floorShade === to) {
+      this.floorShade = to;
+      this.request();
+      return;
+    }
+    this.floorShadeTween = this.tween(this, { floorShade: to }, duration, ease.power3InOut, () => { this.floorShadeTween = null; });
+  }
+
   // Put the page object back under its flight bounds, on its cover, for the path back to the lid.
   private putBookletBack() {
     this.closingBooklet = false;
+    this.fadeFloorShadow(0, C.bookletShadowOut);
     const item = this.cases[this.reading];
     if (item) {
       item.booklet.visible = true;
@@ -3303,12 +3379,17 @@ export class GalleryScene {
       item.bend.value.set(0, 0, 0, 0);
       item.bookletFlatten.value = 0;
       item.bookletTuck.value = 1;
+      item.stackLoft.value = 1;
       booklet.add(item.bookletModel);
       item.bookletModel.goTo(0);
       if (item.bookletModel.layout !== 'spread') item.bookletModel.update(bookletLayout('spread'));
       seatInBooklet(item.bookletModel);
       item.bookletModel.update({ lighting: bookletLighting(false) });
     }
+    this.fadeFloorShadow(0, 0);
+    // Nothing casts a shadow any more: draw the map once more, empty, so the booklet's last pose
+    // doesn't stay in it.
+    this.renderer.shadowMap.needsUpdate = true;
     this.onPage?.(0, 0, 0, false);
     this.updateCursor();
   }
@@ -4040,7 +4121,7 @@ export class GalleryScene {
     }
     item.disc.blur.value = this.spinRate * C.spinBlur;
 
-    const { trayPosition, trayQuaternion, trayScale, seatPosition, seatQuaternion, seatScale, matrix, axis, point } = PLAYER_SCRATCH;
+    const { trayPosition, trayQuaternion, trayScale, seatPosition, seatQuaternion, seatScale, matrix, inverse, axis, forward, point } = PLAYER_SCRATCH;
     item.body.updateWorldMatrix(true, false);
     matrix.multiplyMatrices(item.body.matrixWorld, item.discRest).decompose(trayPosition, trayQuaternion, trayScale);
     trayPosition.y -= this.gallery.position.y;
@@ -4056,6 +4137,34 @@ export class GalleryScene {
     disc.position.lerpVectors(trayPosition, seatPosition, carry);
     disc.quaternion.slerpQuaternions(trayQuaternion, seatQuaternion, carry);
     disc.scale.setScalar(trayScale.x + (seatScale.x - trayScale.x) * carry);
+
+    // Keep the disc out of its case too. The open case is tipped back (openTilt), so as it slides
+    // straight up past the hanging disc its lower part comes forward through where the disc hangs:
+    // where the case's bottom edge passes over the disc, the tray surface is nearer the camera than
+    // where the disc rose from, and the tray drew over the disc. In the case's millimetres every
+    // point of the disc stays insertClearance in front of the walls' tops within the case's
+    // outline, and near its edges in front of a 45° slope down from them, so the push starts and
+    // ends gently. The push is straight toward the camera: the disc swells a little as the case
+    // passes rather than drifting on screen. Only while the case is away or on its way: at rest in
+    // the tray the disc is inside the case, and it lifts well clear before the case starts.
+    if (pan > 0) {
+      disc.updateWorldMatrix(true, false);
+      inverse.copy(item.body.matrixWorld).invert();
+      matrix.copy(inverse).multiply(disc.matrixWorld);
+      // The camera's direction (world z) in the case's frame.
+      forward.setFromMatrixColumn(inverse, 2);
+      if (forward.z > 0.2) {
+        const halfWidth = (C.caseWidth / 2) * MM, halfHeight = (C.caseHeight / 2) * MM;
+        const front = CASE.trayFront * MM + C.insertClearance * MM;
+        let deficit = 0;
+        for (const sample of DISC_SAMPLES) {
+          point.copy(sample).applyMatrix4(matrix);
+          const outside = Math.max(Math.abs(point.x) - halfWidth, Math.abs(point.y) - halfHeight);
+          deficit = Math.max(deficit, front - Math.max(0, outside) - point.z);
+        }
+        if (deficit > 0) disc.position.z += deficit / forward.z;
+      }
+    }
 
     // Keep the disc out of the player, whatever the path and the screen's shape do. In the player's
     // millimetres, every point of the disc stays insertClearance above the top, and near the sides
@@ -4087,9 +4196,12 @@ export class GalleryScene {
       this.bookletSun.intensity = 0;
       this.bookletAmbient.intensity = 0;
       this.bookletFloor.visible = false;
+      this.reportEdge(null);
       return;
     }
     const t = this.read;
+    // How many times wider than in the lid the sheets stand apart, once out of it (see C.bookletSheetGap).
+    const loft = Math.max(1, C.bookletStackOut / (item.sheetGap * Math.max(1, Math.ceil(item.bookletModel.pageCount / 2) - 1)));
     item.bookletTuck.value = 1 - ease.power3InOut(clamp(t / C.bookletTuckUntil, 0, 1));
     const { restPosition, restQuaternion, restScale, readPosition, readQuaternion, backUp, turn, matrix, axis, tilt, centre, roll, shift, untilt, still, heading } = BOOKLET_SCRATCH;
     // The reader keeps the same camera as Listen. Account for its raised viewpoint during
@@ -4142,6 +4254,7 @@ export class GalleryScene {
       // The fit to the screen comes in once the booklet is out from under the lid and going round:
       // started as the paper left the holders, it moved the paper still between the lid's lips.
       const framed = ease.power3InOut(clamp((item.bend.value.y - bookletTurnFrom(this.bookletSide)) / (C.bookletFrameSpan * MM), 0, 1));
+      item.stackLoft.value = 1 + (loft - 1) * framed;
       booklet.position.copy(restPosition).add(axis);
       booklet.position.x += shift.x * settle;
       booklet.position.z += shift.z * settle;
@@ -4182,15 +4295,16 @@ export class GalleryScene {
       seatInBooklet(item.bookletModel);
     }
 
-    // The light comes in as the booklet arrives. Optional floor shading follows the landing;
-    // with zero opacity the floor stays hidden, including while pages turn.
-    const lighting = ease.power3InOut(clamp((t - 0.74) / 0.26, 0, 1));
+    // The light comes in as the booklet arrives. The floor's shadow fades in once it has landed
+    // (fadeFloorShadow); with zero opacity the floor stays hidden.
+    const [lightFrom, lightUntil] = C.bookletLightIn;
+    const lighting = ease.power3InOut(clamp((t - lightFrom) / (lightUntil - lightFrom), 0, 1));
+    const [sunFrom, sunUntil] = C.bookletSunIn;
     this.bookletSun.intensity = (C.bookletTravelSun + (C.bookletSun - C.bookletTravelSun) * lighting)
-      * ease.power3InOut(clamp((t - 0.3) / 0.6, 0, 1));
+      * ease.power3InOut(clamp((t - sunFrom) / (sunUntil - sunFrom), 0, 1));
     this.bookletSun.shadow.intensity = this.bookletSingle && this.bookletShown ? C.bookletSingleShadow : 1;
     this.bookletAmbient.intensity = (this.bookletSingle ? C.bookletAmbientSingle : C.bookletAmbient) * lighting;
-    const landing = ease.power3InOut(clamp((t - 0.75) / 0.25, 0, 1));
-    this.bookletFloor.material.opacity = C.bookletFloorShadow * landing;
+    this.bookletFloor.material.opacity = C.bookletFloorShadow * this.floorShade;
     this.bookletFloor.visible = this.bookletFloor.material.opacity > 0;
 
     const magazine = this.magazine;
@@ -4205,12 +4319,25 @@ export class GalleryScene {
     rig.position.y -= drop;
     if (!magazine) return;
     if (this.bookletShown) {
+      item.stackLoft.value = loft;
       magazine.position.copy(rig.position);
       magazine.quaternion.copy(rig.quaternion);
       magazine.scale.copy(rig.scale);
-    }
+      // The pages' lower edge on screen, for the page's label under the booklet.
+      magazine.updateMatrixWorld();
+      const { pages } = magazine.bounds;
+      heading.set(pages.x + pages.width / 2, pages.y, 0).applyMatrix4(magazine.matrixWorld).project(this.camera);
+      this.reportEdge((1 - heading.y) / 2 * this.element.clientHeight);
+    } else this.reportEdge(null);
     // Back on its cover and centred on it again: the booklet takes over for the way back.
     if (this.closingBooklet && magazine.page === 0 && !magazine.turning && this.bookletShift === 0.5) this.putBookletBack();
+  }
+
+  // Tells the page where the landed booklet ends at the bottom, when that changes.
+  private reportEdge(bottom: number | null) {
+    if (bottom === this.bookletEdge || (bottom !== null && this.bookletEdge !== null && Math.abs(bottom - this.bookletEdge) < 0.25)) return;
+    this.bookletEdge = bottom;
+    this.onBookletEdge?.(bottom);
   }
 
   // Frame the curved paper and keep it above the case. Fit by adjusting the paper's scale,
@@ -4380,8 +4507,9 @@ export class GalleryScene {
       this.camera.aspect = aspect;
     }
     this.camera.updateProjectionMatrix();
-    // Gone by the time the player is well in view.
-    const galleryLight = 1 - ease.power3InOut(clamp((this.read - 0.74) / 0.26, 0, 1));
+    // Gone by the time the player is well in view (the booklet's are the reader's, bookletLightIn).
+    const [lightFrom, lightUntil] = C.bookletLightIn;
+    const galleryLight = 1 - ease.power3InOut(clamp((this.read - lightFrom) / (lightUntil - lightFrom), 0, 1));
     this.keyLight.intensity = C.keyIntensity * galleryLight;
     this.fillLight.intensity = C.fillIntensity * galleryLight;
     this.stripLight.intensity = C.topStripIntensity * galleryLight;

@@ -109,10 +109,11 @@ target directly. Returning pages to the cover can add time before the 1.9-second
 | Carry interval `carryStart..1` | Carrying, target orientation and reading scale blend in, multiplied by actual extraction freedom. These are nominal progress bounds, not independent timed steps. |
 | Trailing-edge release | Case pan becomes eligible; resting curvature stays unchanged. |
 | Case pan | Starts at the later of `0.4` and computed holder-release progress; lasts a full `0.5` normalized interval. |
-| `0.3..0.9` | Travel sun fades in. |
-| `0.74..1` | Reading lighting replaces gallery lighting and ambient fill comes in. |
-| `0.75..1` | Floor shadow appears. |
+| `0..0.35` (`bookletSunIn`) | Travel sun fades in, so the lifting paper shadows the disc and tray at once. |
+| Out from under the lid, over `bookletFrameSpan` | The stack springs open from its pressed thickness in the lid to `bookletStackOut` (`stackLoft`). |
+| `0.6..0.86` (`bookletLightIn`) | Reading lighting replaces gallery lighting and ambient fill comes in, finished while the paper still moves. |
 | `read = 1` and artwork ready | Same page object becomes the interactive reader, still on its cover. |
+| Landed, pages answering | Floor shadow fades in over `bookletShadowIn` seconds (`fadeFloorShadow`), out over `bookletShadowOut` as the way back starts. |
 
 These intervals overlap. Extraction, carrying and turning form one continuous movement.
 
@@ -406,13 +407,21 @@ bend the sheets. The reading view retains directional light and hemisphere fill.
 The gallery's key, fill, strip, rim, ambient and environment lighting fade away as the reading
 lighting arrives, then restore on return.
 
-The directional sun ramps from travel intensity one to reading intensity two. Hemisphere
-intensity is 1.5 for spreads and 1.7 for single-page reading. Floor-shadow opacity is zero and
-the floor stays hidden, removing the drop shadow beneath the booklet. Single-page sun
-shadow intensity is 0.4. Sheets cast and receive shadows while out of the case.
+The directional sun comes in over the first 0.35 of the extraction to travel intensity 1.6 and
+ramps to reading intensity two over 0.6 to 0.86 of the way, when the gallery's lights and
+environment go (the case is off the screen by 0.65); over 0.74 to 1 the change went on after the
+paper had all but stopped, so the settled booklet was lit differently from the landing one. Hemisphere intensity is 1.5 for spreads and
+1.7 for single-page reading. Single-page sun shadow intensity is 0.4. Sheets cast and receive
+shadows while out of the case; the tray, insert and disc receive them too, so the paper shadows
+its case as it comes out. The floor under the landed spread shows the sheets' shadow at
+LeafThrough's default opacity 0.15, fading in over 0.6 s once the pages answer and out over
+0.25 s as the return starts (`floorShade`, tweened; not a function of flight progress, which read
+as a step at the landing). A phone's single page has no floor shadow, as in the library. Shadow
+edges are softened over three texels with the demo's biases.
 
 The sun remains shadow-capable even when dark, avoiding material recompilation when entering
-the view. The shadow map is redrawn while a booklet is out and initialized during scene setup.
+the view. The shadow map is redrawn while a booklet is out, initialized during scene setup, and
+drawn once more, empty, when the booklet is back in its lid.
 
 At widths of 650 px or less, the case opens to 110° and reading uses LeafThrough's single-page
 layout. A page targets 82% of viewport width, subject to the height limit. Desktop spreads use
@@ -447,14 +456,16 @@ durations are seconds, angles degrees, physical dimensions millimetres, margins 
 | `bookletFitNarrow` | 0.82 | Single-page size limit as a fraction of viewport width. |
 | `bookletCentreFollow` | 7 | Reading cover/spread centring follow rate. |
 | `bookletWrinkles` / `bookletBulge` | 0.055 / 0.22 | The same gentle resting curve in the case and reader. |
-| `bookletSheetGap` | 0.007 mm | LeafThrough's gap between stacked sheets, per sheet. |
+| `bookletSheetGap` / `bookletStackOut` | 0.007 mm / 1.2 mm | LeafThrough's gap between stacked sheets in the lid, per sheet, and the stack's thickness out of the case (the gap widened per draw by `stackLoft`). |
 | `bookletTuck` / `bookletTuckUntil` | 1.5 mm / 0.12 | Inset of the sheets under the outer one in the case, gone by this much extraction. |
-| `bookletSun` / `bookletTravelSun` | 2 / 1 | Reading/travel directional light intensity. |
+| `bookletSun` / `bookletTravelSun` / `bookletSunIn` | 2 / 1.6 / `[0, 0.35]` | Reading/travel directional light intensity, and the part of the way out over which the travel light comes in. |
+| `bookletLightIn` | `[0.6, 0.86]` | The part of the way out over which the reader's lighting replaces the gallery's. |
 | `bookletSunAt` | `[-3.5, 1.3, 4.1]` | Sun position in the reading rig's frame. |
 | `bookletAmbient` / `bookletAmbientSingle` | 1.5 / 1.7 | Hemisphere fill for spreads/single pages. |
 | `bookletAmbientSky` / `bookletAmbientGround` | `#ffffff` / `#a1aeaf` | Hemisphere colors. |
 | `bookletSingleShadow` | 0.4 | Directional shadow intensity for settled single-page reading. |
-| `bookletFloorShadow` | 0 | Floor shadow disabled; the floor stays hidden. |
+| `bookletFloorShadow` / `bookletShadowIn` / `bookletShadowOut` / `bookletFloorGap` | 0.15 / 0.6 s / 0.25 s / 0.24 mm | Floor shadow opacity under the landed spread, its fade in after the landing and out as the return starts, and the floor's distance under the pages. |
+| `shadowSoft` / `shadowBias` | 3 / `[-0.0007, 0.002]` | Shadow edge softening in texels, depth and normal bias (LeafThrough's demo values). |
 | `bookletShadowReach` / `bookletShadowMap` | `[1.3, 0.9]` / 2048 | Shadow-camera horizontal/vertical reach in page widths and map resolution. |
 | `cameraFOV` / `playerFOV` | 40 / 18 | Gallery/shared Listen-Booklet FOV. |
 | `cameraNear` | 1 | Near clipping plane; improves precision for closely spaced paper layers. |
@@ -489,6 +500,12 @@ additional visual tuning, keep new defaults in `C` rather than adding scattered 
 | Automatically turning the first page | Stay on the front cover until manual input. |
 | Closing on outside clicks | Close and Escape handle dismissal. |
 | Booklet motion dashboard and persistent debug overrides | Removed at the user's request; current tuning proceeds through source defaults and review. |
+| Floor shadow following flight progress, or none | Switched on with the landing it read as a step; in flight, large and heavy. It fades in once landed. |
+| The key light as a second shadow caster | From below right its shadow fell under the paper, hazed the cover with self-shadowing, cost every material a second map, and the floor showed it (a `ShadowMaterial` takes every light's shadow, lit or not). |
+| Glossier paper (`paper.roughness` 0.3) | A faint highlight along the curl only; would also change the settled spreads reviewed against the demo. |
+| Light crossfade over the last part of the way (0.74 to 1) | Its tail played on an all but still booklet: the settled booklet was lit differently from the landing one. It ends at 0.86. |
+| A thicker pressed stack in the lid (0.16 to 0.4 mm) | Through the lid plate at rest: the formed cover already lies against it (spots on the closed case, and the roll check's plate assertion). The lid keeps 0.007 mm a sheet; the stack opens to 1.2 mm out of the case. |
+| The page count in the caption instead of the artist and year | Reverted at the user's request; a label under the booklet instead. |
 
 ## 14. Verification and reproduction
 

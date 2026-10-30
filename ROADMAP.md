@@ -24,6 +24,88 @@ decision changes.
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
 
+## Shadows in the booklet flow (30 October 2026, in review)
+
+Review of the booklet animation: the flying booklet cast no shadow and the landed one lay on the
+background like a pasted rectangle. Captured frame by frame in headless Chrome at 1440 × 900 and
+on both phone layouts, before and after, with pixel diffs to tell what each light contributes.
+
+- **The booklet shadows its case as it comes out**: the tray, insert and disc take the booklet
+  sun's shadow (`receiveShadow`; only the booklet's sheets cast), and the sun comes in from the
+  start of the extraction (`bookletSunIn` 0 to 0.35, at `bookletTravelSun` 1.6) instead of from
+  0.3, so the lifting edge and the curl over the disc have a shadow at once. The sun adds no
+  measurable brightness to the case (the disc's lit patches are within 1 of 255 before and after).
+  The shadow is soft and faint, as a shadow from a soft light is.
+- **The floor shadow is back, fading in after the landing**: LeafThrough's default `floorShadow`
+  (`bookletFloorShadow` 0.15, for a spread only, as in the library; a phone's single page has none).
+  It fades in over `bookletShadowIn` (0.6 s) once the booklet has landed and the pages answer, and
+  out over `bookletShadowOut` (0.25 s) as the way back starts, through `floorShade` and a tween,
+  instead of following the flight's progress: switched on with the landing it read as a step, and
+  in flight the shadow was large and heavy. With the gentle resting curve the shadow is a hairline
+  along the cover's right and lower edges; `bookletFloorGap` (0.24 mm) is the floor's distance
+  under the pages for tuning it.
+- **Softer shadow edges**: the demo's `radius` 3, bias -0.0007 and normal bias 0.002
+  (`shadowSoft`, `shadowBias`) for page-on-page and floor shadows alike.
+- **The pages shown, in the caption**: while the booklet is read, the caption's upper line shows
+  the pages instead of the artist and year ("2–3 / 8", "1 / 8" on a cover or a phone's page), as
+  LeafThrough's demo counts them; the hidden live region still announces them, and the visible
+  line is aria-hidden so they are not read twice.
+- Tried and rejected: **the key light as a second shadow caster** for the case. Below and to the
+  right, its shadow fell where the paper hid it, hazed the resting cover with self-shadowing, every
+  lit material sampled a second map, and the floor (a `ShadowMaterial` takes every light's shadow,
+  lit or not) showed a large shadow up and left of the back cover. **Glossier paper** (LeafThrough
+  `paper.roughness` 0.3 instead of 0.5) gave the curl a faint highlight band (mean difference
+  about 5 of 255 along the curl) and otherwise changed nothing visible; not applied, since it would
+  also change the settled spreads reviewed against the demo. It remains a one-line option.
+- The gallery's stale shadow map: after the booklet returns, the map is drawn once more, empty
+  (`shadowMap.needsUpdate`), so the booklet's last pose cannot stay on the tray or disc.
+
+Second round, same day:
+- **The lighting no longer changes after the landing.** The crossfade from the gallery's lights
+  and environment to the reader's sun and fill ran over 0.74 to 1 of the way out, with a cubic
+  ease, while from 0.9 the roll moves under a pixel a step: the last sixth of the change played on
+  an all but still booklet, so the settled booklet was lit differently from the landing one, and
+  the way back started with the same change. Frame-by-frame diffs found no step in the handoff
+  itself (the frozen frame at 1 before and after the reader takes over matches to the pixel). The
+  crossfade is now `bookletLightIn`, 0.6 to 0.86, finished while the paper still moves; the case
+  is off the screen by 0.65 on desktop and phones, so the gallery's lights going does not dim it.
+- **The stack has thickness.** At LeafThrough's 0.007 mm a sheet the booklet flew like one sheet.
+  In the lid the sheets stay at that gap: the formed cover already lies against the lid plate's
+  inside face, and a thicker pressed stack (0.16 to 0.4 mm was tried) came through the plate, as
+  spots on the closed case in the gallery and as the roll check's plate assertion. Out from under
+  the lid the stack springs open to `bookletStackOut` (1.2 mm, the pick bound's thickness) and is
+  pressed back on the way in, over the same way the fit to the screen comes in (`framed`). The library's
+  sheet gap is not a live option, so each sheet's stand-off uniform (`uStackGap`, the one object
+  in its colour and shadow programs, caught as they compile) is widened per draw by the case's
+  `stackLoft`; a value other than the one written last is the library's own. In the curl both the
+  thin Nevermind stack and the 17-sheet Kid A one show their edges; landed, the cover lies 1.2 mm
+  over the floor and the floor shadow shows along its edges.
+- **The pages shown, under the booklet.** The caption keeps the artist and year (the first round
+  had put the count there; reverted at the user's request). A label below the landed booklet
+  ("2–3 / 8"; "1 / 8" on a cover or a phone's page) sits at the pages' lower edge, which the scene
+  reports in CSS px (`onBookletEdge`, from the magazine's bounds through the camera, whenever it
+  moves), centred on the screen as the spread is. It fades in a third of a second after the
+  landing, with the floor's shadow, and fades out the same way, where it was, as the booklet starts
+  back (the first version went at once; the user asked for the same fade both ways); aria-hidden,
+  since the live region reads the pages out.
+- **The case passes behind the disc on the way to the player and back.** The user saw the tray
+  draw over the hanging disc as the case slid up (and down, on the eject). The open case is tipped
+  back 24° (`openTilt`), so while it slides straight up past the disc, which stays where it rose
+  to, its lower part comes forward: where the bottom edge passed over the disc the tray surface was
+  about 25 mm nearer the camera than where the disc had left it, more than the 27 mm lift
+  (`insertLift` 0.45) once the walls are counted, so the tray won the depth test for a few frames
+  around 0.4 of the way, both ways (measured with a probe of the disc's height over the tray plane).
+  Two things fix it: the disc is kept out of its case as it is kept out of the player (every point
+  of it `insertClearance` in front of the walls' tops within the case's outline, with the same 45°
+  slope off its edges, pushed straight toward the camera so it swells rather than drifts), and the
+  lift is 0.6 (36 mm), at which the pass needs at most a 3 mm push on desktop and none on a portrait
+  phone (a landscape phone, where the case is bigger, gets a few millimetres). With the lift alone
+  at 0.45 the push was 12 mm in a tenth of a second, a visible flick; at 0.68 no push was needed but
+  the disc hung over the tray's top edge. The pan itself is unchanged, so the booklet view and the
+  case-transition check are unaffected.
+
+`npm run build`, the lifecycle, roll (Nevermind) and case-transition checks pass at all three sizes.
+
 ## Consistent paper curvature (30 October 2026, in review)
 
 The perfectly flat experiment was rejected in review. The booklet now uses a gentle resting
@@ -31,7 +113,7 @@ curve from the beginning: `bookletWrinkles` is 0.055 and `bookletBulge` is 0.22,
 `bookletCompression` fixed at one in the case, flight and reader. These settings fit under the
 lid without compressing the paper and then inflating its depth after extraction. They replace
 the full demo-style resting bulge described in the 29 October review below. The floor shadow
-remains disabled. Extraction curl, page-turn bending, grain, page-to-page shading, lighting,
+was disabled then (it is back, fading in after the landing, see above). Extraction curl, page-turn bending, grain, page-to-page shading, lighting,
 camera and timing are retained. The same paper settings apply to phone single-page layout.
 
 Follow-up: the flatter curve exposed depth fighting at the left edge/spine, where LeafThrough's
