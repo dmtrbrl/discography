@@ -663,93 +663,98 @@
       "bookletPageCount": 12
     },
     {
-      "id": "silent-shout",
-      "title": "Silent Shout",
-      "year": "2006",
+      "id": "moon-safari",
+      "bookletFit": "contain",
+      "appleMusicCountry": "at",
+      "artist": "Air",
+      "title": "Moon Safari",
+      "year": "1998",
       "kind": "Studio album",
-      "cover": "covers/silent-shout.jpg",
-      "color": "#14122a",
-      "accent": "#4b3fae",
-      "motif": "arches",
-      "musicbrainz": {
-        "releaseGroup": "02c05025-e031-30a0-afee-d92cea9d79dd",
-        "coverRelease": "d8956dde-c200-35b5-9788-102ab6e33492",
-        "bookletBack": "099094f6-2e34-4e65-aa31-6df3789357a4/23129607098@left"
-      },
-      "disc": "../the-knife/discs/silent-shout.jpg",
-      "back": "../the-knife/backs/silent-shout.jpg",
-      "bookletBack": "../the-knife/booklets/silent-shout-back.jpg",
-      "appleMusic": 1489763587,
+      "cover": "covers/moon-safari.jpg",
+      "disc": "discs/moon-safari.jpg",
+      "back": "backs/moon-safari.jpg",
+      "bookletBack": "booklets/moon-safari-back.jpg",
+      "bookletScans": [
+        "booklet-scans/moon-safari/02.jpg",
+        "booklet-scans/moon-safari/03.jpg",
+        "booklet-scans/moon-safari/04.jpg",
+        "booklet-scans/moon-safari/05.jpg",
+        "booklet-scans/moon-safari/06.jpg"
+      ],
+      "bookletPageCount": 12,
+      "color": "#88a8bd",
+      "accent": "#ed9959",
+      "motif": "waves",
+      "appleMusic": 697240234,
       "tracks": [
         {
-          "title": "Silent Shout",
-          "length": 296,
-          "apple": 1489763590
+          "title": "La femme d'argent",
+          "length": 427,
+          "apple": 697240265
         },
         {
-          "title": "Neverland",
-          "length": 220,
-          "apple": 1489763592
+          "title": "Sexy Boy",
+          "length": 298,
+          "apple": 697240266
         },
         {
-          "title": "The Captain",
-          "length": 371,
-          "apple": 1489763594
+          "title": "All I Need",
+          "length": 268,
+          "apple": 697240267
         },
         {
-          "title": "We Share Our Mothers’ Health",
-          "length": 254,
-          "apple": 1489763595
+          "title": "Kelly Watch the Stars",
+          "length": 226,
+          "apple": 697240268
         },
         {
-          "title": "Na Na Na",
-          "length": 150,
-          "apple": 1489763596
+          "title": "Talisman",
+          "length": 257,
+          "apple": 697240309
         },
         {
-          "title": "Marble House",
-          "length": 321,
-          "apple": 1489763598
+          "title": "Remember",
+          "length": 154,
+          "apple": 697240310
         },
         {
-          "title": "Like a Pen",
-          "length": 375,
-          "apple": 1489763599
+          "title": "You Make It Easy",
+          "length": 242,
+          "apple": 697240313
         },
         {
-          "title": "From Off to On",
-          "length": 240,
-          "apple": 1489763601
+          "title": "Ce matin-là",
+          "length": 219,
+          "apple": 697240314
         },
         {
-          "title": "Forest Families",
-          "length": 251,
-          "apple": 1489763602
+          "title": "New Star in the Sky",
+          "length": 341,
+          "apple": 697240318
         },
         {
-          "title": "One Hit",
-          "length": 270,
-          "apple": 1489763605
-        },
-        {
-          "title": "Still Light",
-          "length": 196,
-          "apple": 1489763606
+          "title": "Le voyage de Pénélope",
+          "length": 191,
+          "apple": 697240320
         }
       ],
-      "artist": "The Knife",
-      "sources": {
-        "cover": "https://music.apple.com/us/album/1489763587",
-        "booklet": "https://musicbrainz.org/release/099094f6-2e34-4e65-aa31-6df3789357a4/cover-art"
+      "musicbrainz": {
+        "releaseGroup": "b0bf2b77-b8cf-32f6-8893-9741d757b400",
+        "release": "4c55906c-349b-362d-922e-956762912b42",
+        "bookletBack": "4c55906c-349b-362d-922e-956762912b42/1257693473@left",
+        "backImage": "1257732487",
+        "coverRelease": "4c55906c-349b-362d-922e-956762912b42"
       },
-      "bookletScans": [
-        "booklet-scans/silent-shout/01.jpg",
-        "booklet-scans/silent-shout/02.jpg",
-        "booklet-scans/silent-shout/03.jpg",
-        "booklet-scans/silent-shout/04.jpg",
-        "booklet-scans/silent-shout/05.jpg"
-      ],
-      "bookletPageCount": 12
+      "sources": {
+        "cover": "https://music.apple.com/at/album/697240234",
+        "disc": "https://coverartarchive.org/release/4c55906c-349b-362d-922e-956762912b42/1257747364.jpg",
+        "back": "https://coverartarchive.org/release/4c55906c-349b-362d-922e-956762912b42/1257732487.jpg",
+        "booklet": "https://musicbrainz.org/release/4c55906c-349b-362d-922e-956762912b42/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/4c55906c-349b-362d-922e-956762912b42/1257693473.jpg",
+        "physicalBooklet": "https://www.musik-sammler.de/release/air-moon-safari-cd-1045496/",
+        "digitalBookletListing": "https://www.qobuz.com/at-de/album/moon-safari-air/0724384497859",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer. Stapled booklet from the 1998 French single-CD edition. Interior artwork is scanned paper, not a verified native digital PDF. Qobuz lists a digital booklet, but its file was not obtained or used."
+      }
     },
     {
       "id": "mutter",
@@ -843,113 +848,111 @@
       "bookletPageCount": 16
     },
     {
-      "id": "crystal-castles",
-      "title": "Crystal Castles",
-      "year": "2008",
+      "id": "x-and-y",
+      "artist": "Coldplay",
+      "title": "X&Y",
+      "year": "2005",
       "kind": "Studio album",
-      "cover": "covers/crystal-castles.jpg",
-      "color": "#1f1f1f",
-      "accent": "#d9d9d9",
-      "motif": "rings",
-      "musicbrainz": {
-        "releaseGroup": "3fd716f5-2f67-3890-95ec-20c4032511c8",
-        "bookletBack": "f5dde22a-23de-3881-9a1b-962c5e52b4ad/42703574279@left"
-      },
-      "disc": "../crystal-castles/discs/crystal-castles.jpg",
-      "back": "../crystal-castles/backs/crystal-castles.jpg",
-      "bookletBack": "../crystal-castles/booklets/crystal-castles-back.jpg",
-      "appleMusic": 1132754123,
+      "cover": "covers/x-and-y.jpg",
+      "color": "#050b35",
+      "accent": "#ee2b2b",
+      "motif": "lines",
+      "disc": "discs/x-and-y.jpg",
+      "back": "backs/x-and-y.jpg",
+      "bookletBack": "booklets/x-and-y-back.jpg",
+      "bookletScans": [
+        "booklet-scans/x-and-y/02.jpg",
+        "booklet-scans/x-and-y/03.jpg",
+        "booklet-scans/x-and-y/04.jpg",
+        "booklet-scans/x-and-y/05.jpg",
+        "booklet-scans/x-and-y/06.jpg",
+        "booklet-scans/x-and-y/07.jpg"
+      ],
+      "bookletPageCount": 8,
+      "appleMusic": 1123076757,
+      "buy": "https://ukstore.coldplay.com/products/x-y-cd",
       "tracks": [
         {
-          "title": "Untrust Us",
-          "length": 186,
-          "apple": 1132754186
+          "title": "Square One",
+          "length": 287,
+          "apple": 1123076813
         },
         {
-          "title": "Alice Practice",
-          "length": 161,
-          "apple": 1132754187
+          "title": "What If",
+          "length": 297,
+          "apple": 1123076821
         },
         {
-          "title": "Crimewave",
-          "length": 258,
-          "apple": 1132754189
+          "title": "White Shadows",
+          "length": 328,
+          "apple": 1123076823
         },
         {
-          "title": "Magic Spells",
-          "length": 367,
-          "apple": 1132754190
+          "title": "Fix You",
+          "length": 295,
+          "apple": 1123076826
         },
         {
-          "title": "XXZXCUZX Me",
-          "length": 114,
-          "apple": 1132754191
+          "title": "Talk",
+          "length": 311,
+          "apple": 1123076827
         },
         {
-          "title": "Air War",
-          "length": 252,
-          "apple": 1132754192
+          "title": "X&Y",
+          "length": 274,
+          "apple": 1123076829
         },
         {
-          "title": "Courtship Dating",
-          "length": 210,
-          "apple": 1132754193
+          "title": "Speed of Sound",
+          "length": 288,
+          "apple": 1123076830
         },
         {
-          "title": "Good Time",
-          "length": 176,
-          "apple": 1132754194
+          "title": "A Message",
+          "length": 285,
+          "apple": 1123076921
         },
         {
-          "title": "1991",
-          "length": 114,
-          "apple": 1132754195
+          "title": "Low",
+          "length": 332,
+          "apple": 1123076922
         },
         {
-          "title": "Vanished",
-          "length": 243,
-          "apple": 1132754196
+          "title": "The Hardest Part",
+          "length": 265,
+          "apple": 1123076924
         },
         {
-          "title": "Knights",
-          "length": 194,
-          "apple": 1132754197
+          "title": "Swallowed in the Sea",
+          "length": 239,
+          "apple": 1123076931
         },
         {
-          "title": "Love and Caring",
-          "length": 139,
-          "apple": 1132754198
+          "title": "Twisted Logic",
+          "length": 302,
+          "apple": 1123076932
         },
         {
-          "title": "Through the Hosiery",
-          "length": 187,
-          "apple": 1132754199
-        },
-        {
-          "title": "Reckless",
-          "length": 208,
-          "apple": 1132754200
-        },
-        {
-          "title": "Black Panther",
-          "length": 177,
-          "apple": 1132754261
-        },
-        {
-          "title": "Tell Me What to Swallow",
-          "length": 137,
-          "apple": 1132754262
+          "title": "Til Kingdom Come",
+          "length": 251,
+          "apple": 1123076933
         }
       ],
-      "artist": "Crystal Castles",
-      "sources": {
-        "cover": "https://music.apple.com/us/album/1132754123",
-        "booklet": "https://musicbrainz.org/release/f5dde22a-23de-3881-9a1b-962c5e52b4ad/cover-art"
+      "musicbrainz": {
+        "releaseGroup": "c50b180a-12c9-3153-8ba5-eac6a6537d6f",
+        "release": "a45b3f71-8ff1-4498-8a7a-e2d18a2f6aa8"
       },
-      "bookletScans": [
-        "booklet-scans/crystal-castles/02.jpg"
-      ],
-      "bookletPageCount": 4
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1123076757",
+        "disc": "https://coverartarchive.org/release/a45b3f71-8ff1-4498-8a7a-e2d18a2f6aa8/7257540254.jpg",
+        "back": "https://coverartarchive.org/release/a45b3f71-8ff1-4498-8a7a-e2d18a2f6aa8/7256206024.jpg",
+        "booklet": "https://www.mediafire.com/file/nzwzwybgmzt/Digital+Booklet+-+X+%26+Y.pdf",
+        "bookletReference": "https://coldplaying.com/forums/topic/65224-coldplay-itunes-digital-booklets/",
+        "physicalBooklet": "https://www.musik-sammler.de/release/coldplay-x-y-cd-719123/",
+        "physicalPageOrder": "https://musicbrainz.org/release/a45b3f71-8ff1-4498-8a7a-e2d18a2f6aa8/cover-art",
+        "bookletFormat": "Original 8-page landscape digital PDF; six interior pages and final credits page fitted without cropping to square demo pages. Single-CD physical editions have a 12-page stapled booklet; this demo follows the digital pagination.",
+        "bookletSha256": "3ef81daea4d6b131ef454a3639c66fdbfb86ff9aef1f8e26fa4350cad76c9c3a"
+      }
     }
   ]
 }

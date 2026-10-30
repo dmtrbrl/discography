@@ -151,8 +151,10 @@ for (const album of config.albums) {
   }
 
   delete album.appleMusic;
+  delete album.appleMusicCountry;
   if (best?.matched) {
     album.appleMusic = best.candidate.collectionId;
+    album.appleMusicCountry = COUNTRY;
     best.ids.forEach((id, n) => {
       if (id) tracks[n].apple = id;
     });

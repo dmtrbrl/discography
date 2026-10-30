@@ -291,17 +291,18 @@ function applyTheme(theme: Theme, title: string) {
 // 30-second previews from Apple Music: one lookup per album gives every track's preview URL, keyed
 // by the Apple track IDs that scripts/fetch-tracks.mjs stored. Preview URLs aren't kept in band.json
 // since Apple may change them. Each album is fetched once a visit.
-const previews = new Map<number, Promise<Map<number, string>>>();
+const previews = new Map<string, Promise<Map<number, string>>>();
 
-function loadPreviews(collection: number) {
-  let loading = previews.get(collection);
+function loadPreviews(collection: number, country = 'us') {
+  const key = `${country}:${collection}`;
+  let loading = previews.get(key);
   if (!loading) {
-    loading = fetch(`https://itunes.apple.com/lookup?id=${collection}&entity=song&limit=200&country=us`)
+    loading = fetch(`https://itunes.apple.com/lookup?id=${collection}&entity=song&limit=200&country=${encodeURIComponent(country)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`${response.status}`))))
       .then(({ results }: { results: { wrapperType: string; trackId?: number; previewUrl?: string }[] }) =>
         new Map(results.filter((result) => result.trackId && result.previewUrl).map((result) => [result.trackId!, result.previewUrl!])));
-    loading.catch(() => previews.delete(collection));
-    previews.set(collection, loading);
+    loading.catch(() => previews.delete(key));
+    previews.set(key, loading);
   }
   return loading;
 }
@@ -381,11 +382,11 @@ function createPreviews(options: {
     setState(autoplay ? 'loading' : 'paused');
     setSeconds(0);
     options.onDisplay(index + 1, 0);
-    const urls = await loadPreviews(album.appleMusic).catch(() => null);
+    const urls = await loadPreviews(album.appleMusic, album.appleMusicCountry).catch(() => null);
     if (ticket !== request) return;
     const url = urls?.get(track.apple);
     if (!url) {
-      setFailed(!urls);
+      setFailed(true);
       stop();
       return;
     }
@@ -490,8 +491,27 @@ function bookletPages(album: Album) {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 1024;
     const panelWidth = image.naturalWidth / panels;
+    const context = canvas.getContext('2d')!;
+    if (album.bookletFit === 'contain') {
+      // Preserve the complete half-spread, especially its centre edge. Centre-cropping each
+      // half separately drops two strips of artwork and breaks continuous shapes at the spine.
+      const scale = 1024 / Math.max(panelWidth, image.naturalHeight);
+      const width = panelWidth * scale, height = image.naturalHeight * scale;
+      const x = (1024 - width) / 2, y = (1024 - height) / 2;
+      context.drawImage(image, panel * panelWidth, 0, panelWidth, image.naturalHeight, x, y, width, height);
+      // Extend only the outermost pixel into the narrow padding, without stretching the art.
+      if (y > 0) {
+        context.drawImage(image, panel * panelWidth, 0, panelWidth, 1, x, 0, width, y);
+        context.drawImage(image, panel * panelWidth, image.naturalHeight - 1, panelWidth, 1, x, y + height, width, y);
+      }
+      if (x > 0) {
+        context.drawImage(image, panel * panelWidth, 0, 1, image.naturalHeight, 0, y, x, height);
+        context.drawImage(image, (panel + 1) * panelWidth - 1, 0, 1, image.naturalHeight, x + width, y, x, height);
+      }
+      return canvas;
+    }
     const crop = Math.min(panelWidth, image.naturalHeight);
-    canvas.getContext('2d')!.drawImage(image, panel * panelWidth + (panelWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 0, 0, 1024, 1024);
+    context.drawImage(image, panel * panelWidth + (panelWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 0, 0, 1024, 1024);
     return canvas;
   };
   const pages = Promise.all((album.bookletScans ?? []).map((src) => loadImage(src).catch(() => null))).then((scans) => {
@@ -619,7 +639,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   });
   // The album on Apple Music, and where to buy the CD: the artist's shop when band.json names one,
   // otherwise an Amazon search.
-  const appleLink = () => `https://music.apple.com/us/album/${selected().appleMusic}`;
+  const appleLink = () => `https://music.apple.com/${selected().appleMusicCountry ?? 'us'}/album/${selected().appleMusic}`;
   const buyLink = () => selected().buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${selected().artist} ${selected().title} CD`)}&i=popular`;
   // What a click does, for the bubble cursor.
   const bubbleLabel = () => {

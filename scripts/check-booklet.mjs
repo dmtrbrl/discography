@@ -14,7 +14,7 @@ try {
     [1440, 900, 'nevermind', 'no-preference'],
     [390, 844, 'nevermind', 'no-preference'],
     [844, 390, 'kid-a', 'no-preference'],
-    [390, 844, 'crystal-castles', 'reduce'],
+    [390, 844, 'x-and-y', 'reduce'],
   ]) {
     const page = await browser.newPage({ viewport: { width, height }, reducedMotion });
     const errors = [], interiorRequests = [];
@@ -48,6 +48,10 @@ try {
     });
     assert.equal(landed.page, 0, 'The cover does not turn automatically');
     assert.ok(landed.same, 'The reader uses the same physical page object');
+    if (album === 'x-and-y') {
+      assert.equal(await page.evaluate(() => window.scene.magazine.pageCount), 8, 'X&Y uses all eight digital booklet pages');
+      assert.equal(new Set(interiorRequests).size, 6, 'All six digital interior layouts load');
+    }
     await page.mouse.click(width / 2, 100);
     assert.ok(await page.evaluate(() => window.scene.inBooklet), 'An outside click keeps the booklet out');
     await page.keyboard.press('ArrowRight');

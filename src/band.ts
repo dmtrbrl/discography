@@ -49,11 +49,15 @@ export interface AlbumConfig {
   bookletBackCrop?: 'left' | 'right';
   // Archived interior booklet scans; spreads are split into pages when the booklet opens.
   bookletScans?: string[];
+  // Keep each complete scanned panel when artwork crosses a spread's centre.
+  bookletFit?: 'cover' | 'contain';
   // Printed sides, including covers, known without downloading/decoding the interior scans.
   bookletPageCount?: number;
   tracks?: Track[];
   // The album on Apple Music (an iTunes collection ID), for previews and the store link.
   appleMusic?: number;
+  // Storefront used for both album and track IDs; older entries use the US catalogue.
+  appleMusicCountry?: string;
   // Where to buy the CD, when the artist's own shop sells it; otherwise the page searches Amazon.
   buy?: string;
   color?: string;
