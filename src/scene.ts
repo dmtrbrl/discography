@@ -1,9 +1,17 @@
 import * as THREE from 'three';
-import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LeafThroughObject } from 'leafthrough';
 import type { LightingOptions, PageSource, PaperDeform } from 'leafthrough';
 import type { Album } from './band';
+import { GRAIN_SIZE, generateProcedural, valueNoise } from './procedural';
+import type { ProceduralMaps, ProceduralParams } from './procedural';
+
+// The strip light's shading needs lookup tables (RectAreaLightUniformsLib), a quarter of the
+// script: they come as a chunk of their own, fetched while the artwork loads, and the shaders wait
+// for them (the constructor's load gate). Started as soon as the script runs.
+const ltcTables = import('three/examples/jsm/lights/RectAreaLightUniformsLib.js')
+  .then(({ RectAreaLightUniformsLib }) => RectAreaLightUniformsLib.init())
+  .catch((error: unknown) => console.warn('The strip light\'s lookup tables failed to load', error));
 
 // All visual and motion tuning. The disc radius is 1 unit.
 const C = {
@@ -258,8 +266,7 @@ export interface SceneOptions {
   // The inside pages of case `index`'s booklet (the scene adds its cover and back page), and which
   // of them show once it is out: the first and last visible page and how many there are.
   bookletPages?: (index: number) => Promise<PageSource[]>;
-  // loops: whether the last page turns too, back onto the cover (see bookletLayout).
-  onPage?: (first: number, last: number, count: number, loops: boolean) => void;
+  onPage?: (first: number, last: number, count: number) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
@@ -505,70 +512,6 @@ function softSpin(angle: number, delta: number) {
   const over = Math.max(0, Math.abs(angle) - limit * 0.8) / limit;
   const resistance = 1 / (1 + over * over * 14);
   return angle + delta * (Math.sign(delta) === Math.sign(angle) || angle === 0 ? resistance : 1);
-}
-
-function valueNoise(x: number, y: number) {
-  const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return value - Math.floor(value);
-}
-
-function normalsFromHeight(heightMap: Float32Array, size: number) {
-  const data = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let nx = heightMap[y * size + Math.max(0, x - 1)] - heightMap[y * size + Math.min(size - 1, x + 1)];
-      let ny = heightMap[Math.max(0, y - 1) * size + x] - heightMap[Math.min(size - 1, y + 1) * size + x];
-      const inverse = 1 / Math.sqrt(nx * nx + ny * ny + 1);
-      const index = (y * size + x) * 4;
-      data[index] = (nx * inverse * 0.5 + 0.5) * 255;
-      data[index + 1] = (ny * inverse * 0.5 + 0.5) * 255;
-      data[index + 2] = (inverse * 0.5 + 0.5) * 255;
-      data[index + 3] = 255;
-    }
-  }
-  return data;
-}
-
-// Printed front: faint optical rings, ink grain, scratches and dust.
-function makeFrontNormal(size: number) {
-  const heightMap = new Float32Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const radius = Math.hypot(x - size / 2, y - size / 2) + 0.0001;
-      heightMap[y * size + x] = Math.sin(radius * 0.6) * 0.02 + (valueNoise(x * 0.4, y * 0.4) - 0.5) * 0.5 * C.texPrint;
-    }
-  }
-  for (let n = 0; n < Math.floor(30 * C.texScratches); n++) {
-    const angle = Math.random() * Math.PI * 2;
-    const length = 30 + Math.random() * 220;
-    const startX = Math.random() * size;
-    const startY = Math.random() * size;
-    const depth = (Math.random() * 0.7 + 0.2) * C.texScratches;
-    for (let step = 0; step < length; step++) {
-      const x = Math.round(startX + Math.cos(angle) * step);
-      const y = Math.round(startY + Math.sin(angle) * step);
-      if (x > 0 && y > 0 && x < size - 1 && y < size - 1) heightMap[y * size + x] -= depth;
-    }
-  }
-  for (let n = 0; n < Math.floor(500 * C.texScratches); n++) {
-    heightMap[Math.floor(Math.random() * size) * size + Math.floor(Math.random() * size)] += (Math.random() - 0.5) * C.texScratches * 1.2;
-  }
-  return normalsFromHeight(heightMap, size);
-}
-
-function makeFrontRoughness(size: number) {
-  const data = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const radius = Math.hypot(x - size / 2, y - size / 2);
-      let roughness = C.frontRough + (valueNoise(x * 2.3, y * 2.3) - 0.5) * 0.35 * C.texGrain + (valueNoise(x * 0.5, y * 0.5) - 0.5) * 0.3 * C.texPrint;
-      roughness -= (Math.sin((radius / (size * 0.5)) * 14) * 0.5 + 0.5) * 0.5 * C.texGloss;
-      const index = (y * size + x) * 4;
-      data[index] = data[index + 1] = data[index + 2] = clamp(roughness, 0.02, 1) * 255;
-      data[index + 3] = 255;
-    }
-  }
-  return data;
 }
 
 function makeDataTexture(data: Uint8Array, size: number, anisotropy: number) {
@@ -1117,17 +1060,6 @@ function makeCaseWearCanvas(size: number) {
 }
 
 // Satin black tray: a fine stipple as bumps (normal map) and as roughness variation.
-function makeTrayMaps(size: number) {
-  const heightMap = new Float32Array(size * size);
-  for (let n = 0; n < heightMap.length; n++) heightMap[n] = valueNoise(n % size, Math.floor(n / size)) * C.trayStipple;
-  const roughness = new Uint8Array(size * size * 4);
-  for (let n = 0; n < heightMap.length; n++) {
-    roughness[n * 4] = roughness[n * 4 + 1] = roughness[n * 4 + 2] = clamp(C.trayRough + (heightMap[n] / C.trayStipple - 0.5) * 0.3, 0.05, 1) * 255;
-    roughness[n * 4 + 3] = 255;
-  }
-  return { normal: normalsFromHeight(heightMap, size), roughness };
-}
-
 // A stable 0 to 1 value per album, so each disc keeps its own wear.
 function seedFrom(text: string | number) {
   let hash = 2166136261;
@@ -1135,21 +1067,26 @@ function seedFrom(text: string | number) {
   return (hash >>> 0) / 4294967295;
 }
 
+// The side of the tray's stipple maps, in pixels.
+const TRAY_MAP_SIZE = 512;
+
+// The disc print's normal and roughness maps, the tray's, and the booklets' paper grain start
+// empty: a worker generates them (procedural.ts) and fillProcedural puts them in.
 function makeSharedResources(renderer: THREE.WebGLRenderer) {
   const anisotropy = renderer.capabilities.getMaxAnisotropy();
   const size = C.mapResolution;
+  const empty = (side: number) => new Uint8Array(side * side * 4);
   // trayNormal and trayRough are added just below.
   const textures = {
-    frontNormal: makeDataTexture(makeFrontNormal(size), size, anisotropy),
-    frontRough: makeDataTexture(makeFrontRoughness(size), size, anisotropy),
+    frontNormal: makeDataTexture(empty(size), size, anisotropy),
+    frontRough: makeDataTexture(empty(size), size, anisotropy),
     scratches: new THREE.CanvasTexture(makeScratchCanvas(size)),
     caseWear: new THREE.CanvasTexture(makeCaseWearCanvas(size)),
   } as SharedTextures;
   textures.caseWear.wrapS = textures.caseWear.wrapT = THREE.RepeatWrapping;
   textures.caseWear.anisotropy = anisotropy;
-  const trayMaps = makeTrayMaps(512);
-  textures.trayNormal = makeDataTexture(trayMaps.normal, 512, anisotropy);
-  textures.trayRough = makeDataTexture(trayMaps.roughness, 512, anisotropy);
+  textures.trayNormal = makeDataTexture(empty(TRAY_MAP_SIZE), TRAY_MAP_SIZE, anisotropy);
+  textures.trayRough = makeDataTexture(empty(TRAY_MAP_SIZE), TRAY_MAP_SIZE, anisotropy);
   for (const texture of [textures.trayNormal, textures.trayRough]) {
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(3, 3);
@@ -1175,7 +1112,54 @@ function makeSharedResources(renderer: THREE.WebGLRenderer) {
     }),
     pick: new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide, depthWrite: false }),
   };
-  return { textures, geometries, materials, anisotropy };
+  // The paper grain every booklet shares (makeCase); LeafThrough wraps it in a texture of its own.
+  const grain = document.createElement('canvas');
+  grain.width = grain.height = GRAIN_SIZE;
+  return { textures, geometries, materials, anisotropy, grain };
+}
+
+// The parameters the procedural maps depend on, for the worker.
+function proceduralParams(): ProceduralParams {
+  return { mapResolution: C.mapResolution, traySize: TRAY_MAP_SIZE, frontRough: C.frontRough, texGrain: C.texGrain, texPrint: C.texPrint, texScratches: C.texScratches, texGloss: C.texGloss, trayStipple: C.trayStipple, trayRough: C.trayRough };
+}
+
+// Generates the maps in a worker (procedural.worker.ts), or on this thread where that fails.
+function generateInWorker(params: ProceduralParams) {
+  return new Promise<ProceduralMaps>((resolve) => {
+    let worker: Worker | null = null;
+    try {
+      worker = new Worker(new URL('./procedural.worker.ts', import.meta.url), { type: 'module' });
+    } catch {
+      worker = null;
+    }
+    if (!worker) return resolve(generateProcedural(params));
+    const fallback = () => {
+      worker.terminate();
+      resolve(generateProcedural(params));
+    };
+    worker.onmessage = (event: MessageEvent<ProceduralMaps>) => {
+      worker.terminate();
+      resolve(event.data);
+    };
+    worker.onerror = fallback;
+    worker.onmessageerror = fallback;
+    worker.postMessage(params);
+  });
+}
+
+// Puts the generated maps into the shared textures and the paper grain into its canvas, and
+// uploads the textures now (a first upload mid-scroll stalls the frame).
+function fillProcedural(shared: SharedResources, maps: ProceduralMaps, renderer: THREE.WebGLRenderer) {
+  const fill = (texture: THREE.DataTexture, data: Uint8Array) => {
+    texture.image.data = data;
+    texture.needsUpdate = true;
+    renderer.initTexture(texture);
+  };
+  fill(shared.textures.frontNormal, maps.frontNormal);
+  fill(shared.textures.frontRough, maps.frontRough);
+  fill(shared.textures.trayNormal, maps.trayNormal);
+  fill(shared.textures.trayRough, maps.trayRough);
+  shared.grain.getContext('2d')!.putImageData(new ImageData(maps.grain, GRAIN_SIZE, GRAIN_SIZE), 0, 0);
 }
 
 // Finds the disc in a scan: rows and columns where enough pixels differ from the background,
@@ -1805,8 +1789,11 @@ function seatInBooklet(model: LeafThroughObject) {
 // The page object's layout options. One page at a time (phones) it loops: LeafThrough turns the
 // last page, the back cover, only then, and turning it shuts the booklet back onto its cover. The
 // open spread stops on its back page.
+// Neither layout loops: the back cover is the end of a phone's single pages too. It turned on
+// (30 October 2026), round to the front cover, with an inside page showing behind the turning
+// sheet on the way, which read as the first page bleeding into the last.
 function bookletLayout(layout: 'spread' | 'single') {
-  return { layout, loop: layout === 'single' };
+  return { layout, loop: false };
 }
 
 // The page object's lighting options: the sun as the booklet view's, and whether its sheets cast
@@ -1834,7 +1821,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   bookletSources[pageCount - 1] = makeBookletBackCanvas(album);
   const bookletModel = new LeafThroughObject({ renderer, camera }, {
     pages: bookletSources, preload: pageCount, layout: 'spread', pageAspect: 1, loop: false,
-    paper: { wrinkles: C.bookletWrinkles, bulge: C.bookletBulge, sheetGap: sheetGap / C.bookletSize },
+    paper: { grain: shared.grain, wrinkles: C.bookletWrinkles, bulge: C.bookletBulge, sheetGap: sheetGap / C.bookletSize },
     lighting: bookletLighting(false), deform: bookletDeform(bend, bookletFlatten, sheetTuck),
     interaction: { keyboard: false },
   });
@@ -2447,7 +2434,6 @@ export class GalleryScene {
   private loadTimer!: number;
   private loaded!: Promise<void[]>;
   private raycaster: THREE.Raycaster;
-  private loader: THREE.ImageLoader;
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -2546,6 +2532,9 @@ export class GalleryScene {
   private bookletTarget = 0.5;
   private closingBooklet = false;
   private bookletRequest = 0;
+  // Interior pages that arrived while the booklet was still flying, to go in once it has landed
+  // (see loadBooklet).
+  private pendingPages: (() => void) | null = null;
   // The booklet's page size in the booklet view (scene units), and whether it shows one page at a
   // time (narrow screens), set by resize.
   private bookletPage = 1;
@@ -2629,7 +2618,6 @@ export class GalleryScene {
     this.resetWheel();
 
     this.raycaster = new THREE.Raycaster();
-    this.loader = new THREE.ImageLoader();
     // High-DPI screens barely need MSAA, and it is costly at that resolution.
     this.renderer = new THREE.WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 2, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
@@ -2667,7 +2655,8 @@ export class GalleryScene {
     this.scene.add(this.gallery);
     this.addLights();
     this.shared = makeSharedResources(this.renderer);
-    Object.values(this.shared.textures).forEach((texture) => this.renderer.initTexture(texture));
+    this.renderer.initTexture(this.shared.textures.scratches);
+    this.renderer.initTexture(this.shared.textures.caseWear);
     // The player stays hidden until a disc goes in. Its pose is fixed; resize places, turns and sizes it.
     this.player = makePlayer(this.shared.anisotropy, this.shared.textures.trayNormal);
     this.player.group.visible = false;
@@ -2691,14 +2680,23 @@ export class GalleryScene {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(element);
 
-    this.setAlbums(albums);
+    this.albums = albums;
     this.resize();
-    // Reveal once every case has its final artwork and the page fonts are in. The timeout reveals
-    // anyway (with placeholders) so a hung request never blocks the page.
-    const timeout = new Promise<void>((resolve) => {
-      this.loadTimer = setTimeout(resolve, C.loadTimeout);
+    // The procedural maps come from a worker, so making them doesn't hold the page (the loading
+    // screen's count would stand still); the cases are built once they're in, since the booklets
+    // take the paper grain as they're made. Then the artwork loads.
+    const artwork = generateInWorker(proceduralParams()).then((maps) => {
+      if (this.destroyed) return;
+      fillProcedural(this.shared, maps, this.renderer);
+      this.setAlbums(albums);
+      return this.loaded;
     });
-    Promise.race([Promise.all([this.loaded, document.fonts?.ready]), timeout]).then(() => this.prepare());
+    // Reveal once every case has its artwork, the page fonts are in and the strip light has its
+    // tables. The timeout reveals anyway (with placeholders) so a hung request never blocks the page.
+    const timeout = new Promise<void>((resolve) => {
+      this.loadTimer = window.setTimeout(resolve, C.loadTimeout);
+    });
+    Promise.race([Promise.all([artwork, document.fonts?.ready, ltcTables]), timeout]).then(() => this.prepare());
   }
 
   private prepare() {
@@ -2706,15 +2704,19 @@ export class GalleryScene {
     clearTimeout(this.loadTimer);
     this.prepared = true;
     // Compile every shader now rather than when a case first scrolls into view or opens. Compiling
-    // skips hidden objects, so the gallery is shown just for the call.
+    // skips hidden objects, so the gallery is shown just for the call. compileAsync compiles at
+    // once and resolves when the programs have linked: with KHR_parallel_shader_compile the
+    // linking no longer holds the main thread, and the first frame doesn't wait for it.
     this.gallery.visible = this.player.group.visible = true;
-    this.renderer.compile(this.scene, this.camera);
+    const compiled = this.renderer.compileAsync(this.scene, this.camera);
     this.gallery.visible = this.player.group.visible = false;
     // The screen's fonts come from the page, which may not have loaded them when it was first drawn.
     Promise.all([document.fonts?.load('500 10px "DM Mono"'), document.fonts?.load('500 10px "DM Sans"')]).then(() => {
       if (!this.destroyed) this.drawScreen();
     }).catch(() => {});
-    this.onReady?.();
+    compiled.then(() => {
+      if (!this.destroyed) this.onReady?.();
+    });
   }
 
   // Shows the gallery and plays the intro; input works from here on.
@@ -2733,7 +2735,7 @@ export class GalleryScene {
   // gallery starts again there with the intro, and onShown is called, so the page can fade it in
   // as on the first reveal. Before the gallery is revealed it only changes where the intro will start.
   show(index: number, open = false, listen = false, read = false, onShown?: () => void) {
-    this.startIndex = clamp(Math.round(index), 0, Math.max(0, this.cases.length - 1));
+    this.startIndex = clamp(Math.round(index), 0, Math.max(0, this.cases.length, this.albums.length) - 1);
     this.openOnReveal = open || listen || read;
     this.listenOnReveal = listen;
     this.readOnReveal = read && !listen;
@@ -2803,7 +2805,6 @@ export class GalleryScene {
   }
 
   private addLights() {
-    RectAreaLightUniformsLib.init();
     this.ambientLight = new THREE.AmbientLight('#ffffff', C.ambientIntensity);
     this.scene.add(this.ambientLight);
     const key = new THREE.DirectionalLight(C.keyColor, C.keyIntensity);
@@ -2909,19 +2910,29 @@ export class GalleryScene {
         material.envMap = this.environment.texture;
         material.envMapIntensity = C.environmentIntensity;
       }
-      const placeholder = makeFallbackArt(album, index);
-      this.setArt(item.disc, placeholder);
+      // Until the artwork arrives (and in its place should it fail), the booklet's cover from
+      // makeCase stands in for the disc's print and the case's. Not uploaded: the artwork follows
+      // within moments, and this is drawn only if the load times out.
+      const placeholder = item.bookletSources[0] as HTMLCanvasElement;
+      this.setArt(item.disc, placeholder, false, false);
       this.setPrint(item, 'cover', placeholder);
-      // The disc prefers a scan of the printed disc, then the cover. The back insert and the
-      // booklet's back page are generated when there is no scan.
-      const urls = [album.disc, album.cover, album.back, album.bookletBack];
-      pending.push(Promise.all(urls.map((url) => this.loadImage(url))).then(([scan, cover, back, bookletBack]) => {
+      // The disc prefers a scan of the printed disc, then the cover. The reveal waits for these
+      // two, which show on the row; the back insert and the booklet's back page follow on their
+      // own, since they show only once a case is turned over or opened (on a slow connection the
+      // two halves of the artwork would otherwise double the wait). Both are generated when there
+      // is no scan.
+      pending.push(Promise.all([this.loadImage(album.disc), this.loadImage(album.cover)]).then(([scan, cover]) => {
         if (item.disposed) return;
         if (scan || cover) this.setArt(item.disc, (scan || cover)!, Boolean(scan));
         if (cover) this.setPrint(item, 'cover', makeSquareCanvas(cover));
-        this.setPrint(item, 'insert', makeInsertCanvas(album, back));
-        this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack, album.bookletBackCrop) : makeBookletBackCanvas(album));
+        this.syncBooklet(item);
         this.onProgress?.((loaded += 1), albums.length);
+        void Promise.all([this.loadImage(album.back), this.loadImage(album.bookletBack)]).then(([back, bookletBack]) => {
+          if (item.disposed) return;
+          this.setPrint(item, 'insert', makeInsertCanvas(album, back));
+          this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack, album.bookletBackCrop) : makeBookletBackCanvas(album));
+          this.syncBooklet(item);
+        });
       }));
       this.gallery.add(item.group);
       return item;
@@ -2930,26 +2941,35 @@ export class GalleryScene {
     this.request(3);
   }
 
-  // Resolves with the image, or null when there is no URL or it fails to load.
+  // Resolves with the image, decoded, or null when there is no URL or it fails to load. Decoded
+  // here, off the main thread, rather than when it is first drawn, which would decode it on the
+  // main thread then (an AVIF of this size takes it 20 ms or more).
   private loadImage(url: string | undefined) {
     return new Promise<HTMLImageElement | null>((resolve) => {
       if (!url) return resolve(null);
-      this.loader.load(url, resolve, undefined, () => resolve(null));
+      const image = new Image();
+      image.decoding = 'async';
+      image.onload = () => image.decode().then(() => resolve(image), () => resolve(image));
+      image.onerror = () => resolve(null);
+      image.src = url;
     });
   }
 
-  private setArt(disc: Disc, image: Picture, scan = false) {
+  // upload: send the texture to the GPU now; a first upload mid-scroll stalls the frame.
+  private setArt(disc: Disc, image: Picture, scan = false, upload = true) {
     const art = makeArtTexture(image, this.shared.anisotropy, scan);
     disc.art?.dispose();
     disc.art = art;
     disc.frontMaterial.map = art;
-    // Upload now; a first upload mid-scroll stalls the frame.
-    this.renderer.initTexture(art);
+    if (upload) this.renderer.initTexture(art);
     disc.frontMaterial.needsUpdate = true;
     this.request();
   }
 
-  // Sets one of a case's printed parts: the cover, the back insert or the booklet's back page.
+  // Sets one of a case's printed parts: the cover, the back insert or the booklet's back page. The
+  // cover and the back page are drawn as the booklet's outer pages: it gets the same textures (one
+  // copy of each in memory) once syncBooklet is called, and uploads them itself; only the insert's
+  // is uploaded here (now, since a first upload mid-scroll stalls the frame).
   private setPrint(item: JewelCase, part: PrintPart, canvas: HTMLCanvasElement) {
     const material = item.prints[part];
     const texture = new THREE.CanvasTexture(canvas);
@@ -2958,14 +2978,16 @@ export class GalleryScene {
     material.map?.dispose();
     material.map = texture;
     material.color.set('#ffffff');
-    this.renderer.initTexture(texture);
+    if (part === 'insert') this.renderer.initTexture(texture);
     material.needsUpdate = true;
-    if (part === 'cover' || part === 'bookletBack') {
-      item.bookletSources[part === 'cover' ? 0 : item.bookletSources.length - 1] = canvas;
-      item.bookletReady = false;
-      item.bookletModel.update({ pages: item.bookletSources });
-    }
+    if (part === 'cover' || part === 'bookletBack') item.bookletSources[part === 'cover' ? 0 : item.bookletSources.length - 1] = texture;
     this.request();
+  }
+
+  // Gives the booklet its current outer pages: one rebuild for both.
+  private syncBooklet(item: JewelCase) {
+    item.bookletReady = false;
+    item.bookletModel.update({ pages: item.bookletSources });
   }
 
   private playIntro() {
@@ -3270,7 +3292,12 @@ export class GalleryScene {
     const done = () => {
       this.readTween = null;
       if (to === 0) this.returnBooklet();
-      else this.showPages();
+      else {
+        const pending = this.pendingPages;
+        this.pendingPages = null;
+        pending?.();
+        this.showPages();
+      }
       this.updateCursor();
     };
     if (atOnce || this.reducedMotion) {
@@ -3292,19 +3319,27 @@ export class GalleryScene {
     const request = ++this.bookletRequest;
     (this.bookletPages?.(index) ?? Promise.resolve([])).catch(() => []).then((inside) => {
       if (request !== this.bookletRequest || this.destroyed || this.reading !== index) return;
-      // A print's map is the canvas it was drawn from (setPrint).
-      const cover = item.prints.cover.map?.image as HTMLCanvasElement | undefined;
-      const back = (item.prints.bookletBack.map?.image as HTMLCanvasElement | undefined) ?? makeBookletBackCanvas(album);
+      // The covers are the case's own print textures (setPrint).
+      const cover = item.prints.cover.map;
+      const back = item.prints.bookletBack.map ?? makeBookletBackCanvas(album);
       const pages: PageSource[] = [...(cover ? [cover] : []), ...inside];
       // A transparent page is unprinted paper.
       if (pages.length % 2 === 0) pages.push(Object.assign(document.createElement('canvas'), { width: 2, height: 2 }));
       pages.push(back);
       // Keep the physical stack; only replace the blank interior artwork. The spread geometry
       // remains the same during extraction. Single-page layout is applied once it lands on phones.
-      item.bookletLoaded = true;
-      item.bookletReady = false;
-      item.bookletModel.update({ pages, preload: pages.length });
-      this.request();
+      const apply = () => {
+        if (request !== this.bookletRequest || this.destroyed || this.reading !== index) return;
+        item.bookletLoaded = true;
+        item.bookletReady = false;
+        item.bookletModel.update({ pages, preload: pages.length });
+        this.request();
+      };
+      // LeafThrough uploads the dozen pages at once, which holds the main thread for about three
+      // frames: a hitch in the booklet's flight when the scans arrive during it. Then they wait
+      // for the landing (animateRead); nothing reads them before that.
+      if (this.read >= 1) apply();
+      else this.pendingPages = apply;
     });
   }
 
@@ -3384,7 +3419,7 @@ export class GalleryScene {
     // Nothing casts a shadow any more: draw the map once more, empty, so the booklet's last pose
     // doesn't stay in it.
     this.renderer.shadowMap.needsUpdate = true;
-    this.onPage?.(0, 0, 0, false);
+    this.onPage?.(0, 0, 0);
     this.updateCursor();
   }
 
@@ -3392,6 +3427,7 @@ export class GalleryScene {
     this.bookletRequest += 1;
     if (this.magazine) this.magazine.enabled = false;
     this.magazine = null;
+    this.pendingPages = null;
     this.magazineReady = this.bookletShown = this.closingBooklet = false;
   }
 
@@ -3399,7 +3435,7 @@ export class GalleryScene {
     const magazine = this.magazine;
     if (!magazine) return;
     const pages = magazine.visiblePages;
-    this.onPage?.(pages[0] ?? 0, pages[pages.length - 1] ?? 0, magazine.pageCount, magazine.layout === 'single');
+    this.onPage?.(pages[0] ?? 0, pages[pages.length - 1] ?? 0, magazine.pageCount);
   }
 
   // Whether the open case has finished opening: until then its disc and booklet don't answer, so
@@ -3861,7 +3897,7 @@ export class GalleryScene {
     wheel.lastTime = now;
     wheel.hasLast = true;
     clearTimeout(wheel.timer);
-    wheel.timer = setTimeout(() => this.resetWheel(), C.wheelIdleReset);
+    wheel.timer = window.setTimeout(() => this.resetWheel(), C.wheelIdleReset);
     const decayed = gap === Infinity ? 0 : wheel.envelope * Math.exp(-gap / C.wheelEnvelopeTau);
     // While a case is open the wheel neither moves the row nor closes the case. The gesture is still
     // followed, so the momentum tail of a swipe doesn't step the row once the case closes.

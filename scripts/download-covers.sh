@@ -8,6 +8,10 @@ set -euo pipefail
 # Cover Art Archive. Requires curl and jq.
 #
 # Usage: scripts/download-covers.sh <band> [album id ...]   (no ids: every album)
+#
+# The archive's JPEGs are two to five times larger than the page needs: afterwards run
+# node scripts/optimize-images.mjs <band> [album id ...], which converts them to AVIF and WebP at
+# the sizes the page draws and points band.json at the results.
 
 USER_AGENT="discography-demo/0.1 (local demo)"
 

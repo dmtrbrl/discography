@@ -92,6 +92,17 @@ const defaultTheme: Theme = { background: '#ebe3d4', backgroundCenter: '#f6f0e5'
 
 const bandsUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}bands/${path}`, window.location.href);
 
+// The artwork is stored as AVIF, with a WebP twin beside each file (scripts/optimize-images.mjs):
+// a third smaller again, and widely decoded since 2023. Whether this browser decodes it, from a
+// 2 × 2 probe; without it every artwork path is pointed at the .webp instead.
+const avifProbe = 'data:image/avif;base64,AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAANZtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAACJpbG9jAAAAAERAAAEAAQAAAAAA+gABAAAAAAAAABsAAAAjaWluZgAAAAAAAQAAABVpbmZlAgAAAAABAABhdjAxAAAAAA5waXRtAAAAAAABAAAAVmlwcnAAAAA4aXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAABZpcG1hAAAAAAAAAAEAAQOBAgMAAAAjbWRhdBIACgc4ADbQENBpMg4ZQmMEwAA0AAAQkEDNQA==';
+export const avifSupported = new Promise<boolean>((resolve) => {
+  const image = new Image();
+  image.onload = () => resolve(image.width > 0);
+  image.onerror = () => resolve(false);
+  image.src = avifProbe;
+});
+
 // The album in front and its view, as a hash route: #/<id>, plus /open while it is open, /listen
 // while its disc is in the player, or /booklet while its booklet is out. The page keeps it up to
 // date, so a link restores the gallery as it was. In the hash, a link needs nothing from the server
@@ -125,12 +136,12 @@ export function moveQueryToHash() {
 
 export async function loadBand(band: string): Promise<Band> {
   const url = bandsUrl(`${band}/band.json`);
-  const response = await fetch(url);
+  const [response, avif] = await Promise.all([fetch(url), avifSupported]);
   // Servers with a single-page fallback answer a missing file with the page itself, so a body that
   // isn't JSON also means there is no such band.
   const config: BandConfig | null = response.ok ? await response.json().catch(() => null) : null;
   if (!config?.albums?.length) throw new Error(`No band config with albums at ${url.pathname}`);
-  const resolve = (path?: string) => (path ? new URL(path, url).href : undefined);
+  const resolve = (path?: string) => (path ? new URL(avif ? path : path.replace(/\.avif$/i, '.webp'), url).href : undefined);
   return {
     ...config,
     folder: band,

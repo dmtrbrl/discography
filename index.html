@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- The type and the album list, fetched at once rather than after the script has run. The build
+         adds a preload for each album's startup artwork here too (vite.config.ts). -->
+    <link rel="preload" href="/fonts/instrument-serif-italic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/instrument-serif.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/dm-sans.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/dm-mono-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/bands/favorites/band.json" as="fetch" crossorigin />
     <meta name="theme-color" content="#ebe3d4" />
     <meta name="description" content="Browse an artist's discography as CD jewel cases you can turn over and open." />
     <title>Discography</title>

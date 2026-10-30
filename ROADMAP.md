@@ -25,6 +25,133 @@ Album data, including each edition's image sources and Apple IDs, lives in
 | Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
+| Performance | Artwork as AVIF at the drawn size, self-hosted type, preloads, a reveal that waits for the row only, a start without the long stall | Done (31 October 2026), see Performance pass |
+
+## Performance pass (31 October 2026)
+
+An audit of loading, the start and the animations, with Lighthouse, a scripted session in
+headless Chrome on the GPU and CPU profiles of the start (how, under Verifying below). The
+animations were already at 60 fps on the laptop in every view; the time went into loading and the
+start. Also fixed here: the phone booklet's back cover no longer turns round to the front cover.
+
+### Found
+
+- 23.5 MB came down in a session: 18.4 MB of 1200 px JPEGs for the forty startup images (the page
+  draws them into 1024 px canvases), 42 MB more across the booklet scans (2800 px spreads split
+  into 1024 px pages), 1,059 KB of script (329 KB gzipped, of which 241 KB were the strip light's
+  lookup tables, `RectAreaLightTexturesLib`), and the type from Google Fonts through a CSS
+  `@import` (a stylesheet round trip and two more connections before the type could show).
+- The gallery stayed hidden until all forty images were in. On emulated 3G and on a phone's 4G that
+  took longer than the 12-second timeout, so those visitors got the generated placeholder art.
+- Building the scene held the main thread for 1.06 s before the loading screen could paint: 780 ms
+  of it was LeafThrough drawing its procedural paper grain again for each of the ten booklets, the
+  rest the disc print's and tray's procedural maps and the cases themselves.
+- When a booklet's scans arrived while it was still flying out of the case, LeafThrough uploaded
+  its dozen pages at once (55 ms, three frames), a hitch in the flight.
+- Lighthouse: 31 on mobile (LCP 10.9 s, 3.0 s blocking, 19.3 MB), 71 on desktop (LCP 2.0 s).
+  The mobile score is still held by the time to the reveal on its emulated connection (LCP is the
+  album title, which appears with the gallery) and by the start's remaining work, now mostly
+  LeafThrough's geometry for ten booklets (see its notes below).
+
+### Changed
+
+- **Artwork as AVIF, at the drawn size.** `scripts/optimize-images.mjs` converts a band's JPEGs to
+  AVIF (covers and booklet backs 1024 px, discs 1200 px since the scan is cropped to the disc before
+  it is scaled, back inserts 1320 px, spreads 2048 px) with a WebP twin beside each, points
+  `band.json` at the `.avif` files and removes the JPEGs inside the band's folder (`sources` keeps
+  where each came from; Mutter's files in `rammstein/` stay for that folder's own config). `band.ts`
+  decodes a 2 × 2 AVIF once and swaps every path to `.webp` where that fails. Startup artwork 18.4 MB
+  → 3.0 MB (WebP twins 4.6 MB), booklets 41.9 MB → 4.7 MB; the build's `dist/` 136 MB → 87 MB. The
+  screenshots before and after are pixel-identical at 1440 × 900.
+- **The reveal waits for the row only.** `setAlbums` gates the reveal on each case's disc and cover,
+  which show on the row (1.5 MB); the back insert and the booklet's back page load right after on
+  their own and go in as they arrive. They show only once a case is turned over or opened, so the
+  swap is seen only by someone who opens a case within seconds of the reveal on a slow connection.
+- **Type served from the page.** `public/fonts/` holds the Latin woff2 files (DM Sans is one variable
+  file for both weights, 85 KB in all, OFL), `style.css` declares them with `font-display: swap`, and
+  `index.html` preloads the four the first screen uses. No more `@import`.
+- **Preloads.** `index.html` preloads `band.json` and the fonts; a Vite plugin (`preloadArtwork`)
+  writes a `<link rel="preload" as="image">` for every album's disc and cover, then for the inserts
+  and booklet backs at `fetchpriority="low"`, and a `modulepreload` for the tables chunk. They go
+  after the script tag: forty image requests queued ahead of the script starved it (it arrived
+  after most of the artwork on 3G). `type="image/avif"` lets a browser without AVIF skip them.
+- **The strip light's tables in their own chunk.** `scene.ts` imports
+  `RectAreaLightUniformsLib` dynamically as the script starts; the load gate waits for it. The
+  main script is 808 KB (226 KB gzipped), the chunk 247 KB (101 KB gzipped).
+- **The start off the main thread.** The disc print's normal and roughness maps, the tray's stipple
+  and the paper grain are generated in a worker (`procedural.ts`, `procedural.worker.ts`; inline
+  where workers fail), one grain for all ten booklets, handed to LeafThrough as a canvas (the same
+  steps and seed as its own, so the paper looks as before). The cases are built once the maps are
+  in. The page builds the scene after the loading screen's first paint (`buildScene`), the
+  placeholder art isn't uploaded, and the cover and booklet-back prints aren't uploaded twice:
+  the booklet gets the same textures as its outer pages rather than copies (110 MB less texture
+  memory for ten albums). Longest task before the reveal: 1,064 ms → under 80 ms.
+- **Images decoded off the main thread** (`loadImage` awaits `decode()`), which matters for AVIF.
+- **Shaders compiled without blocking:** `prepare` uses `compileAsync`, so with
+  `KHR_parallel_shader_compile` the links don't hold the thread and the first frame doesn't wait.
+- **Booklet pages at the landing.** Scans that arrive during the flight wait for `animateRead`'s end
+  (`pendingPages`), so LeafThrough's upload burst falls on the resting booklet, not the flight.
+- **No loop in the single layout** (`bookletLayout`): see the reversal under Shadows below.
+- `build.target: 'es2022'`, no `modulePreload` polyfill; `@types/node` and `sharp` as dev
+  dependencies (the config reads `band.json`; the script converts).
+
+### Measured (before → after; Chrome on an Apple M2 Max, medians of 2 to 3 runs)
+
+| What | Before | After |
+| --- | --- | --- |
+| Lighthouse 12, mobile preset | 31 (LCP 10.9 s, TBT 3,010 ms, TTI 15.5 s, 19.3 MB) | 63 (LCP 6.0 s, TBT 420 ms, TTI 7.2 s, 3.5 MB) |
+| Lighthouse 12, desktop preset | 71 (LCP 2.0 s, TBT 370 ms) | 98 (LCP 1.1 s, TBT 40 ms) |
+| Time to the gallery, 10 Mbps / 40 ms RTT, 1440 × 900 | 13.9 s | 2.3 to 2.6 s |
+| Time to the gallery, 4 Mbps / 80 ms, phone 390 × 844 | timed out at 14.5 s, placeholders | 4.9 to 5.2 s, artwork |
+| Time to the gallery, 1.6 Mbps / 150 ms, 1440 × 900 | timed out at 15.8 s, placeholders | 12.1 to 12.4 s, artwork |
+| Loading screen done, localhost | 2.08 s | 1.1 to 1.4 s |
+| Longest main-thread task before the reveal | 1,064 ms | 79 ms |
+| Transferred in a scripted session (browse, open, listen, booklet) | 23.5 MB | 3.9 MB |
+| Frames over 50 ms in that session | 2 (a 333 ms one as the disc went in, once) | 1 (the page upload at the booklet's landing) |
+
+Every segment (intro, hover, browse, wheel, drag, open, listen, eject, booklet open, page turns,
+close) ran at 16.7 ms a frame before and after, at 1440 × 900 (2×) and 390 × 844 (3×).
+
+### Tried and not kept
+
+- `fetchpriority="high"` on the disc and cover preloads: they outranked nothing and the script,
+  of the same priority and later in the document, arrived at 13.9 s on 3G instead of 6.9 s.
+- Every image preload at `fetchpriority="low"`, or no image preloads at all: no better on 3G
+  (12.1, 12.1 and 12.7 s), 300 ms worse without preloads at 10 Mbps (2.35 → 2.66 s), the same
+  unthrottled. The preloads stay, after the script.
+- WebP alone: about a third larger than AVIF at like quality (discs 161 vs 101 KB, spreads 426 vs
+  266 KB). Kept as the fallback.
+
+### LeafThrough (upstream notes)
+
+Found while profiling; each is in the library, not here, and the workarounds above would go once
+fixed there:
+
+- `createPaperPattern` runs for every magazine (78 ms each); a module-level cache would do.
+- `createSpreadGeometry` (`wrinkleNoise`) runs for every magazine too, about 8 ms each; it is now
+  the largest piece of the start (10 booklets, 80 ms here, 320 ms at a phone's speed).
+- A `Texture` passed as a page is uploaded again on every load (`needsUpdate = true` in `load`),
+  so pre-uploading pages, or sharing a texture with another material, still costs an upload.
+- `update({ pages })` uploads every preloaded page in one task (a dozen 1024 px pages, 55 ms).
+
+### Verifying (performance)
+
+Scripts kept outside the repo, with `playwright-core` and `lighthouse` from a scratch folder:
+
+- A scripted session in headless Chrome (`--use-angle=metal --enable-gpu --ignore-gpu-blocklist`)
+  that records `requestAnimationFrame` intervals, `longtask` entries and the time spent in
+  `compileShader`, `linkProgram`, `texSubImage2D` and `getProgramParameter` (patched on the WebGL
+  prototypes from an init script), per segment of the session, with the transfer from CDP's
+  `Network` events. Run on the gzip-served build and in a 390 × 844 3× context.
+- Time to `.preloader.is-done` and to `.stage:not(.is-hidden)` under CDP
+  `Network.emulateNetworkConditions`, cache off, several runs; and the order and timing of every
+  request (`requestWillBeSent`, `loadingFinished`), which showed the starved script.
+- Lighthouse 12, mobile and desktop presets, performance category, against a local server that
+  gzips text like GitHub Pages does (`vite preview` doesn't).
+- CDP `Profiler` from navigation to the loading screen's end, at 1× and at 4× CPU throttling in a
+  phone context, summed by function.
+- Screenshots of the row, the open case, the player and the booklet, desktop and phone, diffed
+  pixel by pixel against the committed build served from a `git worktree`.
 
 ## Shadows in the booklet flow (30 October 2026, in review)
 
@@ -184,7 +311,10 @@ Review, same day (details in BOOKLET_ANIMATION.md):
   compares it with Listen less its rise. The flight's camera-facing pitch correction went, and
   the zoom ceiling uses the paper's own height.
 - **The phone's back cover turns**: the single layout loops, so its last page turns, shutting the
-  booklet onto its cover; Next stays enabled there.
+  booklet onto its cover; Next stays enabled there. Reversed on 31 October 2026 (see Performance
+  pass): a tap on the back cover turned the booklet round to the front cover, with an inside page
+  showing behind the turning sheet on the way, which read as the first page bleeding into the last.
+  Neither layout loops now; the back cover is the end.
 - The roll check's landing assertions test for reversal (no dip and rise, no tilt back) instead
   of a stop by 0.72. All checks pass: roll (Nevermind, Kid A), lifecycle, case transition.
 - **Out by hand, then round one cylinder** (in review): the edge lifts on a steep arc over the
@@ -710,6 +840,7 @@ npm run preview    # serve the build
 bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
 bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
 bash scripts/download-covers.sh the-prodigy   # the same for any band folder
+node scripts/optimize-images.mjs favorites   # then: AVIF and WebP at the drawn sizes, band.json updated
 node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 18+), same arguments
 # #/ opens the gallery; #/<id> brings an album to the front, #/<id>/open opens it, /listen puts its
 # disc in the player and /booklet opens its booklet (the page keeps these up to date).
@@ -727,7 +858,10 @@ node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 1
 | `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band, resolves its paths and adds the band name to each album. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a light grain overlay, bottom bar, loading screen). |
 | `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs <band> [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `band.json`. See phase 2b. |
-| `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
+| `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. Run `optimize-images.mjs` afterwards. |
+| `scripts/optimize-images.mjs` | `node scripts/optimize-images.mjs <band> [album id ...]`: converts the archive's JPEGs to AVIF at the sizes the page draws, with a WebP twin for browsers without AVIF, points `band.json` at the `.avif` files and removes the JPEGs inside the band's folder (the `sources` entries keep where they came from). Needs the `sharp` dev dependency. See Performance pass. |
+| `public/fonts/` | The page's three typefaces as woff2 (Latin subsets, SIL Open Font License, see its README), served from the page rather than Google Fonts. `style.css` declares them, `index.html` preloads them. |
+| `vite.config.ts` | Besides the Solid plugin: a `preloadArtwork` plugin that writes a `<link rel="preload">` into `index.html` for every album's disc, cover, back insert and booklet back (the build's `band.json`), and one for the strip light's lookup-table chunk; `base: './'`; `target: 'es2022'`. |
 | `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
 
 ### Scene API used by the UI
@@ -792,10 +926,13 @@ Proportions follow a real disc and the reference photos, as fractions of the dis
 
 - The gallery stays hidden, and input is ignored, until every disc has its final artwork and the
   fonts are loaded. Then shaders compile and the intro plays. A 12-second timeout (`loadTimeout`)
-  reveals it anyway with placeholders.
+  reveals it anyway with placeholders. Since 31 October 2026 "its artwork" means the disc and the
+  cover, which show on the row; the back insert and the booklet's back page follow on their own
+  (see Performance pass).
 - No refraction (`transmission`) anywhere: it renders the scene twice per frame and showed a blurred
   copy of the artwork through the hub.
-- Textures are uploaded at load (`renderer.initTexture`) and shaders compiled at reveal, so nothing
+- Textures are uploaded at load (`renderer.initTexture`; the booklet uploads its own pages, which
+  are the same cover and back-page textures) and shaders compiled at reveal, so nothing
   stalls when a disc scrolls into view.
 - Adaptive resolution: the pixel ratio steps down (`QUALITY` levels) when frames run long, and the
   canvas is capped at 8 megapixels. MSAA is off on high-DPI screens.

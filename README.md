@@ -17,3 +17,5 @@ Everything is drawn in the browser with three.js from the real artwork: official
 Disc, back insert and booklet scans come from the community-run [Cover Art Archive](https://coverartarchive.org/) and [MusicBrainz](https://musicbrainz.org/); the exact edition and image used for each album are recorded in its `sources` entry in `public/bands/favorites/band.json`. Covers and song previews come from Apple Music.
 
 Cover art, booklet scans, disc designs, and logos belong to their respective rights holders.
+
+The type is DM Sans, DM Mono and Instrument Serif, served from the page under the SIL Open Font License (see `public/fonts/`).

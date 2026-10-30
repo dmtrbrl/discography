@@ -1,4 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap');
+/* The page's three typefaces, served from here (public/fonts; see its README) instead of Google
+   Fonts: no stylesheet round trip and no two extra connections before the type can show, and
+   index.html preloads the files. DM Sans is one variable file for both weights in use. */
+@font-face { font-family: 'DM Sans'; font-style: normal; font-weight: 400 500; font-display: swap; src: url('/fonts/dm-sans.woff2') format('woff2'); }
+@font-face { font-family: 'DM Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/dm-mono-400.woff2') format('woff2'); }
+@font-face { font-family: 'DM Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/dm-mono-500.woff2') format('woff2'); }
+@font-face { font-family: 'Instrument Serif'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/instrument-serif.woff2') format('woff2'); }
+@font-face { font-family: 'Instrument Serif'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/instrument-serif-italic.woff2') format('woff2'); }
 
 /* The band's theme (band.json) sets these; the values here only show before it loads. */
 :root { --bg: #ebe3d4; --bg-center: #f6f0e5; --bg-edge: #e1d7c5; --ink: #252521; font-family: 'DM Sans', Arial, sans-serif; color: var(--ink); font-synthesis: none; }
