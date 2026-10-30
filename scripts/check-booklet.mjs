@@ -11,10 +11,10 @@ const url = process.argv[2] ?? 'http://localhost:5173/';
 const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 try {
   for (const [width, height, album, reducedMotion] of [
-    [1440, 900, 'nevermind', 'no-preference'],
-    [390, 844, 'nevermind', 'no-preference'],
-    [844, 390, 'kid-a', 'no-preference'],
-    [390, 844, 'x-and-y', 'reduce'],
+    [1440, 900, 'surrender', 'no-preference'],
+    [390, 844, 'surrender', 'no-preference'],
+    [844, 390, 'mutter', 'no-preference'],
+    [390, 844, 'citizen-of-glass', 'reduce'],
   ]) {
     const page = await browser.newPage({ viewport: { width, height }, reducedMotion });
     const errors = [], interiorRequests = [];
@@ -48,9 +48,9 @@ try {
     });
     assert.equal(landed.page, 0, 'The cover does not turn automatically');
     assert.ok(landed.same, 'The reader uses the same physical page object');
-    if (album === 'x-and-y') {
-      assert.equal(await page.evaluate(() => window.scene.magazine.pageCount), 8, 'X&Y uses all eight digital booklet pages');
-      assert.equal(new Set(interiorRequests).size, 6, 'All six digital interior layouts load');
+    if (album === 'citizen-of-glass') {
+      assert.equal(await page.evaluate(() => window.scene.magazine.pageCount), 8, 'Citizen of Glass has eight pages');
+      assert.equal(new Set(interiorRequests).size, 3, 'All three interior spreads load once the booklet opens');
     }
     await page.mouse.click(width / 2, 100);
     assert.ok(await page.evaluate(() => window.scene.inBooklet), 'An outside click keeps the booklet out');

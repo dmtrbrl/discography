@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE
   ? pathToFileURL(resolve(process.env.PLAYWRIGHT_CORE)).href : 'playwright-core');
 const url = process.argv[2] ?? 'http://localhost:5173/';
-const album = process.argv[3] ?? 'nevermind';
+const album = process.argv[3] ?? 'surrender';
 const browser=await chromium.launch({channel:'chrome',args:['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist']});
 try {
 for(const [width,height] of [[1440,900],[390,844],[844,390]]){

@@ -10,7 +10,7 @@ const browser=await chromium.launch({channel:'chrome',args:['--use-angle=metal',
 try {
 for(const [width,height] of [[1440,900],[390,844],[844,390]]) {
  const page=await browser.newPage({viewport:{width,height}});
- await page.goto(`${url}#/nevermind/open`);
+ await page.goto(`${url}#/surrender/open`);
  await page.waitForSelector('.preloader.is-done',{state:'attached'});
  await page.waitForFunction(()=>window.scene?.ready&&!window.scene.viewBusy());
  const result=await page.evaluate(()=>{

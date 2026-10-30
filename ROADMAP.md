@@ -8,8 +8,8 @@ This file is the hand-off document between sessions. It records what exists, why
 way, what was tried and rejected, and what comes next. Keep it up to date when a phase lands or a
 decision changes.
 
-Standing requirements for future album and booklet replacements are in `CLAUDE.md`; the
-edition research and source evidence are in `ARTIST_BOOKLET_HANDOFF.md`.
+Album data, including each edition's image sources and Apple IDs, lives in
+`public/bands/favorites/band.json`.
 
 ## Status at a glance
 
@@ -20,71 +20,11 @@ edition research and source evidence are in `ARTIST_BOOKLET_HANDOFF.md`.
 | Pre-2 | Title screen, artist selection and menu, four more artists | Done |
 | 2a | Booklet as a flip book with LeafThrough | In the scene since 29 October 2026 (prototype, in review); was an overlay |
 | 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
-| Audit | Complete discographies, booklet back pages for every artist | Done (28 October 2026) |
 | Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
 | Single page | Gallery as the only page: title screen, artist list, band label and Albums menu removed | Done (29 October 2026) |
 | Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
-
-## Air — Moon Safari replaces Silent Shout (30 October 2026)
-
-Follow-up corrections: all twelve pages were present, but the default square crop removed
-roughly 14–17 pixels from each side of each scanned panel, breaking illustrations at the spine.
-Moon Safari now opts into `bookletFit: contain`: complete half-spreads retain their proportions,
-with only narrow outer-edge padding extended. The printed booklet contains five lyric sections
-(Sexy Boy, All I Need, Remember, New Star in the Sky, You Make It Easy), credits for all ten songs,
-and the full ten-track list on page 12. Missing lyric sections are not omitted booklet pages.
-
-The initial track replacement used Austrian Apple IDs while playback looked up the US catalogue,
-which returned zero results. `appleMusicCountry: at` now controls both the preview request and the
-store link; the preview cache includes the storefront. Older albums retain the US default, and
-the track-fetching script records its selected storefront. A missing preview now shows the error
-message instead of silently stopping. `scripts/check-moon-safari.mjs` verifies all ten complete
-interior panels, all twelve visible pages, the Austrian lookup, and actual decoding/advancing
-playback of each of the ten previews on desktop and mobile. It passes, as do the existing four
-booklet lifecycle scenarios and `npm run build`. Corrected join screenshots are saved with provenance.
-
-With the user's approval, *Moon Safari* (1998) now occupies Silent Shout's slot. It uses the
-1998 French single-CD edition (CDV 2848 / 724384497828), with a real 12-page stapled booklet:
-the official Apple digital cover, five full-resolution archived interior spreads (pages 2–11),
-and the booklet's actual back page (12). The matching disc face and rear insert come from that
-same edition. All ten tracks have matching Apple preview IDs; the other nine albums are unchanged.
-
-The interiors are **paper scans**, about 2850 pixels wide per spread, rather than an original
-digital PDF. Qobuz lists a digital booklet, but its file could not be retrieved and was not used.
-Do not describe this replacement as having the same native digital source quality as X&Y.
-Asset checksums, physical format, exact page order and source metadata are preserved in
-`research/moon-safari-replacement-2026-10-30/` and `ARTWORK_SOURCES.md`.
-
-Validation: `npm run build` passes. Chrome checks at 1440 × 900 and 390 × 844 reached all twelve
-pages, verified that the five interior spreads load only when the booklet opens, and returned
-the booklet to its case with no failed artwork responses or browser errors. Desktop/mobile
-screenshots are saved with the provenance. Configuration comparison confirms the other nine
-albums are unchanged.
-
-## Digital artwork replacement: Coldplay — X&Y (30 October 2026)
-
-Replaced Crystal Castles in the final slot of the ten-album collection with *X&Y* (2005).
-The single-CD edition has thirteen tracks and a documented 12-page stapled booklet. Its original
-digital PDF is eight landscape pages, with photography, coloured backgrounds and Baudot-code
-graphics. The demo follows the **eight-page digital pagination**, not the twelve-page print layout.
-Its six interior layouts and final graphic/credits page come directly from that digital PDF;
-the matching square cover is from Apple Music. Each landscape layout is fitted to square paper by
-extending its flat background colour, preserving the complete artwork without cropping or stretching.
-The disc face and rear insert remain Cover Art Archive scans. The original PDF, metadata, checksum
-and comparison overviews are preserved in `research/album-replacement-2026-10-30/`; source links and
-the distinction between digital and printed layouts are recorded in `ARTWORK_SOURCES.md` and the
-album's `sources` metadata. The player uses the CD's thirteen tracks and matching Apple preview IDs.
-
-The existing booklet lifecycle check now covers X&Y in reduced-motion mobile mode and checks the
-eight-page count and all six lazy interior requests. Other album entries and scene animation are
-unchanged.
-
-Validation: `npm run build` passes; `check-booklet.mjs` passes its four desktop/mobile scenarios.
-A separate visual check reached all eight digital pages at 1440 × 900 and 390 × 844, with no failed
-artwork responses or browser errors. Desktop/mobile booklet and open-case screenshots are saved
-alongside the source PDF. Asset validation confirms the other nine album entries are unchanged.
 
 ## Shadows in the booklet flow (30 October 2026, in review)
 
@@ -729,14 +669,17 @@ old links rewritten, `npm run typecheck` and `npm run build` pass.
 ## Mixed-artist collection (29 October 2026)
 
 The root URL now opens one mixed-artist gallery. `public/bands/favorites/band.json` holds the ten
-selected albums; the former artist folders remain as source data. The album caption names its artist. The selection and exact artwork editions are recorded in `ARTWORK_SOURCES.md`.
+selected albums; the former artist folders remain as source data. The album caption names its artist.
+Each album's `sources` entry records the exact edition and image used for its cover, disc, back insert
+and booklet.
 
-Every front is official digital artwork at 1200 px from Apple Music. Each of the ten discs is a
-roughly 1200 px physical scan. `makeArtTexture` trims 1.2% inside the detected disc circle to keep
-the scanner background off the visible rotating disc. This is a render crop; the scan files remain
-unchanged. The five new albums have local CD faces and backs; the five previously present albums
-reuse their existing physical scans. All ten have booklet-back art and locally archived interior
-booklet scans. When an archived image is a spread, the viewer separates its pages in memory.
+Every front is official digital artwork at 1200 px from Apple Music; each disc is a roughly 1200 px
+physical scan. `makeArtTexture` trims 1.2% inside the detected disc circle to keep the scanner
+background off the visible rotating disc. This is a render crop; the scan files remain unchanged. All
+ten have booklet-back art and locally archived interior booklet scans. When an archived image is a
+spread, the viewer separates its pages in memory; `bookletFit: contain` keeps each complete half-spread
+at its proportions, extending only the outermost pixels into the narrow square padding. A back insert
+scanned without its spines gets generated spines (`makeInsertCanvas`).
 
 Clicking the booklet in the open case or **Booklet** in the bottom row opens a LeafThrough viewer. It supports
 turning, previous/next controls, keyboard input and Escape to return to the case. The page sequence
@@ -744,114 +687,13 @@ uses the archive's order where clear. Some archives do not label every page, and
 inserts are not fully reconstructed yet. This viewer is a working visual demo; the more ambitious
 lift-and-handoff animation described under Phase 2a below is still a possible refinement.
 
-`scripts/fetch-tracks.mjs` now caches Apple album lists per artist, so it can populate mixed-artist
-collections. All five new albums have CD tracklists and Apple matches; *Post* has one track without
-a preview match. Visually checked the ten-album menu, cover row, an
-opened *Kid A* case, its disc on the player, and a turning booklet spread in the browser.
-
-## Artwork audit and complete discographies (28 October 2026)
-
-Before the audit, every album had a cover, all but *Amnesty (I)* had a disc scan and back insert,
-and only Nirvana's 7 albums had a booklet back page (7/28).
-
-### Albums
-
-Each artist was checked against its MusicBrainz release groups (album type: studio, live,
-compilation, soundtrack; the many bootleg compilations ignored) under the existing rules: studio
-albums plus major official live albums and compilations, single-disc only.
-
-- **The Knife:** *Hannah med H* removed (a film soundtrack; the user's call), with its files. Now 3
-  albums. *Tomorrow, in a Year* (2 CDs everywhere) and *Shaking the Habitual* (96 minutes; the only
-  single-CD listings have no back scan) stay out. *Silent Shout: An Audio Visual Experience* is
-  CD + DVD.
-- **The Prodigy:** added *The Day Is My Enemy* (2015) and *No Tourists* (2018). Now 8. *World's on
-  Fire* (live) is CD + DVD.
-- **Rammstein:** added *Made in Germany 1995–2011* (2011, the single-CD standard edition),
-  *Rammstein* (2019, untitled; MusicBrainz calls it "[Rammstein]") and *Zeit* (2022). Now 10.
-  *Völkerball* and *Paris* are multi-disc, *XXI* is a box set.
-- **Nirvana and Crystal Castles:** complete. Nirvana keeps the phase 0 scope (up to the 2002
-  compilation; *Sliver*, *Live at Reading* and *Icon* were dropped then on purpose).
-
-New albums' editions: *The Day Is My Enemy* the 2015 UK CD (`5fc2e3e2`, automatic pick); *No
-Tourists* the 2018 European CD (`0e356708`, the only CD edition; it has no disc scan, so the disc
-shows the cover); *Made in Germany* the European single CD `f6edb0e9`, whose back is the digipak's
-whole three-panel outside, so `backHalf: "2/3"` keeps the middle panel, and whose primary front is
-that same wide scan, so the cover comes from `434b542a`; *Rammstein* the standard edition
-`b0c5fe24` (the automatic pick was the Special Edition, with a sticker saying so), left half of the
-outside scan as the back; *Zeit* the European CD `f680b786`, cover included, since its front has
-the red logo band that continues past the spine onto the back (the release group's front is the
-digital artwork without it). Colours are each cover's mean colour and a strong accent, measured.
-
-### Booklet back pages
-
-Picked by eye from contact sheets of every image of the album's editions, as for Nirvana. The
-order of preference: the edition the disc and back come from, an outer spread (back page beside the
-booklet's front) or a page labelled as the back in the archive's comments, then another single-CD
-edition. Coverage is now 28/32.
-
-| Album | Source | How it was identified |
-| --- | --- | --- |
-| *Experience* | `5143cebd/31705841412`, same edition | Credits page; `c31de678` labels it "page 8, back page of closed booklet" |
-| *Jilted Generation* | `2579bfbb/34013918252`, same edition | Labelled "page 8"; `ecbd4dc8`'s outer spread has it beside the cover |
-| *The Fat of the Land* | `8417d94a/27141657376@left`, same edition | Outer spread; `acefbe79` labels the same page "page 20" |
-| *Always Outnumbered* | `00bc3621/3508432304`, another edition | **Unconfirmed.** Every edition has a single `Booklet` scan (the drummers collage); nothing shows where it sits |
-| *Their Law* | `ad53c255/3507834441`, same edition | `27c88429` labels the same page "Back page of booklet" |
-| *Invaders Must Die* | `6a75994d/32087538740@1/4`, same edition | Outer side of a four-panel foldout. The panels are equal, so it is accordion-folded and the first panel ("Protect yourself") is the back |
-| *The Knife* | `365bf4dc/28486015348`, same edition | The edition's only booklet scan, credits with the dancing figures; likely the back, not labelled |
-| *Deep Cuts* | `d314ad58/28493498229`, another edition | Scanned front, three inner spreads, then this page (the cover pattern without lettering) |
-| *Silent Shout* | `099094f6/23129607098@left`, another edition | Outer spread: plain dark page beside the cover |
-| *Herzeleid* | `315858ef/13287378209@left`, same edition | Outer spread; `e81d9bf9` labels the page "page 16" |
-| *Sehnsucht* | `f7cba0e8/33510216422`, same edition | The six-faces foldout; `68da350f`'s outer spread shows this logo-less profile beside the cover |
-| *Live aus Berlin* | `7cac8c44/18631425084@left`, another edition | Outer spread (the edition the disc comes from has no booklet scans) |
-| *Mutter*, *Reise, Reise*, *Rosenrot* | `eed328a1/9614674636@left`, `8ec370f8/16019138335@left`, `b48e5591/13288280417@left`, same editions | Outer spreads |
-| *Liebe ist für alle da* | `3798a530/27820317897`, same edition | Last page of the sequence ("Zensiert") |
-| *Made in Germany* | `f6edb0e9/34434317343@left`, same edition | Outer spread: the back of the head beside the cover |
-| *Rammstein* | `b0c5fe24/34264581678@left`, same edition | Outer spread: tracklist page beside the match |
-| *Zeit* | `183678eb/34229312359`, another edition | The red booklet's back (that edition tags the booklet's front as its Front) |
-| *Crystal Castles* | `f5dde22a/42703574279@left`, another edition | Outer spread: black page with the credits line |
-| *Crystal Castles (II)* | `15310e2d/34914987623@1/2,2/2`, same edition | A poster folded in four; this scan is its whole outer side, cover bottom right. The girl's face runs across both top panels as one image, which only shows as a spread if the poster folds top behind bottom first, then left behind right; folded that way the bottom-left panel (plain dark) is the back. 269 × 299 px, since the whole side was scanned at 538 px |
-
-Still a plain page in the album colour, because no archived scan shows the back page:
-
-- *The Day Is My Enemy*: only the two inner spreads are archived; the Japanese edition's
-  `Booklet` scans are its liner-notes insert.
-- *No Tourists* and *Amnesty (I)*: no booklet scans at all. *Amnesty (I)*'s two CD editions with
-  images (`e11a49ac`, `8fffbd04` has none) only have the front, so it keeps the cover on the disc
-  and a generated insert. The 12" vinyl (`c917ef1b`) has a back, but it is the sleeve's layout (a
-  full-bleed photo, "Side A" and "Side B"), so it isn't used as the CD's back insert.
-- *(III)*: the only CD edition with booklet scans (`dde16355`) has the two lyric sides of the inner
-  sheet; the outer side was never scanned. Every other CD edition has only a front.
-
-Current coverage: discs 30/32 (not *No Tourists*, *Amnesty (I)*), back inserts 31/32 (not
-*Amnesty (I)*), booklet back pages 28/32. These gaps were checked against every release of each
-album in the archive, not only the official single-CD ones.
-
-### Changes to existing albums
-
-- *Sehnsucht*'s cover was the release group's front, which is the 2017 Anniversary Edition (small
-  "Anniversary Edition" lettering). Now the 1997 front of `f7cba0e8`, the edition its disc and back
-  come from (576 px; the other 1997 scan is 599 px).
-- *Crystal Castles (I)*'s disc and back were a promo pressing ("PROMO COPY NOT FOR SALE" on the
-  back), from before the script skipped promos. The rerun picked the retail Australian CD
-  (`f760baf8`). Every other existing cover, disc and back came out byte-identical on the rerun.
-
-### Download script
-
-- `take_half` became `take_part`: besides `left` and `right` it takes `n/m`, the nth of m equal
-  panels, for `bookletBack` (`…@1/4`) and `backHalf` (`"2/3"`), and `n/m,r/s` for one panel of a
-  poster folded in four (column, then row). `left` and `right` crop exactly as before (checked
-  byte for byte). sips silently refuses a crop that ends on the bottom edge (one ending on the
-  right edge works) and sometimes leaves a file uncropped when it writes in place, so rows are cut
-  as columns of the scan turned a quarter, and crops are written to a copy.
-- Disc scans prefer a `Medium` image without `Matrix/Runout`: *Made in Germany* and *Zeit* list the
-  silver data side first.
-- Non-JPEG downloads are re-encoded to JPEG (*The Day Is My Enemy*'s disc is archived only as a
-  2 MB PNG, which was saved under a `.jpg` name). JPEGs are left alone, so reruns stay
-  byte-identical.
-
-Verified with contact sheets of the local files, and in headless Chrome: every album of the four
-artists opened (booklet back page on the lid), the new albums turned over (back inserts) and
-closed (covers), no page errors; `npm run typecheck` passes.
+`scripts/fetch-tracks.mjs` caches Apple album lists per artist, so it can populate mixed-artist
+collections. `appleMusicCountry` selects the storefront for both the preview lookup and the store
+link, and the preview cache includes it; a track without an Apple ID is listed but skipped by the
+player. Each album has a regression check, `scripts/check-<album-id>.mjs` (after
+`check-moon-safari.mjs`): it opens the booklet and asserts the page count and that every interior panel
+is drawn whole, then plays each available preview on desktop and mobile. Run one against a dev server:
+`PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-<id>.mjs http://127.0.0.1:5174/`.
 
 The favicon is a full-size rounded square in the page's warm beige, with a solid dark CD, a beige
 hub ring and a dark center hole (`public/favicon.svg`). The page links directly to this SVG. The
@@ -962,23 +804,6 @@ Proportions follow a real disc and the reference photos, as fractions of the dis
   vsync on, navigation has no frames over 50 ms at 1440, 1920 and 2560 wide. Occasional slow runs
   were traced to other load on the machine by A/B testing against an older build.
 
-### Artwork sources
-
-`scripts/download-covers.sh`, per album (release group IDs come from `band.json`):
-
-1. Front cover: `coverartarchive.org/release-group/<id>/front-1200` (500 px fallback) into `covers/`.
-2. Disc scan: lists the release group's CD releases on MusicBrainz, oldest first (ties broken by
-   ID, so reruns are stable), and takes the first Cover Art Archive image tagged `Medium`. Saved to
-   `discs/`, shrunk to 1200 px with `sips` when available. (Phase 1 added back inserts and
-   booklet pages; see below.)
-3. MusicBrainz rate limits (about one request per second, 503 when exceeded). The script waits,
-   retries, and keeps an existing scan if MusicBrainz can't be reached.
-
-Current coverage: all 7 albums have a disc scan. (Phase 0 also had Sliver, Live at Reading and
-Icon; they were dropped in phase 1 to keep the classic discography up to the 2002 compilation.)
-The script records the paths of downloaded files in `band.json`; after editing scans by hand,
-update the paths there.
-
 ### Design decisions from review (do not reintroduce)
 
 These came from rounds of feedback on the look. Each was tried and rejected:
@@ -1025,6 +850,11 @@ the repo:
   needs `playwright-core`, for example
   `PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs`. The dev server exposes the
   scene as `window.scene` for it (`import.meta.env.DEV` only).
+
+The lifecycle, roll, case-transition and insert-path checks run on the current gallery: *Surrender* as the
+thin eight-page booklet, *Mutter* as the thick sixteen-page one and *Citizen of Glass* for the lazy
+interior requests (three spreads). Earlier notes name the albums they were first run on (*Nevermind*,
+*Kid A*, *X&Y*), which have since left the gallery.
 
 ## Phase 1: jewel cases
 
@@ -1140,32 +970,6 @@ the hinge. On the base, the tray rises into a ribbed strip along the hinge in th
 the insert through the clear base walls. Earlier, the hinge side showed clear plastic over the
 black tray floor; that was replaced by the strip.
 
-### Artwork
-
-- The download script now takes the disc scan and the back insert from the same edition: the
-  earliest CD release with both a `Medium` and a `Back` image. For Nevermind that is a 1991 US BMG
-  Direct pressing (release `347666eb`), which replaced the Canadian Columbia House disc scan used in
-  phase 0. The Cover Art Archive answered that release with an error at first; when it does, the
-  script falls back to the next release.
-- Covers are now fetched at 1200 px (500 px fallback), since the case shows the cover larger.
-- No release had a `Tray` image (the inside of the insert, seen through clear trays). With black
-  trays it is hidden, so it is not fetched.
-- The booklet's back page has no reliable tag: `Booklet` images come unordered, and `Front,Booklet`
-  can be the whole fold-out (as on the German 1991 release). So the script lists it per album as
-  `release/imageId@left|right`. Nevermind uses the left half of the Canadian release's outer spread
-  (`350a8190`). `sips` reads a crop offset of 0 as "centred", so the left half is cut from a
-  mirrored copy.
-- All 7 albums have a disc scan, a back insert and a booklet back page from the archive. For the
-  other six the same-edition rule picked the editions already used for their phase 0 disc scans,
-  so those scans did not change. Bleach's back insert is a scan of the panel without spines, so
-  its spines are generated. Booklet back pages were picked by eye from contact sheets: tagged
-  "Back Page" where it exists (In Utero, Nirvana), the panel with the catalogue number (Bleach),
-  the left half of the outer spread (Incesticide), the image tagged `Back,Booklet` (MTV
-  Unplugged), and for Muddy Banks, whose edition has no booklet scans, a single back page from
-  another release (`6213251a`). Checked by opening and turning every case.
-- Since no album needs a generated back insert any more, tracklists (`tracks`) are not fetched yet.
-  The generated insert and its tracklist support stay as the fallback for future albums.
-
 ### Page
 
 - Masthead, top centre: "Discography" in Instrument Serif italic, a thin drawn ×, then the band's
@@ -1218,9 +1022,9 @@ black tray floor; that was replaced by the strip.
 
 ## Pre-phase before phase 2: title screen and artists
 
-Goal: a front page for the project, and more artists than Nirvana. The artists come from
-`ARTIST_BOOKLET_HANDOFF.md` (a source list for booklet scans, written for phase 2a): The Prodigy,
-The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a work.
+Goal: a front page for the project, and more artists than Nirvana: The Prodigy, The Knife,
+Rammstein and Crystal Castles were added (their folders remain as source data). Booklet interiors
+were still phase 2a work.
 
 ### What is implemented
 
@@ -1374,59 +1178,6 @@ The Knife, Rammstein and Crystal Castles. Booklet interiors are still phase 2a w
   the arrow keys, Home, End or the wheel (see phase 1 interactions). The wheel still follows the
   gesture's momentum while open, so the tail of a trackpad swipe doesn't step the row once the
   case closes.
-
-### Artists and artwork
-
-Album choice follows the project's earlier scope: studio albums plus a major live album or
-compilation, mostly 1990s to 2000s. **Single-disc albums only** (the user's decision): the demo
-shows one CD per jewel case, so double albums are out (The Knife's Tomorrow, in a Year, 2 CDs in every edition, and Shaking the Habitual, 2 CDs in most, including
-the scanned one), and an album whose scans came from a special edition with a second disc was
-re-pinned to a single-CD edition: Invaders Must Die (was CD+DVD; now the 2009 UK CD `6a75994d`)
-and Rosenrot (was the CD+DVD `bf7c54d3`; now the 2005 Russian single CD `b48e5591`, whose outer
-digipak scan `13288278590` has the back panel as its right half; no single-CD jewel case
-edition has a back scan). Checked for every album on MusicBrainz: the original release's media
-and the scanned edition's media. (The album lists below are as of the pre-phase; the artwork audit
-at the top removed *Hannah med H* and added five albums.)
-
-| Band | Albums | Logo |
-| --- | --- | --- |
-| The Prodigy | Experience, Jilted Generation, Fat of the Land, Always Outnumbered, Their Law, Invaders Must Die | Wikimedia Commons `The Prodigy logo 2009.svg` (the FOTL version has white fills, which a mask loses) |
-| The Knife | The Knife, Deep Cuts, Hannah med H, Silent Shout | No fixed logo exists (the lettering changes per album, and none is on Commons or Wikipedia). `logo.svg` is traced from the logo image the user chose on TheAudioDB (`r2.theaudiodb.com/images/media/artist/logo/knife-the-505af40099c0c.png`, 400 × 155, white letters with a drop shadow; community-uploaded, licence unknown). Traced in Chrome, since no tracing tool is installed: alpha from the white letters (whiteness × alpha, which drops the shadow), upsampled 6× with smoothing, outlines followed along the pixel grid, simplified (Ramer-Douglas-Peucker, 5.5 px at 6×; a smaller tolerance kept the pixel staircase on the slanted strokes), straightened (edges within 9° of horizontal or of the 5.9° slant snapped to it, corners rebuilt where neighbours meet) and sharpened (edges under 2.5 source px collapsed). 8 outlines, 99 points. Rejected on the way: the debut cover's "THE KN|FE" with a knife as the I (looked off), the Deep Cuts disc label's lettering traced the same way (a different, lighter typeface; "still not ok"), and the Shaking the Habitual serif "THE KNIΦE" (read as a generic font). |
-| Rammstein | Herzeleid, Sehnsucht, Live aus Berlin, Mutter, Reise Reise, Rosenrot, Liebe ist für alle da | Wikimedia Commons `Rammstein logo.svg` |
-| Crystal Castles | (I), (II), (III), Amnesty (I) | Wikimedia Commons `Crystal Castels (Logo).png` (sic; public domain), the doubled wordmark on the debut CD, cropped to its letters. |
-
-Logos were cropped to their letters as Nirvana's was. Setting The Knife and Crystal Castles in
-Instrument Serif capitals was tried and rejected: it read as a generic font, not the band. The
-typeset fallback stays in `BandMark` for future bands without a logo.
-
-Every album has a disc scan and back insert except Amnesty (I), which has none archived (cover on
-the disc, generated insert). No new album has a `bookletBack` yet, so their open lids show a plain page in the album
-colour; `color` and `accent` were picked from each cover. Fixes after a visual check:
-
-- Crystal Castles (II): the default pick was a wide photo of the disc beside its tray; pinned to the
-  2010 US CD (`15310e2d`, also the handoff's booklet source).
-- Liebe ist für alle da: the default back was a 2.2:1 spread; pinned to `3798a530` (1.29:1 back,
-  plus 12 booklet scans for phase 2a).
-- Rosenrot: every archived back is a digipak's whole outside; pinned to `bf7c54d3` and the left
-  half kept, which is the back panel (spines are generated).
-- Mutter: the scans came from a promotional pressing (`dbc3dfab`, "FOR PROMOTION ONLY" on the
-  disc) after the first download hit a Cover Art Archive error and the retry fell through to it.
-  Pinned to the Finnish launch-day jewel case CD (`eed328a1`, 2 April 2001: disc, back with spines,
-  8 booklet scans). The script now also skips anything MusicBrainz doesn't mark Official.
-- Silent Shout: the release group's front is 350 px; the 500 px front of the 2006 US CD is used. A
-  1426 px Australian scan was tried and rejected: a different, much darker print that read as a
-  black square.
-
-### Download script changes
-
-- `musicbrainz.release` pins the edition for the disc and back; `backImage` picks the back image in
-  it; `coverRelease` takes the front from a release; `backHalf` (`left` or `right`) keeps half of a
-  back scan; `take_half` is shared with the booklet back page (it returned failure for `right`,
-  which skipped the shrink; fixed). Automatic picks now consider only single-CD releases.
-- Bug fixes: with neither scan archived, the second `read` hit end of input and `set -e` ended the
-  whole run silently (it skipped the rest of The Knife); fields are now split on the unit separator,
-  since tab is whitespace to `read` and empty fields collapsed. Rerunning Nevermind gave
-  byte-identical files.
 
 ### Verification
 
