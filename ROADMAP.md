@@ -8,6 +8,9 @@ This file is the hand-off document between sessions. It records what exists, why
 way, what was tried and rejected, and what comes next. Keep it up to date when a phase lands or a
 decision changes.
 
+Standing requirements for future album and booklet replacements are in `CLAUDE.md`; the
+edition research and source evidence are in `ARTIST_BOOKLET_HANDOFF.md`.
+
 ## Status at a glance
 
 | Phase | Scope | Status |
@@ -23,6 +26,65 @@ decision changes.
 | Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
+
+## Air — Moon Safari replaces Silent Shout (30 October 2026)
+
+Follow-up corrections: all twelve pages were present, but the default square crop removed
+roughly 14–17 pixels from each side of each scanned panel, breaking illustrations at the spine.
+Moon Safari now opts into `bookletFit: contain`: complete half-spreads retain their proportions,
+with only narrow outer-edge padding extended. The printed booklet contains five lyric sections
+(Sexy Boy, All I Need, Remember, New Star in the Sky, You Make It Easy), credits for all ten songs,
+and the full ten-track list on page 12. Missing lyric sections are not omitted booklet pages.
+
+The initial track replacement used Austrian Apple IDs while playback looked up the US catalogue,
+which returned zero results. `appleMusicCountry: at` now controls both the preview request and the
+store link; the preview cache includes the storefront. Older albums retain the US default, and
+the track-fetching script records its selected storefront. A missing preview now shows the error
+message instead of silently stopping. `scripts/check-moon-safari.mjs` verifies all ten complete
+interior panels, all twelve visible pages, the Austrian lookup, and actual decoding/advancing
+playback of each of the ten previews on desktop and mobile. It passes, as do the existing four
+booklet lifecycle scenarios and `npm run build`. Corrected join screenshots are saved with provenance.
+
+With the user's approval, *Moon Safari* (1998) now occupies Silent Shout's slot. It uses the
+1998 French single-CD edition (CDV 2848 / 724384497828), with a real 12-page stapled booklet:
+the official Apple digital cover, five full-resolution archived interior spreads (pages 2–11),
+and the booklet's actual back page (12). The matching disc face and rear insert come from that
+same edition. All ten tracks have matching Apple preview IDs; the other nine albums are unchanged.
+
+The interiors are **paper scans**, about 2850 pixels wide per spread, rather than an original
+digital PDF. Qobuz lists a digital booklet, but its file could not be retrieved and was not used.
+Do not describe this replacement as having the same native digital source quality as X&Y.
+Asset checksums, physical format, exact page order and source metadata are preserved in
+`research/moon-safari-replacement-2026-10-30/` and `ARTWORK_SOURCES.md`.
+
+Validation: `npm run build` passes. Chrome checks at 1440 × 900 and 390 × 844 reached all twelve
+pages, verified that the five interior spreads load only when the booklet opens, and returned
+the booklet to its case with no failed artwork responses or browser errors. Desktop/mobile
+screenshots are saved with the provenance. Configuration comparison confirms the other nine
+albums are unchanged.
+
+## Digital artwork replacement: Coldplay — X&Y (30 October 2026)
+
+Replaced Crystal Castles in the final slot of the ten-album collection with *X&Y* (2005).
+The single-CD edition has thirteen tracks and a documented 12-page stapled booklet. Its original
+digital PDF is eight landscape pages, with photography, coloured backgrounds and Baudot-code
+graphics. The demo follows the **eight-page digital pagination**, not the twelve-page print layout.
+Its six interior layouts and final graphic/credits page come directly from that digital PDF;
+the matching square cover is from Apple Music. Each landscape layout is fitted to square paper by
+extending its flat background colour, preserving the complete artwork without cropping or stretching.
+The disc face and rear insert remain Cover Art Archive scans. The original PDF, metadata, checksum
+and comparison overviews are preserved in `research/album-replacement-2026-10-30/`; source links and
+the distinction between digital and printed layouts are recorded in `ARTWORK_SOURCES.md` and the
+album's `sources` metadata. The player uses the CD's thirteen tracks and matching Apple preview IDs.
+
+The existing booklet lifecycle check now covers X&Y in reduced-motion mobile mode and checks the
+eight-page count and all six lazy interior requests. Other album entries and scene animation are
+unchanged.
+
+Validation: `npm run build` passes; `check-booklet.mjs` passes its four desktop/mobile scenarios.
+A separate visual check reached all eight digital pages at 1440 × 900 and 390 × 844, with no failed
+artwork responses or browser errors. Desktop/mobile booklet and open-case screenshots are saved
+alongside the source PDF. Asset validation confirms the other nine album entries are unchanged.
 
 ## Shadows in the booklet flow (30 October 2026, in review)
 

@@ -1,5 +1,181 @@
 # Artist and booklet source handoff
 
+## Implemented second replacement — 30 October 2026
+
+The user approved **Air — Moon Safari** to replace **The Knife — Silent Shout**. The swap is
+implemented in slot eight, with the complete 12-page booklet, single-CD tracklist and matching
+case/disc artwork. The other nine albums remain unchanged. Provenance and page order are saved
+in `research/moon-safari-replacement-2026-10-30/`.
+
+Follow-up audit confirmed the complete 12-page sequence: five printed lyric sections, full
+ten-song credits and the back-page tracklist. Corrected the default square crop that cut strips
+from the scanned panels and broke artwork at the centre; Moon Safari now fits complete panels
+without changing their proportions. Playback also now uses the Austrian storefront matching its
+Apple IDs. All ten previews were tested playing and advancing on both desktop and mobile.
+
+The inspected 1998 French single-CD edition has a real 12-page stapled booklet with Mike Mills
+artwork. Implementation uses five original archive spread scans, about 2850 pixels wide, and
+the actual booklet back. Qobuz explicitly lists a digital booklet, but its file has not been
+obtained or inspected: **the implemented interiors are scans, not a native digital booklet**.
+The front is an official Apple digital cover. The user liked X&Y's native digital quality;
+retain that preference when researching subsequent replacements.
+
+Additional digital research did not produce another fully verified match. Born to Die's
+public iTunes gallery includes heavily lyric-based layouts (both the 10-page and 15-page
+sequences were sampled), so it is a weaker visual choice than its photographic cover suggests.
+Ultraviolence's inspected physical editions have 16-page booklets and exceed the cap.
+Simulation Theory's standard 12-page stapled booklet is a physical lead, but its digital
+interiors remain unverified; the artist's Super Deluxe artwork portfolio cannot establish
+the standard single-CD booklet. A Viva la Vida file mirror was blocked by browser site-safety
+policy; no workaround was attempted. Keep the original page-count, binding and one-CD rules.
+
+## Implemented digital example — 30 October 2026
+
+Crystal Castles has been replaced in the final gallery slot with **Coldplay — X&Y (2005)**.
+The new interiors use an eight-page original digital PDF, not booklet scans. The printed single-CD
+edition has a twelve-page stapled booklet, while the demo follows the PDF's eight-page pagination.
+Landscape digital layouts are fitted intact to square paper, extending only their flat background.
+The source PDF and its metadata are in `research/album-replacement-2026-10-30/`.
+See `ARTWORK_SOURCES.md` for provenance and the distinction between digital and printed layouts.
+
+## Current selection research — 30 October 2026
+
+This section **supersedes the 28 October acceptance rule and shortlist below**. It records the
+broader selection research; the two implemented replacements are described above. Exact release metadata, artwork URLs,
+booklet-image IDs, overview sheets and binding evidence are saved in
+[`research/album-selection-2026-10-30/selection.json`](research/album-selection-2026-10-30/selection.json).
+The [visual comparison](research/album-selection-2026-10-30/shortlist-preview.jpg) shows sample interiors.
+
+### User's revised criteria
+
+- Exactly **one CD** in the selected physical edition. Do not borrow the booklet from a deluxe
+  multi-disc edition and describe it as the standard single-CD package.
+- **6–15 printed pages total, including the booklet's front and back.** Prefer about 8–12.
+  A spread is two pages; a scan is not necessarily a page. Ordinary saddle-stitched booklets
+  naturally tend to have 8 or 12 pages within this range.
+- A **real booklet with separate turnable leaves**, typically stapled at the spine. Exclude a
+  single sheet folded into panels, accordion inserts and posters, even if cropped into square
+  images. The outer CD packaging may be a card gatefold if the separate booklet is bound.
+- Visually worthwhile interiors: photographs, illustrations, collage or other substantial art.
+  Repeated plain lyric pages are a poor fit, even when the physical format qualifies.
+- **Prefer an official digital booklet or publisher PDF to paper scans.** Availability of a
+  digital cover or downloadable music does not establish availability of digital interiors.
+  A PDF can itself contain scans; inspect it before calling it a clean digital source.
+- Keep Nirvana if a suitable album/edition exists. Prodigy and Pixies are preferred candidates.
+  Popular artists across the 1980s, 1990s, 2000s and more recent releases are welcome.
+
+### Best verified physical matches
+
+The six primary recommendations below have complete interior sequences and either visible
+centre staples or an explicit saddle-stitch description. The page totals were reconstructed
+from unique printed pages, removing duplicated covers and excluding case backs, trays and CDs.
+All linked editions are single CDs. All inspected image files were successfully retrieved.
+
+| Artist / album | Selected physical edition | Pages | Why it suits the demo | Digital booklet status |
+| --- | --- | --- | --- | --- |
+| **Air — Moon Safari (1998)** | [1998 French CD, Source/Virgin, CDV 2848 / 724384497828](https://musicbrainz.org/release/4c55906c-349b-362d-922e-956762912b42/cover-art) | **12** | Mike Mills illustrations, blue/orange washes and varied compositions. Staples visible in the centre spread; archive labels all pages 1–12. Strongest lead when the digital preference is included. | [Qobuz explicitly lists one digital booklet](https://www.qobuz.com/nl-nl/album/moon-safari-air/0724384497859). **File not obtained:** its pagination, contents, quality and match to this CD remain unverified. |
+| **Nirvana — From the Muddy Banks of the Wishkah (1996)** | [1996 French CD, DGC, GED 25105](https://musicbrainz.org/release/6213251a-9e62-3d27-a772-de423115dccc/cover-art) | **12** | Concert photography, poster/photo collage and liner notes. Actual staples visible in the centre collage. Best fully checked way to retain Nirvana. | No official digital interior file verified; inspected source is a paper scan. |
+| **Massive Attack — Mezzanine (1998)** | [1998 UK CD, WBRCD4 / 7243 8 45599 2 2](https://musicbrainz.org/release/9f584586-8fa3-3fd3-a7bb-76ae991495a0/cover-art) | **12** | Insect macro imagery, band portraits and stark black-and-white spreads. Staples visible in beetle centre spread; release annotation also states 12 pages. | No official digital interior file verified. |
+| **The Chemical Brothers — Surrender (1999)** | [1999 UK EMI Swindon CD, XDUSTCD4 / 7243 8 47610 2 8](https://musicbrainz.org/release/b4820c33-41f0-3fd5-854e-8b9f98a60b50/cover-art) | **8** | Colourful crowd illustration and abstract colour/texture spreads. Two staples clearly visible in the crowd centre spread. A short, visually distinctive option. | No official digital interior file verified. A [separate US edition is explicitly described as an 8-page stapled booklet](https://myrecordlist.com/iskaldur/1GAEEB); the linked UK scans independently show staples. |
+| **Gorillaz — The Now Now (2018)** | [2018 European CD, Parlophone, 0190295643430](https://musicbrainz.org/release/996c0dbe-bb55-48ad-9b29-186e6d5f1626/cover-art) | **12** | Jamie Hewlett character art with vivid pink, turquoise and blue spreads. Original large credits scan clearly shows two centre staples. Strong modern addition. | No official digital booklet verified. The archive's clean-looking pages **are scans**, with scanner margins and some watermark flags; they are not proven publisher files. |
+| **Pixies — The Night the Zombies Came (2024)** | [2024 UK/European CD, BMG, 964051322](https://musicbrainz.org/release/4b39ffa6-c499-455c-9612-f2522aaf709c/cover-art) | **12** | Mountain, rock and landscape imagery mixed with lyrics. Archive explicitly labels the outer and five inner spreads “saddle stitched.” Best verified Pixies choice under the cap. Its card gatefold case is separate from the bound booklet. | No official digital booklet verified. Public Qobuz search data for this album showed `hasGoodiesBooklet: false`; that does not rule out another distributor. |
+
+**Secondary physical match:** [Evanescence — Fallen, 2003 Swedish CD, Epic/Wind-up,
+510879 2](https://musicbrainz.org/release/7c3bfafa-e202-312b-9a67-b925db8f2efe/cover-art),
+**8 pages**. Staples are visible in the band-photo centre spread. Blue/black photography and
+textured graphics are attractive, but two interior spreads lean heavily on lyrics, so it ranks
+below the six above for visual variety. No official digital booklet verified.
+
+### Nirvana, Prodigy and other conditional choices
+
+- **Nevermind:** the original-style insert is a foldout, not an approved turnable booklet.
+  A [documented pressing explicitly calls it a four-panel colour foldout](https://musicbrainz.org/release/5421ee03-e017-4393-b721-abc1ad16857b).
+  The [2011 single-CD B0015887-02 is also described as an 8-page foldout](https://garimpa.club/work/3381310059884589410?filter.OR.0.label=Technicolor%2C+Guadalajara%2C+Mexico&filter.OR.1.company=Technicolor%2C+Guadalajara%2C+Mexico&format=all).
+  **No official one-CD edition with an art-rich bound booklet of 6–15 pages was verified.**
+  This is a research result, not a claim that no such pressing exists. Do not assume the
+  2011 remaster fixes the construction. Deluxe booklets are not substitutes for single-CD art.
+- **Nirvana — MTV Unplugged in New York:** the [US club CD](https://musicbrainz.org/release/2ff3be28-f74f-40c9-bdde-c19b6e4384ee/cover-art)
+  provides an attractive **8-page** sequence with concert photography. Exact single-CD format
+  confirmed, but the available centre image is only about 600 pixels wide and staples were
+  not conclusively resolved. Promising reserve; not promoted to the fully verified list.
+- **The Prodigy — The Fat of the Land:** the [currently used French source](https://musicbrainz.org/release/8417d94a-88cf-4094-8a75-c33d16300c06/cover-art)
+  has **12 pages in its first booklet sequence, with visible staples**, plus further images
+  labelled “2nd booklet.” The project currently omits that second sequence. The original
+  [XLCD 121 package is described as 20 pages with the inner eight as a gatefold](https://www.olx.ro/d/oferta/cd-the-prodigy-the-fat-of-the-land-1997-IDhS7nI.html).
+  **Conditional, not a clean whole-package pass:** the core booklet is real, but representing
+  the entire original package within 15 ordinary pages would require omitting supplemental
+  foldout material. Do not call the whole physical package a simple 12-page booklet.
+- **Other Prodigy editions checked:** Experience has unfolded strip scans; Always Outnumbered,
+  Never Outgunned and Invaders Must Die have four-panel-per-side foldouts. The Day Is My Enemy
+  is [documented with a 10-page foldout](https://www.okazii.ro/cd-the-prodigy-the-day-is-my-enemy-2015-a244173150).
+  These are excluded by the construction rule. The single-CD Their Law remains unconfirmed:
+  available inspected archive material was too sparse. Its [52-page photo booklet belongs
+  to the two-CD edition](https://theprodigy.info/discography/official/their-law-the-singles-1990-2005/)
+  and fails both limits. No Tourists did not provide enough booklet evidence to approve it.
+- **New Order — Technique (1989 UK FACD 275):** [12-page scan sequence](https://musicbrainz.org/release/8029b8ba-707f-4559-aa8e-10a129e3e177/cover-art),
+  attractive fluorescent statue imagery, exact one-CD edition confirmed. The source interiors
+  are only about 600 pixels wide and binding could not be conclusively resolved. Best 1980s
+  reserve, pending clearer physical evidence and preferably better interior files.
+
+### Important exclusions from the wider research
+
+These judgements apply to the editions inspected, not every pressing of the album.
+
+| Album / edition | Reason to exclude or deprioritize |
+| --- | --- |
+| Current Radiohead — Kid A | Long booklet; exceeds the user's cap. |
+| Current Crystal Castles debut | Too short under the user's explicit correction. |
+| Current The Knife — Silent Shout | User rejects the plain dark lyric pages. |
+| Current Rammstein — Mutter | Eight two-page spreads = **16 printed pages**, exceeds 15. |
+| Current RHCP — Californication | Eight two-page spreads = **16 printed pages**, exceeds 15. |
+| Current Björk — Post | Poster/foldout construction; individual square crops do not turn it into a bound booklet. |
+| Current David Bowie — Aladdin Sane | 12 pages, but most interiors are plain lyrics/credits; weaker visual choice. |
+| Current Enya — Shepherd Moons | 12 pages with light botanical decoration and a few portraits; mostly lyrics, so below the main shortlist. |
+| Pixies — Doolittle, 1989 German RTD CD 106 | Nine interior spreads + front/back = **20 pages**. Lovely art, too long. |
+| Pixies — Surfer Rosa, 1992 US | Inspected booklet reconstructs to **4 pages**; duplicate cover/back crops must not be counted again. |
+| Pixies — Trompe le Monde, GAD1014CD | [Documented 16-page booklet](https://frank3x.com/en/products/pixies-trompe-le-monde-cd-album-re-5014436101427); exceeds 15. |
+| Pixies — Head Carrier, PM018CDX | Separate rollfold lyric insert, not a normal bound booklet. |
+| Pixies — Doggerel, standard CD | Inspected source has card gatefold panels; a qualifying separate bound booklet was not verified. |
+| Gorillaz — Demon Days, 2005 US | Front/back + seven unique inner spreads = **16 pages**. Do not confuse eight spread scans with eight pages. |
+| The Chemical Brothers — Dig Your Own Hole, UK CD | Front/back + seven inner spreads = **16 pages**. |
+| Arctic Monkeys — Whatever People Say I Am…, Canadian CD | Photographic but **16 pages** after accounting for an unusually oriented spread. |
+| The Killers — Hot Fuss, European CD | Eight spreads = **16 pages**. |
+| Dua Lipa — Future Nostalgia, European CD | 12 pages, but almost all interiors are plain dark lyrics/credits; fails the user's visual preference. |
+| Fontaines D.C. — Romance, 2024 European CD | 12 pages, but mostly dark lyrics/credits; too close to the rejected Silent Shout experience. |
+| Tame Impala — Currents, inspected European CD | Four-page insert; case/gatefold panels must not pad the booklet count. |
+| Depeche Mode — Violator, inspected UK CD | 12 pages, but predominantly plain dark lyrics with only a few rose images; weak visual fit. |
+| Portishead — Dummy, European CD | Six-panel foldout; construction fails. |
+| Kate Bush — Hounds of Love, inspected European CD | 12 pages, predominantly plain lyrics; weaker visual fit. |
+
+### Digital-source findings and implementation handoff
+
+1. **Air is the first choice to pursue digitally.** Qobuz explicitly lists the digital booklet
+   for the standard ten-track Moon Safari. Public product HTML confirms availability but
+   exposes no downloadable PDF link. No purchase, sign-in, or account access was performed.
+   Retrieve through legitimate account access, then compare all printed pages before using it.
+2. **Do not label any shortlisted album “verified digital PDF” yet.** No official interior PDF
+   was obtained and inspected in this research. The saved evidence consists of archive scans.
+3. Other digital leads demonstrate why availability alone is insufficient: Qobuz lists digital
+   booklets for [Massive Attack — Heligoland](https://www.qobuz.com/gb-en/album/heligoland-massive-attack/5099960946652)
+   and [Coldplay — Ghost Stories](https://www.qobuz.com/us-en/album/ghost-stories-coldplay/0825646305926).
+   These are **leads, not approved additions**: the exact physical construction, complete printed
+   pagination and digital-to-CD correspondence were not verified. In particular, deluxe/vinyl
+   Heligoland packages advertise 28 pages; that does not establish the standard CD's page count.
+4. An automatically generated retailer “digital booklet” that merely prints a catalogue's
+   credits is not the album's designed art booklet. Avoid substituting those documents.
+5. At implementation, keep the exact release MBIDs from the JSON, preserve full page order,
+   and exclude trays, case backs, posters, order forms, stickers and repeated crops. A later
+   PDF may arrange two CD pages on one PDF page; count displayed CD pages after splitting.
+6. For a varied next collection, start with **Air, Nirvana/Wishkah, Massive Attack, Chemical
+   Brothers, Gorillaz/The Now Now and Pixies/The Night the Zombies Came**. Keep Fallen as an
+   optional 2000s addition. Keep Prodigy conditional until its extra foldout issue is accepted
+   explicitly or a different fully qualifying pressing is verified.
+
+## Archived research — 28 October 2026 (old, looser criteria)
+
+The remainder is retained for provenance and older release links. Its “passes” and recommendations
+**must not be used as approval under the current criteria above**.
+
 Research checked 2026-10-28. This is a source list for the data-fetching module, not a record of assets already downloaded into the app.
 
 ## Acceptance rule
