@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-// Compare the case's screen projection in Booklet and Listen, including the return path and the shared reading viewpoint.
+// Compare the case's screen projection in Booklet and Listen (less Listen's camera rise), including the return path and the shared lens.
 // PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-case-transition.mjs [url]
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -32,7 +32,9 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]) {
   let maxError=0,returnError=0;
   const reference=[];
   for(const t of [0.2,0.3,0.4,0.45,0.5,0.525,0.53]){
-   s.read=0;s.listen=t;s.updatePlayer(0);
+   // The same pan, easing and lens; only Listen's camera rises (for the player's product shot),
+   // while the booklet is read head-on, so compare with that rise taken out.
+   s.read=0;s.listen=t;s.updatePlayer(0);s.setLens(s.lens,0);
    const listen=snapshot();
    s.listen=0;
    let low=0,high=1;

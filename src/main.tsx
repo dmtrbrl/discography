@@ -547,7 +547,9 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   // The booklet is out in the middle of the screen (or coming out), where LeafThrough turns its
   // pages; the arrows turn them. Which pages show (first and last, of count), once it has landed.
   const bookletOpen = createMemo(() => pointer().reading);
-  const [bookletPage, setBookletPage] = createSignal({ first: 0, last: 0, count: 0 });
+  const [bookletPage, setBookletPage] = createSignal({ first: 0, last: 0, count: 0, loops: false });
+  // Whether a page turns on from here: on phones the back cover turns too, back onto the cover.
+  const pagesAhead = () => bookletPage().loops || bookletPage().last < bookletPage().count - 1;
   const pageArrows = () => bookletOpen() && bookletPage().count > 0;
   const browsing = () => pointer().opened < 0;
   // The disc is in the player (or going in): the transport row shows and the row of cases is out of view.
@@ -619,8 +621,8 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     // are pages that way. Only Close or Escape puts it away.
     if (bookletOut) {
       if (!bookletOpen()) return '';
-      const { first, last, count } = bookletPage();
-      if (overPage === 'next') return last < count - 1 ? 'Next' : '';
+      const { first } = bookletPage();
+      if (overPage === 'next') return pagesAhead() ? 'Next' : '';
       if (overPage === 'prev') return first > 0 ? 'Prev' : '';
       return '';
     }
@@ -940,7 +942,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       listenOnReveal: linked.mode === 'listen',
       readOnReveal: linked.mode === 'booklet',
       bookletPages: (index) => bookletPages(albums[index]),
-      onPage: (first, last, count) => setBookletPage({ first, last, count }),
+      onPage: (first, last, count, loops) => setBookletPage({ first, last, count, loops }),
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
       onPlayerButton: (button) => {
@@ -1047,7 +1049,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
           </button>
         </div>
         <button class="album-arrow is-next" ref={nextArrow} classList={{ 'is-shown': browsing() || pageArrows(), 'has-bubble': canBubble }} type="button"
-          aria-label={bookletOpen() ? 'Next booklet pages' : 'Next album'} disabled={bookletOpen() ? bookletPage().last >= bookletPage().count - 1 : active() === albums.length - 1}
+          aria-label={bookletOpen() ? 'Next booklet pages' : 'Next album'} disabled={bookletOpen() ? !pagesAhead() : active() === albums.length - 1}
           inert={browsing() || pageArrows() ? undefined : true} onClick={() => (bookletOpen() ? scene?.turnPage(1) : scene?.step(1))} {...cursor.button}>→</button>
         <button class="case-action is-right" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={listenButton}
           inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) scene?.insert(); }} {...cursor.button}>Listen</button>

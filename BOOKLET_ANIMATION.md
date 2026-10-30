@@ -67,7 +67,10 @@ omitted. `loadBooklet` adds a blank side when needed to place the back cover on 
 LeafThrough can rebuild individual sheet meshes when sources change; the enclosing
 `LeafThroughObject` remains the same, and the `change` hook reapplies bending to new materials.
 
-The flight keeps spread geometry. Single-page layout is applied after landing on phones.
+The flight keeps spread geometry. Single-page layout is applied after landing on phones. It
+loops (`bookletLayout`): LeafThrough turns a single layout's last page only when looping, so the
+back cover was a dead end; now it turns and the booklet shuts back onto its cover. The page's
+Next arrow stays enabled there (`onPage` reports `loops`).
 Interaction is enabled only when extraction has finished and the magazine is ready. If artwork
 is slower than the flight, `showPages` waits for readiness; it is also called from the ready
 event when `read >= 1`.
@@ -152,9 +155,27 @@ arcLength = entrySpan + (π - entryAngle) × radius
 fedDistance = (arcLength + pageWidth) × bookletEase(clamp(read / rollUntil))
 ```
 
-The desktop lid opens to 180°, leaving the configured 22° entry angle. A narrow-screen lid
-opens to 110°, giving a 92° entry angle relative to that lid's frame. This adjustment clears
-the partly raised disc half on phones.
+**Landing flat.** The paper used to straighten in place after landing: the carry ends at 0.7,
+and the trailing half was still on the cylinder until 1. Now its bend relaxes as it is carried
+(`bookletFlatten` = carry): `bookletBent` scales every angle along the paper from its centre by
+`1 - flatten`, integrating the piecewise path exactly (straight, two arcs, straight), so the
+paper keeps its length and lies flat at 1 wherever it is on the roll. The centre, and with it the
+booklet's whole path, rotation and speed, are unchanged; the centre itself finishes its turn at
+about 0.69. Retiming was tried first and rejected: ending the roll at 0.75 gave the paper its own
+peak of speed before the carry's, which read as two mini pauses and a sudden stop, and a carry
+to 1 dragged the booklet up with the panning case. The roll check prints the paper's speed
+profile; compare it with the committed version after any timing change.
+
+The desktop lid opens to 180°, leaving the configured 22° entry angle.
+
+**Phones go the other way** (30 October 2026). On a narrow screen the case opens into a V (lid
+at 110°), and over the hinge the paper had to bend 92° to clear the raised disc half, then curled
+up inside the V. There the whole path is mirrored across the booklet's centre: the paper feeds
+out fore-edge first over the lid's open edge and its stops. A negative radius in the roll uniform
+marks the mirror, so `bookletRoll` and the shader's `bookletRollPoint` flip together and every
+caller follows. The entry bend is `bookletEntryAngleNarrow` (40°): 22° caught the stops 2 mm past
+the fore-edge, and 92° read as a sharp kink at the holders. The travel cylinder is wider,
+`bookletRollDiameterNarrow` (720 mm); the booklet may leave the screen at the side on the way.
 
 The entry point shifts over the inset beyond the holders using `power3Out`. The released
 length is `max(0, fedDistance + entryX - pageWidth / 2)`. `bookletRoll` then samples a continuous
@@ -173,8 +194,9 @@ LeafThrough's `deform` option, then wraps the already-formed surface:
 
 1. Tuck the sheet in from its outer edges if it is under the outer one (see below).
 2. Convert its page coordinates to the booklet's millimetre-based frame.
-3. Evaluate the roll at the vertex's width coordinate and at the booklet centre.
-4. Express the difference relative to the centre's tangent.
+3. Evaluate the roll at the vertex's width coordinate relative to the booklet centre and its
+   tangent, with the bend relaxed by `bookletFlatten` (`bookletBent`).
+4. (The centre itself, from `bookletRoll`, places and turns the booklet on the CPU.)
 5. Offset the sheet thickness along the local bent normal and convert back to page coordinates.
 
 LeafThrough applies the hook to the colour, depth and distance passes, takes normals from the
@@ -234,7 +256,7 @@ feed with 20 binary-search iterations. It takes the maximum of that result and `
 bookletAway = viewPan(read - bookletPanStart(lidAngle) + 0.2)
 away = max(viewPan(listen), bookletAway)
 gallery.position = (0, away × 4.4, 0)
-setLens(away)
+setLens(away, viewPan(listen))   // only Listen raises the camera
 ```
 
 The gallery is hidden once `away >= 0.999`. The box is not scaled down or moved backward to
@@ -242,7 +264,7 @@ make room. Matching the shared camera matters too: a fixed gallery camera made a
 similar booklet case exit appear larger than Listen's.
 
 The gallery FOV is 40°; the settled Listen/Booklet FOV is 18°, with `playerView = 26°` controlling
-the elevated viewpoint. `lensDistance(fov)` backs the camera away as the FOV narrows, maintaining
+Listen's elevated viewpoint (the booklet's camera stays level, see Reading angle). `lensDistance(fov)` backs the camera away as the FOV narrows, maintaining
 the reference plane's framing. Booklet keeps lens amount one while reading. Closing reverses
 the same transition; there is no separate camera reset during landing.
 
@@ -253,13 +275,15 @@ its apparent tilt, or growing beyond reading size and shrinking back.
 
 ### Reading angle
 
-`bookletTilt = 8°` defines the reference reading tilt. Its world-space rotation also accounts
-for the elevated shared camera. `updateBooklet` adds the difference between the current
-camera-to-reading-centre pitch and the original gallery reference pitch.
-
-Flight clearance can move the paper nearer the camera. `frameFlyingBooklet` therefore also
-corrects pitch using the **actual flying centre**, with strength weighted by carry. Computing
-it only from the eventual reading centre allowed a visible late angle change.
+The booklet is read head-on, as LeafThrough shows a magazine: the camera looks straight at the
+page, which lies parallel to the image plane (`bookletTilt` 0). The shared camera used to rise
+26° (`playerView`) for the booklet as for the player, framing it with a lens shift from above.
+Tilted to face the camera there, the square page drew about 10% taller than wide (the return then
+showed that stretch unwinding into the square booklet in the case); parallel to the image plane,
+pages turned seen from above, through the bottom. Now `setLens` takes the rise separately and
+only Listen raises the camera; the booklet keeps the narrower lens and the shared pan. The
+pitch no longer depends on where the booklet is, so the flight's per-frame pitch correction
+toward the camera was removed.
 
 ### Screen position
 
@@ -302,9 +326,11 @@ The envelope covers the formed stack's bulge and wrinkles; 6 mm is padding, not 
 
 Up to eight passes alternate:
 
-1. Correct screen Y and viewing pitch for the current flight depth.
+1. Correct screen Y for the current flight depth.
 2. Project formed bounds using the actual camera and its lens shift.
-3. Reduce uniform scale to fit vertical screen margins and the final reading-height ceiling.
+3. Reduce uniform scale to fit vertical screen margins and the final reading-height ceiling. The
+   ceiling compares the paper's own projected height, not the padded envelope's: the padding
+   projects differently as the paper turns and let it arrive 3% oversized.
 4. Shift vertically if needed to stay within those margins.
 5. Transform bounds into body and lid coordinates and raise the booklet forward to maintain
    clearance above the tray/disc and below the lid plate/flanges.
@@ -379,10 +405,11 @@ durations are seconds, angles degrees, physical dimensions millimetres, margins 
 | Parameter | Default | Effect |
 | --- | --- | --- |
 | `readDuration` / `unreadDuration` | 2.4 / 1.9 | Full extraction/return flight duration. |
-| `bookletRollDiameter` | 284 | Broad carrying trajectory diameter. |
+| `bookletRollDiameter` / `bookletRollDiameterNarrow` | 284 / 720 | Broad carrying trajectory diameter; phones. |
 | `bookletBendAngle` | 75 | Main-arc curl across a full page; larger means tighter paper curvature. |
 | `bookletEntrySpan` / `bookletEntryAngle` | 14 / 22 | Exposed-edge lift before the main roll, adjusted by lid angle. |
-| `bookletRollUntil` | 1 | Progress at which material feed completes. |
+| `bookletEntryAngleNarrow` | 40 | Phones' entry bend over the lid's open edge and stops. |
+| `bookletRollUntil` | 1 | Progress at which material feed completes (the carried paper is already flat). |
 | `bookletEase` | 1 | Blend from linear feed/carry at zero to full smootherstep at one. |
 | `bookletCarryFrom` / `bookletCarryUntil` | 0.36 / 0.7 | Nominal carry, orientation and reading-scale blend interval; gated by release. |
 | `bookletPanFrom` | 0.4 | Earliest case exit; holder release can delay it. |
@@ -391,7 +418,7 @@ durations are seconds, angles degrees, physical dimensions millimetres, margins 
 | `bookletFlightMargin` / `bookletFlightMarginShort` | 64 / 44 | Vertical viewport margins during flight. |
 | `bookletFlightDepth` | 6 | Half-depth of the conservative formed-paper envelope. |
 | `bookletClearance` / `bookletClearanceApron` | 1 / 10 | Solid clearance and edge apron. |
-| `bookletTilt` | 8 | Reference reading tilt, compensated for the shared viewpoint. |
+| `bookletTilt` | 0 | Reading tilt from the image plane of the level camera; read head-on. |
 | `bookletRaise` | 0.03 | Reading centre in normalized device Y above screen centre. |
 | `bookletFitWidth` | 0.84 | Desktop page-size limit as a fraction of viewport half-width. |
 | `bookletFitHeight` | 0.64 | Page-size limit as a fraction of viewport height. |
@@ -476,8 +503,9 @@ clearance. It checks resting stack depth, a measurable travelling paper bend and
 between fully rolled-out and unbent formed geometry. It also checks fixed case depth, monotonic
 upward case motion and reverse pose agreement.
 
-Landing assertions allow less than 1% projected-height overshoot after extraction, less than
-0.5° viewing-pitch variation from `read >= 0.72`, centre drift below 0.001 normalized device Y,
+Landing assertions allow less than 1% projected-height overshoot after extraction, and from
+`read >= 0.72` no reversal: less than 0.5° of viewing pitch and 0.001 normalized device Y moving
+back against the approach (the booklet may still move then, but only toward its landing),
 and handoff-scale error below `1e-6`. Zoom is checked after geometric release: a stored
 booklet can legitimately be larger than its reading size on a short viewport. These checks
 measure height, centre and viewing pitch; they do not assert an identical curved-page silhouette

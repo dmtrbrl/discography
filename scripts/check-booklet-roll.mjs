@@ -37,7 +37,7 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
   });
   gl.enable(gl.RASTERIZER_DISCARD);
   const p=model.position.clone(),lidInverse=item.lid.matrixWorld.clone(),bodyInverse=item.body.matrixWorld.clone();
-  const casePath=[],bookletPath=[],heights=[],angles=[],landingY=[],spineDepths=[];
+  const casePath=[],bookletPath=[],heights=[],angles=[],landingY=[],spineDepths=[],paperTrack=[];
   const projected=p.clone(),normal=p.clone();
   let lidHits=0,lidExample=null,reverseError=0,flatError=0,rollSag=0,tabs=0,tabSamples=[],worstTray={depth:0,t:0},insideRange={low:Infinity,high:-Infinity};
   for(let n=0;n<=200;n++){
@@ -51,6 +51,8 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
     for(const [name,uniform] of Object.entries(sample.uniforms)){const loc=gl.getUniformLocation(sample.program,name);if(loc===null)continue;const v=uniform.value;if(typeof v==='number')gl.uniform1f(loc,v);else if(v?.isVector2)gl.uniform2fv(loc,v.toArray());else if(v?.isVector4)gl.uniform4fv(loc,v.toArray());else if(v?.isVector3)gl.uniform3fv(loc,v.toArray());}
     gl.beginTransformFeedback(gl.POINTS);gl.drawArrays(gl.POINTS,0,sample.count);gl.endTransformFeedback();gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER,0,sample.output);
     if(t===0) spineDepths.push(sample.output[sample.middle[0]*3+2]);
+    // The top sheet's middle row on screen, in px, for the paper's speed.
+    if(sample===samplers[0]) paperTrack.push(sample.middle.map(index=>{projected.fromArray(sample.output,index*3).applyMatrix4(sample.mesh.matrixWorld).project(s.camera);return [projected.x*innerWidth/2,projected.y*innerHeight/2];}));
     if(t===0.4){
      const points=sample.middle.map(index=>p.clone().fromArray(sample.output,index*3));
      rollSag=Math.max(rollSag,points[1].distanceTo(points[0].add(points[2]).multiplyScalar(0.5))*120);
@@ -89,20 +91,31 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
    }
   }
   const maxZoomRatio=Math.max(...heights)/heights.at(-1);
-  const maxAngleError=Math.max(...angles.map(angle=>Math.abs(angle-angles.at(-1))));
+  // The paper flattens in flight and is still carried as it lands: from 0.72 on it may move,
+  // but only toward its landing, never back (a dip and rise, or a flatten-then-tilt).
+  const reversal=values=>{const direction=Math.sign(values.at(-1)-values[0]);let worst=0;for(let i=1;i<values.length;i++)worst=Math.max(worst,-direction*(values[i]-values[i-1]));return worst;};
+  const maxAngleError=reversal(angles);
   const handoffScaleError=Math.abs(item.booklet.scale.x-s.bookletRig.scale.x/2);
-  const landingDrift=Math.max(...landingY.map(y=>Math.abs(y-landingY.at(-1))));
+  const landingDrift=reversal(landingY);
   for(let n=200;n>=0;n--){
    s.read=n/200;s.updatePlayer(0);s.updateBooklet(0);
    const pose=[...item.booklet.position.toArray(),...item.booklet.quaternion.toArray(),...item.booklet.scale.toArray(),...item.bend.value.toArray()];
    for(let i=0;i<pose.length;i++)reverseError=Math.max(reverseError,Math.abs(pose[i]-bookletPath[n][i]));
    for(let axis=0;axis<3;axis++)reverseError=Math.max(reverseError,Math.abs(s.gallery.position.getComponent(axis)-casePath[n][axis]));
   }
+  // The paper's speed on screen through the extraction, px a step, to compare against the reviewed
+  // motion after any change to its timing. That rises to about 8.7 at 0.35 (1440 × 900), dips once
+  // to about 5.6 as it lifts out and the carry takes over, peaks again near 9 and slows to land. A
+  // pause is the paper slowing between two faster moments, as a share of its top speed: about 30%
+  // for that one dip. An earlier roll than the carry read as two mini pauses and a sudden stop.
+  const speeds=paperTrack.slice(1).map((points,n)=>points.reduce((sum,[x,y],m)=>sum+Math.hypot(x-paperTrack[n][m][0],y-paperTrack[n][m][1]),0)/points.length);
+  const peak=Math.max(...speeds);let pause=0,pauseAt=0;
+  for(let i=1;i<speeds.length-1;i++){const dip=Math.min(Math.max(...speeds.slice(0,i)),Math.max(...speeds.slice(i+1)))-speeds[i];if(dip/peak>pause){pause=dip/peak;pauseAt=(i+1)/200;}}
   const steadyCase=casePath.every((p,n)=>!n||(p[1]>=casePath[n-1][1]-1e-9&&p[2]<=casePath[n-1][2]+1e-9));
   const constantCaseDepth=casePath.every(p=>Math.abs(p[0])<1e-12&&Math.abs(p[2])<1e-12);
   spineDepths.sort((a,b)=>a-b);
   const minSpineGap=Math.min(...spineDepths.slice(1).map((z,i)=>z-spineDepths[i]));
-  return {maxZoomRatio,maxAngleError,handoffScaleError,landingDrift,lidHits,lidExample,tabs,tabSamples,worstTray,insideRange,flatError,rollSag,steadyCase,reverseError,constantCaseDepth,minSpineGap};
+  return {maxZoomRatio,maxAngleError,handoffScaleError,landingDrift,lidHits,lidExample,tabs,tabSamples,worstTray,insideRange,flatError,rollSag,steadyCase,reverseError,constantCaseDepth,minSpineGap,pause,pauseAt,speedProfile:speeds.filter((_,i)=>i%10===0).map(v=>+v.toFixed(1))};
  });
  assert.ok(result.minSpineGap>1e-5,`Sheets have distinct depths at the spine instead of overlapping: ${result.minSpineGap}`);
  assert.ok(result.landingDrift<0.001,`The landing does not dip and rise: ${result.landingDrift}`);
@@ -118,7 +131,8 @@ for(const [width,height] of [[1440,900],[390,844],[844,390]]){
  assert.ok(result.insideRange.low>=2.39 && result.insideRange.high<3.7,'The formed resting stack fits inside the lid');
  assert.ok(result.flatError<1e-5,'Fully unrolled sheets match the reader geometry without a swap or snap');
  assert.ok(result.rollSag>5,'The paper itself curves around the roll during extraction');
- console.log(`${width} × ${height}: steady case, no lid/holder/tray intersections; ${result.rollSag.toFixed(1)} mm bend, zoom ratio ${result.maxZoomRatio.toFixed(4)}, angle variation ${result.maxAngleError.toFixed(3)}°, flat handoff error ${result.flatError}`);
+ console.log(`${width} × ${height}: pause ${(result.pause*100).toFixed(1)}% at ${result.pauseAt}, speed px/step ${result.speedProfile.join(' ')}`);
+ console.log(`${width} × ${height}: steady case, landing reversal ${result.landingDrift.toExponential(1)} / ${result.maxAngleError.toFixed(3)}°, no lid/holder/tray intersections; ${result.rollSag.toFixed(1)} mm bend, zoom ratio ${result.maxZoomRatio.toFixed(4)}, angle variation ${result.maxAngleError.toFixed(3)}°, flat handoff error ${result.flatError}`);
  await page.close();
 }
 } finally { await browser.close(); }

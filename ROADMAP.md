@@ -61,6 +61,30 @@ Retina captures of Nevermind and Kid A (gallery, open lid, cover, spread, phone)
 and no artwork through the pages. Build, roll (Nevermind and Kid A), lifecycle and case-transition
 checks pass.
 
+Review, same day (details in BOOKLET_ANIMATION.md):
+- **Phones take the booklet out the other way**: the mirrored roll feeds it fore-edge first over
+  the lid's open edge and stops, with a 40° entry bend (92° over the hinge read as a kink; 22°
+  caught the stops) round a 720 mm travel cylinder, off the screen's side on the way.
+- **The paper lands flat**: its bend relaxes as it is carried (`bookletFlatten`, an exact,
+  length-keeping relaxation), so it lands flat. The motion itself is the reviewed one; ending the
+  roll sooner was tried and read as two mini pauses and a sudden stop, and a longer carry dragged
+  the booklet up with the panning case. The roll check now prints the paper's speed profile.
+- **The reader is head-on**, as LeafThrough shows a magazine: the camera no longer rises for the
+  booklet (only for Listen's player), and the page lies parallel to the image plane
+  (`bookletTilt` 0). Facing the risen camera it drew about 10% taller than wide (measured from
+  its projected corners), and laid upright under it, its pages turned through the bottom. Not a
+  LeafThrough issue: the reader and the returning booklet matched exactly at the handoff. The
+  case still leaves with Listen's pan and lens, only seen level; the case transition check
+  compares it with Listen less its rise. The flight's camera-facing pitch correction went, and
+  the zoom ceiling uses the paper's own height.
+- **The phone's back cover turns**: the single layout loops, so its last page turns, shutting the
+  booklet onto its cover; Next stays enabled there.
+- The roll check's landing assertions test for reversal (no dip and rise, no tilt back) instead
+  of a stop by 0.72. All checks pass: roll (Nevermind, Kid A), lifecycle, case transition.
+- Found, not fixed: on landscape phones (844 × 390) the paper jumps about 50 px in one frame
+  as its trailing edge clears the holders (t ≈ 0.38), in the committed version too. Easing the
+  screen fit in with the release didn't remove it; the clearance lift is the next suspect.
+
 `npm run build` passes. The 201-pose GPU roll check passes at 1440 × 900, 390 × 844 and 844 × 390:
 no holder/lid/tray collisions, no landing size jump, constant paper depth, and the return retraces
 extraction. The zoom check detects geometric release independently of depth compression.
