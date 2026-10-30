@@ -505,7 +505,7 @@ additional visual tuning, keep new defaults in `C` rather than adding scattered 
 | Glossier paper (`paper.roughness` 0.3) | A faint highlight along the curl only; would also change the settled spreads reviewed against the demo. |
 | Light crossfade over the last part of the way (0.74 to 1) | Its tail played on an all but still booklet: the settled booklet was lit differently from the landing one. It ends at 0.86. |
 | A thicker pressed stack in the lid (0.16 to 0.4 mm) | Through the lid plate at rest: the formed cover already lies against it (spots on the closed case, and the roll check's plate assertion). The lid keeps 0.007 mm a sheet; the stack opens to 1.2 mm out of the case. |
-| The page count in the caption instead of the artist and year | Reverted at the user's request; a label under the booklet instead. |
+| The page count in the caption instead of the artist and year, then as a label under the landed booklet | Both reverted at the user's request: the caption keeps the artist and year, and the label was a distraction. Only the hidden live region announces the pages. |
 
 ## 14. Verification and reproduction
 

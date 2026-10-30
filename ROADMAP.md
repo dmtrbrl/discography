@@ -142,14 +142,11 @@ Second round, same day:
   `stackLoft`; a value other than the one written last is the library's own. In the curl both the
   thin Nevermind stack and the 17-sheet Kid A one show their edges; landed, the cover lies 1.2 mm
   over the floor and the floor shadow shows along its edges.
-- **The pages shown, under the booklet.** The caption keeps the artist and year (the first round
-  had put the count there; reverted at the user's request). A label below the landed booklet
-  ("2–3 / 8"; "1 / 8" on a cover or a phone's page) sits at the pages' lower edge, which the scene
-  reports in CSS px (`onBookletEdge`, from the magazine's bounds through the camera, whenever it
-  moves), centred on the screen as the spread is. It fades in a third of a second after the
-  landing, with the floor's shadow, and fades out the same way, where it was, as the booklet starts
-  back (the first version went at once; the user asked for the same fade both ways); aria-hidden,
-  since the live region reads the pages out.
+- **The pages shown: nowhere visible.** The caption keeps the artist and year (the first round
+  had put the count there; reverted at the user's request). A second attempt put a label under the
+  landed booklet ("2–3 / 8"), at the pages' lower edge reported by the scene, fading in after the
+  landing and out as the booklet started back; the user found it a distraction and it is gone
+  with its scene plumbing (`onBookletEdge`). Only the hidden live region still announces the pages.
 - **The case passes behind the disc on the way to the player and back.** The user saw the tray
   draw over the hanging disc as the case slid up (and down, on the eject). The open case is tipped
   back 24° (`openTilt`), so while it slides straight up past the disc, which stays where it rose
@@ -165,6 +162,31 @@ Second round, same day:
   at 0.45 the push was 12 mm in a tenth of a second, a visible flick; at 0.68 no push was needed but
   the disc hung over the tray's top edge. The pan itself is unchanged, so the booklet view and the
   case-transition check are unaffected.
+
+Third round, same day, three UI points from review:
+- **The two bars match.** The masthead sat 36 px from the top with the 34 px wordmark, while the
+  caption (artist and year over the title, 63 px) sat 39 px from the bottom: the wordmark's centre
+  was 51 px from the top, the caption's 71 px from the bottom, and the top looked tight. Now the
+  masthead is a band of the caption's height at the caption's inset, with the wordmark (and Back,
+  About and GitHub, with their measured offsets) centred in it; the caption's height is derived
+  from its type sizes in CSS variables (`--bar-inset`, `--caption-height`, `--masthead-top`), per
+  breakpoint, so a change to the caption moves the masthead too. Measured after: 70.6 px and 70.6
+  px on desktop, 51.4 and 51.4 on a portrait phone. Not on short landscape screens: there the
+  header would take 14 more px of a 390 px screen, and the scene already evens the gaps round the
+  picture by raising it (`rowRaiseShort`, `openRaiseShort`). The about page's top padding follows
+  the masthead.
+- **The booklet tooltip no longer comes up after a click on the spot.** The bubble's label opens
+  after 3 s of rest and restarted only on movement or a change of label; a page turned by a click
+  keeps the label "Next", so a still hand saw the tip 3 s after each click. A click now restarts
+  the wait like a move (checked: shown at 3.6 s, hidden 0.15 s after a click, back 3.45 s after).
+- **A lighter film over the page.** The fractal-noise grain fixed over the whole document
+  (`body::before`) read as a matte, old-plastic haze on everything, the cases and the type
+  included, and was removed at the user's request; then kept at 15% instead of 24%, since the
+  user liked the effect itself. The gradient background stays on `html`.
+- **No scratches on the discs.** The printed side's scratches and dust (`texScratches`, 0.36 → 0)
+  and the data side's glinting scratch map (`scratchAmount`, 0.5 → 0) are off at the user's
+  request; the code and the other wear (track lines, the silver band, the mould rings) stay. The
+  jewel cases and the player keep their wear, which was not in question.
 
 `npm run build`, the lifecycle, roll (Nevermind) and case-transition checks pass at all three sizes.
 
@@ -861,7 +883,7 @@ node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 1
 | `src/main.tsx` | Solid app: loading screen, masthead, GitHub link, caption and album arrows, bubble cursor, keyboard shortcuts, routing. Talks to the scene through its public methods. |
 | `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. The page loads `favorites`; the other folders hold source artwork it points to. |
 | `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band, resolves its paths and adds the band name to each album. Documents the JSON shape. |
-| `src/style.css` | Page shell (warm beige background with a grain overlay, bottom bar, loading screen). |
+| `src/style.css` | Page shell (warm beige background with a light grain overlay, bottom bar, loading screen). |
 | `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs <band> [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `band.json`. See phase 2b. |
 | `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. |
 | `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |

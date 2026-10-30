@@ -15,8 +15,9 @@ const leafthrough = 'https://github.com/dmtrbrl/leafthrough';
 
 // Bubble cursor (mouse only): a dot on the pointer (no lag). Over something interactive it grows a
 // little, and once the pointer has rested for labelDelay it opens like a tooltip and says what a
-// click will do (options.label). Moving more than restSlop pixels, or a change of action (say Next
-// becoming Open after a click), hides the label and restarts the wait. Over a button or link (props
+// click will do (options.label). Moving more than restSlop pixels, a click (a page turned on the
+// spot keeps the same label, and the tip came up over a still hand), or a change of action (say
+// Next becoming Open after a click) hides the label and restarts the wait. Over a button or link (props
 // from .button: the text buttons and links) it becomes a larger dot, and a clone of the
 // element in the page's beige, laid over it and clipped to the dot, shows it beige inside the dot. The clone sits in one
 // layer above the bubble, so it works over blurred overlays too, whose blur would trap a copy beneath it.
@@ -238,6 +239,7 @@ function createBubble(options: BubbleOptions) {
   }
   function watch() {
     if (!canBubble) return;
+    armTip();
     recheckUntil = performance.now() + 1000;
     if (!recheckRaf) recheckRaf = requestAnimationFrame(recheck);
   }
@@ -569,15 +571,10 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
   // pages; the arrows turn them. Which pages show (first and last, of count), once it has landed.
   const bookletOpen = createMemo(() => pointer().reading);
   const [bookletPage, setBookletPage] = createSignal({ first: 0, last: 0, count: 0, loops: false });
-  // Where the landed booklet's pages end at the bottom (CSS px from the top), for the label under
-  // it, and whether it is landed. The place is kept once it has left, so the label fades out where
-  // it was instead of jumping to the top of the screen as it goes.
-  const [bookletEdge, setBookletEdge] = createSignal(0);
-  const [bookletLanded, setBookletLanded] = createSignal(false);
   // Whether a page turns on from here: on phones the back cover turns too, back onto the cover.
   const pagesAhead = () => bookletPage().loops || bookletPage().last < bookletPage().count - 1;
   const pageArrows = () => bookletOpen() && bookletPage().count > 0;
-  // The pages shown, "2–3" for a spread, "1" for a cover or a phone's single page.
+  // The pages shown, "2–3" for a spread, "1" for a cover or a phone's single page, for the live region.
   const pageRange = () => `${bookletPage().first + 1}${bookletPage().last > bookletPage().first ? `–${bookletPage().last + 1}` : ''}`;
   const browsing = () => pointer().opened < 0;
   // The disc is in the player (or going in): the transport row shows and the row of cases is out of view.
@@ -971,7 +968,6 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       readOnReveal: linked.mode === 'booklet',
       bookletPages: (index) => bookletPages(albums[index]),
       onPage: (first, last, count, loops) => setBookletPage({ first, last, count, loops }),
-      onBookletEdge: (bottom) => { if (bottom !== null) setBookletEdge(bottom); setBookletLanded(bottom !== null); },
       onProgress: (loaded, total) => setLoading({ loaded, total }),
       onPointer: setPointer,
       onPlayerButton: (button) => {
@@ -1122,10 +1118,6 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
           Made by <a href={website} target="_blank" rel="noopener" classList={{ 'has-bubble': canBubble }} {...cursor.button}>Dmytro Barylo</a>
         </p>
       </section>
-      {/* The pages shown, under the landed booklet ("2–3 / 8"; "1 / 8" on a cover or a phone's page),
-          where the scene says its lower edge is. Read out by the live region below, not here. */}
-      <p class="page-count" classList={{ 'is-shown': pageArrows() && bookletLanded() && !aboutOpen() }}
-        style={{ top: `${bookletEdge()}px` }} aria-hidden="true">{pageRange()}<span class="eyebrow-separator">/</span>{bookletPage().count}</p>
       {/* LeafThrough has no DOM of its own in the scene, so the pages shown are announced here. */}
       <p class="sr-only" aria-live="polite">{pageArrows() ? `Booklet pages ${pageRange()} of ${bookletPage().count}` : ''}</p>
     </main>

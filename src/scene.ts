@@ -14,12 +14,12 @@ const C = {
   // Radii as a fraction of the disc: centre hole, clear clamping zone, then the mirror band up to the print.
   holeSize: 0.127, hubSize: 0.31, labelInner: 0.345, mirrorBandShade: 0.2, discScanInset: 0.012,
   plasticTint: '#b9bcc0', plasticOpacity: 0.08, plasticEdge: 0.45, plasticRings: [[0.2, 0.0035, 0.1], [0.14, 0.004, 0.12]],
-  frontRough: 0.42, frontMetal: 0.48, frontClearcoat: 0.8, texGrain: 0.59, texPrint: 0.35, texScratches: 0.36, texGloss: 1,
+  frontRough: 0.42, frontMetal: 0.48, frontClearcoat: 0.8, texGrain: 0.59, texPrint: 0.35, texScratches: 0, texGloss: 1,
   backColor: '#83888f', backRough: 0.2, backMetal: 1, backClearcoat: 0.5, backBand: 0.035, backBandOpacity: 0.88,
   // Data side look: reflection kept from the environment, plus a flat silver lift so it reads as a
   // bright mirror in a light room, and a soft white streak along the light.
   backReflect: 0.75, backSilver: 0.3, backSheen: 0.45,
-  trackLines: 0.025, scratchAmount: 0.5, scratchCount: 22, scratchArcs: 5,
+  trackLines: 0.025, scratchAmount: 0, scratchCount: 22, scratchArcs: 5,
   // Rainbow: two light directions in world space (x, y, z, weight), how tightly the wedges line up
   // through the centre, and how much the colours wash out toward silver.
   diffractionStrength: 1.1, diffractionSaturation: 0.8, diffractionFocus: 1.5, diffractionSpacing: 1600,
@@ -260,9 +260,6 @@ export interface SceneOptions {
   bookletPages?: (index: number) => Promise<PageSource[]>;
   // loops: whether the last page turns too, back onto the cover (see bookletLayout).
   onPage?: (first: number, last: number, count: number, loops: boolean) => void;
-  // Where the landed booklet's pages end at the bottom, in CSS px from the top of the element,
-  // whenever it changes (the spread glides as it is centred); null once it is not out and landed.
-  onBookletEdge?: (bottom: number | null) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
@@ -2411,8 +2408,6 @@ export class GalleryScene {
   private onPlayerButton: SceneOptions['onPlayerButton'];
   private bookletPages: SceneOptions['bookletPages'];
   private onPage: SceneOptions['onPage'];
-  private onBookletEdge: SceneOptions['onBookletEdge'];
-  private bookletEdge: number | null = null;
   private pointerState: string;
   private ready: boolean;
   // Not private: nothing reads it, which noUnusedLocals rejects for a private field.
@@ -2567,7 +2562,7 @@ export class GalleryScene {
   // onPointer({ hovered, active, opened, dragging }) reports what the pointer is over, for a custom cursor.
   // fogColor should match the page background, so distant cases fade into it. startIndex and
   // openOnReveal restore a gallery from a link: that case in front, already open as it appears.
-  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, bookletPages, onPage, onBookletEdge, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false, readOnReveal = false }: SceneOptions = {}) {
+  constructor(element: HTMLElement, albums: Album[], onIndexChange: (index: number) => void, { onProgress, onReady, onPointer, onPlayerButton, bookletPages, onPage, fogColor = C.fogColor, startIndex = 0, openOnReveal = false, listenOnReveal = false, readOnReveal = false }: SceneOptions = {}) {
     this.element = element;
     this.startIndex = startIndex;
     this.openOnReveal = openOnReveal;
@@ -2593,7 +2588,6 @@ export class GalleryScene {
     this.onPlayerButton = onPlayerButton;
     this.bookletPages = bookletPages;
     this.onPage = onPage;
-    this.onBookletEdge = onBookletEdge;
     this.pointerState = '';
     this.ready = false;
     this.albums = [];
@@ -4196,7 +4190,6 @@ export class GalleryScene {
       this.bookletSun.intensity = 0;
       this.bookletAmbient.intensity = 0;
       this.bookletFloor.visible = false;
-      this.reportEdge(null);
       return;
     }
     const t = this.read;
@@ -4323,21 +4316,9 @@ export class GalleryScene {
       magazine.position.copy(rig.position);
       magazine.quaternion.copy(rig.quaternion);
       magazine.scale.copy(rig.scale);
-      // The pages' lower edge on screen, for the page's label under the booklet.
-      magazine.updateMatrixWorld();
-      const { pages } = magazine.bounds;
-      heading.set(pages.x + pages.width / 2, pages.y, 0).applyMatrix4(magazine.matrixWorld).project(this.camera);
-      this.reportEdge((1 - heading.y) / 2 * this.element.clientHeight);
-    } else this.reportEdge(null);
+    }
     // Back on its cover and centred on it again: the booklet takes over for the way back.
     if (this.closingBooklet && magazine.page === 0 && !magazine.turning && this.bookletShift === 0.5) this.putBookletBack();
-  }
-
-  // Tells the page where the landed booklet ends at the bottom, when that changes.
-  private reportEdge(bottom: number | null) {
-    if (bottom === this.bookletEdge || (bottom !== null && this.bookletEdge !== null && Math.abs(bottom - this.bookletEdge) < 0.25)) return;
-    this.bookletEdge = bottom;
-    this.onBookletEdge?.(bottom);
   }
 
   // Frame the curved paper and keep it above the case. Fit by adjusting the paper's scale,
