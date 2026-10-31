@@ -485,6 +485,97 @@
       }
     },
     {
+      "id": "mutter",
+      "title": "Mutter",
+      "year": "2001",
+      "kind": "Studio album",
+      "cover": "covers/mutter.avif",
+      "color": "#6f655c",
+      "accent": "#e2d9cc",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07",
+        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c",
+        "bookletBack": "eed328a1-5f3c-33d5-bf9e-b9033175124c/9614674636@left"
+      },
+      "back": "../rammstein/backs/mutter.avif",
+      "disc": "../rammstein/discs/mutter.avif",
+      "bookletBack": "../rammstein/booklets/mutter-back.avif",
+      "appleMusic": 1440770702,
+      "tracks": [
+        {
+          "title": "Mein Herz brennt",
+          "length": 280,
+          "apple": 1440771222
+        },
+        {
+          "title": "Links 2 3 4",
+          "length": 217,
+          "apple": 1440771243
+        },
+        {
+          "title": "Sonne",
+          "length": 273,
+          "apple": 1440771250
+        },
+        {
+          "title": "Ich will",
+          "length": 218,
+          "apple": 1440771494
+        },
+        {
+          "title": "Feuer frei!",
+          "length": 191,
+          "apple": 1440771498
+        },
+        {
+          "title": "Mutter",
+          "length": 273,
+          "apple": 1440771501
+        },
+        {
+          "title": "Spieluhr",
+          "length": 286,
+          "apple": 1440771505
+        },
+        {
+          "title": "Zwitter",
+          "length": 257,
+          "apple": 1440771510
+        },
+        {
+          "title": "Rein raus",
+          "length": 190,
+          "apple": 1440771520
+        },
+        {
+          "title": "Adios",
+          "length": 230,
+          "apple": 1440771762
+        },
+        {
+          "title": "Nebel",
+          "length": 295,
+          "apple": 1440771764
+        }
+      ],
+      "artist": "Rammstein",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1440770702",
+        "booklet": "https://musicbrainz.org/release/eed328a1-5f3c-33d5-bf9e-b9033175124c/cover-art"
+      },
+      "bookletScans": [
+        "booklet-scans/mutter/02.avif",
+        "booklet-scans/mutter/03.avif",
+        "booklet-scans/mutter/04.avif",
+        "booklet-scans/mutter/05.avif",
+        "booklet-scans/mutter/06.avif",
+        "booklet-scans/mutter/07.avif",
+        "booklet-scans/mutter/08.avif"
+      ],
+      "bookletPageCount": 16
+    },
+    {
       "id": "without-you-im-nothing",
       "title": "Without You I’m Nothing",
       "year": "1998",
@@ -874,97 +965,6 @@
         "digitalBookletListing": "https://www.qobuz.com/at-de/album/moon-safari-air/0724384497859",
         "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer. Stapled booklet from the 1998 French single-CD edition. Interior artwork is scanned paper, not a verified native digital PDF. Qobuz lists a digital booklet, but its file was not obtained or used."
       }
-    },
-    {
-      "id": "mutter",
-      "title": "Mutter",
-      "year": "2001",
-      "kind": "Studio album",
-      "cover": "covers/mutter.avif",
-      "color": "#6f655c",
-      "accent": "#e2d9cc",
-      "motif": "arches",
-      "musicbrainz": {
-        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07",
-        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c",
-        "bookletBack": "eed328a1-5f3c-33d5-bf9e-b9033175124c/9614674636@left"
-      },
-      "back": "../rammstein/backs/mutter.avif",
-      "disc": "../rammstein/discs/mutter.avif",
-      "bookletBack": "../rammstein/booklets/mutter-back.avif",
-      "appleMusic": 1440770702,
-      "tracks": [
-        {
-          "title": "Mein Herz brennt",
-          "length": 280,
-          "apple": 1440771222
-        },
-        {
-          "title": "Links 2 3 4",
-          "length": 217,
-          "apple": 1440771243
-        },
-        {
-          "title": "Sonne",
-          "length": 273,
-          "apple": 1440771250
-        },
-        {
-          "title": "Ich will",
-          "length": 218,
-          "apple": 1440771494
-        },
-        {
-          "title": "Feuer frei!",
-          "length": 191,
-          "apple": 1440771498
-        },
-        {
-          "title": "Mutter",
-          "length": 273,
-          "apple": 1440771501
-        },
-        {
-          "title": "Spieluhr",
-          "length": 286,
-          "apple": 1440771505
-        },
-        {
-          "title": "Zwitter",
-          "length": 257,
-          "apple": 1440771510
-        },
-        {
-          "title": "Rein raus",
-          "length": 190,
-          "apple": 1440771520
-        },
-        {
-          "title": "Adios",
-          "length": 230,
-          "apple": 1440771762
-        },
-        {
-          "title": "Nebel",
-          "length": 295,
-          "apple": 1440771764
-        }
-      ],
-      "artist": "Rammstein",
-      "sources": {
-        "cover": "https://music.apple.com/us/album/1440770702",
-        "booklet": "https://musicbrainz.org/release/eed328a1-5f3c-33d5-bf9e-b9033175124c/cover-art"
-      },
-      "bookletScans": [
-        "booklet-scans/mutter/02.avif",
-        "booklet-scans/mutter/03.avif",
-        "booklet-scans/mutter/04.avif",
-        "booklet-scans/mutter/05.avif",
-        "booklet-scans/mutter/06.avif",
-        "booklet-scans/mutter/07.avif",
-        "booklet-scans/mutter/08.avif"
-      ],
-      "bookletPageCount": 16
     }
   ]
 }
