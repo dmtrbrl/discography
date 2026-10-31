@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// node scripts/optimize-images.mjs <band> [album id ...]
+// node scripts/optimize-images.mjs [album id ...]
 //
-// Converts a band's artwork to the sizes the page draws and to AVIF, with a WebP twin for browsers
-// without AVIF (band.ts picks the format). Run it after download-covers.sh: that script saves the
-// archive's JPEGs, which are two to five times larger than needed. Paths in band.json are rewritten
-// to the .avif files, and a JPEG inside the band's own folder is removed once converted; a source
-// in another band's folder (such as ../rammstein/discs/mutter.jpg) is left for that band's config.
+// Converts the collection's artwork to the sizes the page draws and to AVIF, with a WebP twin for
+// browsers without AVIF (collection.ts picks the format). Run it after download-covers.sh: that
+// script saves the archive's JPEGs, which are two to five times larger than needed. Paths in
+// collection.json (relative to each album's folder, public/albums/<id>/) are rewritten to the .avif
+// files, and a JPEG inside that folder is removed once converted; a source elsewhere is left alone.
 // Already converted albums are skipped. Needs Node 18+ and the sharp dev dependency (npm install).
 import sharp from 'sharp';
 import { readFile, writeFile, unlink, stat } from 'node:fs/promises';
@@ -13,9 +13,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const [band = 'favorites', ...only] = process.argv.slice(2);
-const dir = path.join(root, 'public', 'bands', band);
-const jsonPath = path.join(dir, 'band.json');
+const only = process.argv.slice(2);
+const dir = path.join(root, 'public', 'albums');
+const jsonPath = path.join(dir, 'collection.json');
 const config = JSON.parse(await readFile(jsonPath, 'utf8'));
 
 // Largest size the page uses for each kind (scene.ts draws square art into 1024 px canvases, the
@@ -34,10 +34,10 @@ const size = async (file) => (await stat(file).catch(() => null))?.size ?? 0;
 const totals = {};
 const add = (kind, key, bytes) => { (totals[kind] ??= { before: 0, after: 0, files: 0 })[key] += bytes; };
 
-// Converts one image; returns the band.json path to use for it.
-async function convert(relative, kind) {
+// Converts one of an album's images; returns the collection.json path to use for it.
+async function convert(albumDir, relative, kind) {
   const settings = KINDS[kind];
-  const source = path.resolve(dir, relative);
+  const source = path.resolve(albumDir, relative);
   const base = source.replace(/\.[^.]+$/, '');
   const avif = `${base}.avif`;
   const webp = `${base}.webp`;
@@ -58,7 +58,7 @@ async function convert(relative, kind) {
   add(kind, 'before', before);
   add(kind, 'after', after);
   totals[kind].files += 1;
-  const inside = !path.relative(dir, source).startsWith('..');
+  const inside = !path.relative(albumDir, source).startsWith('..');
   if (inside) await unlink(source);
   console.log(`  ${relative} -> .avif ${(after / 1024).toFixed(0)} KB (was ${(before / 1024).toFixed(0)} KB)${inside ? '' : ', source kept'}`);
   return relativeAvif;
@@ -67,10 +67,11 @@ async function convert(relative, kind) {
 for (const album of config.albums) {
   if (only.length && !only.includes(album.id)) continue;
   console.log(album.id);
+  const albumDir = path.join(dir, album.id);
   for (const kind of ['cover', 'disc', 'back', 'bookletBack']) {
-    if (album[kind]) album[kind] = await convert(album[kind], kind);
+    if (album[kind]) album[kind] = await convert(albumDir, album[kind], kind);
   }
-  if (album.bookletScans) album.bookletScans = await Promise.all(album.bookletScans.map((scan) => convert(scan, 'bookletScans')));
+  if (album.bookletScans) album.bookletScans = await Promise.all(album.bookletScans.map((scan) => convert(albumDir, scan, 'bookletScans')));
 }
 await writeFile(jsonPath, `${JSON.stringify(config, null, 2)}\n`);
 
@@ -80,4 +81,4 @@ for (const [kind, t] of Object.entries(totals)) {
   after += t.after;
   console.log(`${kind.padEnd(12)} ${String(t.files).padStart(3)} files  ${(t.before / 1048576).toFixed(1).padStart(6)} MB -> ${(t.after / 1048576).toFixed(1).padStart(5)} MB (avif)`);
 }
-if (before) console.log(`total        ${(before / 1048576).toFixed(1)} MB -> ${(after / 1048576).toFixed(1)} MB; band.json updated`);
+if (before) console.log(`total        ${(before / 1048576).toFixed(1)} MB -> ${(after / 1048576).toFixed(1)} MB; collection.json updated`);

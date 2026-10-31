@@ -21,7 +21,7 @@ try {
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
     page.on('request', (request) => {
-      if (request.url().includes('/booklet-scans/')) interiorRequests.push(request.url());
+      if (request.url().includes('/booklet/')) interiorRequests.push(request.url());
     });
     await page.goto(`${url}#/${album}`);
     await page.waitForSelector('.preloader.is-done', { state: 'attached', timeout: 30000 });

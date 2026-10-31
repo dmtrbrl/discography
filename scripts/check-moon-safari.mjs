@@ -13,7 +13,7 @@ try {
     const errors = [], lookupRequests = [], failedArtwork = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('request', r => { if (r.url().includes('itunes.apple.com/lookup')) lookupRequests.push(r.url()); });
-    page.on('response', r => { if (r.url().includes('/bands/') && r.status() !== 200) failedArtwork.push(r.url()); });
+    page.on('response', r => { if (r.url().includes('/albums/') && r.status() !== 200) failedArtwork.push(r.url()); });
     await page.addInitScript(() => {
       // Muted playback still decodes and advances the actual media, without making test noise.
       window.__audio = [];
@@ -23,7 +23,7 @@ try {
       window.__panelDraws = [];
       const draw = CanvasRenderingContext2D.prototype.drawImage;
       CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
-        if (image instanceof HTMLImageElement && image.src.includes('/booklet-scans/moon-safari/') && args.length === 8 && args[3] > 100) {
+        if (image instanceof HTMLImageElement && image.src.includes('/albums/moon-safari/booklet/') && args.length === 8 && args[3] > 100) {
           window.__panelDraws.push({ source: image.src, imageWidth: image.naturalWidth, imageHeight: image.naturalHeight, rect: args });
         }
         return draw.call(this, image, ...args);
@@ -52,7 +52,8 @@ try {
     assert.deepEqual([...seen].sort((a, b) => a - b), Array.from({ length: 12 }, (_, i) => i));
     await page.goto(`${url}#/moon-safari/listen`);
     await page.waitForFunction(() => window.scene?.seated && !window.scene.viewBusy());
-    assert.match(await page.getByRole('link', { name: 'Apple Music', exact: true }).getAttribute('href'), /music\.apple\.com\/at\/album\/697240234/);
+    assert.match(await page.getByRole('link', { name: 'Apple', exact: true }).getAttribute('href'), /music\.apple\.com\/at\/album\/697240234/);
+    assert.match(await page.getByRole('link', { name: 'Spotify', exact: true }).getAttribute('href'), /open\.spotify\.com\/album\/206GTDefY2qRMQxYXmfb0a/);
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     const played = [];
     for (let n = 1; n <= 10; n++) {

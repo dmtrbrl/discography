@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Adds each album's tracklist and its Apple Music match to public/bands/<band>/band.json, for the
+// Adds each album's tracklist and its Apple Music match to public/albums/collection.json, for the
 // player's tracklist and 30-second previews. The tracklist comes from the CD on MusicBrainz
-// (musicbrainz.release when band.json pins one, otherwise the earliest official single-CD release
+// (musicbrainz.release when collection.json pins one, otherwise the earliest official single-CD release
 // of the release group, as in download-covers.sh). The album on Apple Music is found through the
 // artist's Apple ID (from the artist's MusicBrainz links): every album there whose name matches,
 // ignoring edition notes such as "(Deluxe Edition)" or "(Remastered 2020)", is compared track by
 // track, and the one matching most tracks with the fewest extras wins. Each track then records
 // its Apple track ID, so the page only has to fetch fresh preview URLs. Requires Node 18 or newer.
 //
-// Usage: node scripts/fetch-tracks.mjs <band> [album id ...]   (no ids: every album)
+// Usage: node scripts/fetch-tracks.mjs [album id ...]   (no ids: every album)
 
 import { readFile, writeFile } from 'node:fs/promises';
 
@@ -17,12 +17,8 @@ const USER_AGENT = 'discography-demo/0.1 (local demo)';
 const PAUSE = { musicbrainz: 1100, itunes: 3200 };
 const COUNTRY = 'us';
 
-const [band, ...only] = process.argv.slice(2);
-if (!band) {
-  console.error('Usage: node scripts/fetch-tracks.mjs <band> [album id ...]');
-  process.exit(1);
-}
-const configPath = `public/bands/${band}/band.json`;
+const only = process.argv.slice(2);
+const configPath = 'public/albums/collection.json';
 const config = JSON.parse(await readFile(configPath, 'utf8'));
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -122,7 +118,7 @@ for (const album of config.albums) {
   let catalog = artistAlbums.get(artist);
   if (!catalog) {
     const appleId = config.appleArtist ?? (artist && await appleArtist(artist));
-    if (!appleId) throw new Error('No Apple artist ID on MusicBrainz; set "appleArtist" in band.json');
+    if (!appleId) throw new Error('No Apple artist ID on MusicBrainz; set "appleArtist" in collection.json');
     const { results } = await get('itunes', `https://itunes.apple.com/lookup?id=${appleId}&entity=album&limit=200&country=${COUNTRY}`);
     catalog = results.filter((result) => result.wrapperType === 'collection');
     artistAlbums.set(artist, catalog);

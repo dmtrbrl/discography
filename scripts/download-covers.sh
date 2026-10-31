@@ -1,37 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Downloads a band's artwork into public/bands/<band>/: each album's front cover and, when
+# Downloads the collection's artwork into public/albums/<id>/: each album's front cover and, when
 # archived, scans of the printed CD and the back insert, plus the booklet's back page where
-# band.json lists one. Albums and their MusicBrainz release groups come from band.json, and the
-# paths of the files found are written back into it. Sources: MusicBrainz release data and the
-# Cover Art Archive. Requires curl and jq.
+# collection.json lists one. Albums and their MusicBrainz release groups come from collection.json,
+# and the paths of the files found (relative to the album's folder) are written back into it.
+# Sources: MusicBrainz release data and the Cover Art Archive. Requires curl and jq.
 #
-# Usage: scripts/download-covers.sh <band> [album id ...]   (no ids: every album)
+# Usage: scripts/download-covers.sh [album id ...]   (no ids: every album)
 #
 # The archive's JPEGs are two to five times larger than the page needs: afterwards run
-# node scripts/optimize-images.mjs <band> [album id ...], which converts them to AVIF and WebP at
-# the sizes the page draws and points band.json at the results.
+# node scripts/optimize-images.mjs [album id ...], which converts them to AVIF and WebP at the
+# sizes the page draws and points collection.json at the results.
 
 USER_AGENT="discography-demo/0.1 (local demo)"
 
-if (($# < 1)); then
-  echo "Usage: $0 <band> [album id ...]" >&2
-  exit 1
-fi
-dir="public/bands/$1"
-config="$dir/band.json"
-shift
+dir="public/albums"
+config="$dir/collection.json"
 if [[ ! -f $config ]]; then
   echo "No $config" >&2
   exit 1
 fi
-mkdir -p "$dir/covers" "$dir/discs" "$dir/backs" "$dir/booklets"
 
-# Records an album's file in band.json (field relative to the band folder), if the file exists.
+# Records an album's file in collection.json (field relative to the album's folder), if the file exists.
 set_path() {
   local slug=$1 field=$2 file=$3 updated
-  [[ -f "$dir/$file" ]] || return 0
+  [[ -f "$dir/$slug/$file" ]] || return 0
   updated=$(jq --arg id "$slug" --arg field "$field" --arg file "$file" \
     '(.albums[] | select(.id == $id))[$field] = $file' "$config")
   printf '%s\n' "$updated" >"$config"
@@ -113,7 +107,7 @@ crop_column() {
 # come from the earliest single-CD release that has both, so they show the same edition; failing
 # that, each comes from the earliest release that has it. The demo only shows single-disc cases, so
 # editions with a second CD or a DVD are skipped, and so are promotional and bootleg releases (only
-# "Official" counts). band.json can pin the edition instead
+# "Official" counts). collection.json can pin the edition instead
 # (musicbrainz.release), and pick its back image (musicbrainz.backImage) when the first one tagged
 # Back is the wrong side. A line is empty if nothing is archived. Fails if MusicBrainz could not be
 # reached.
@@ -142,7 +136,7 @@ find_scans() {
   echo "${back/#http:/https:}"
 }
 
-# Saves the booklet's back page. No tag marks it reliably, so band.json lists it per album
+# Saves the booklet's back page. No tag marks it reliably, so collection.json lists it per album
 # (musicbrainz.bookletBack) as release/image ID, with @left or @right to take one half of a
 # two-page spread, @n/m for the nth of m panels of a foldout, or @n/m,r/s for one panel of a poster
 # folded in four (column, then row).
@@ -152,7 +146,7 @@ fetch_booklet_back() {
     half=${source#*@}
     source=${source%@*}
   fi
-  file="$dir/booklets/$slug-back.jpg"
+  file="$dir/$slug/booklet-back.jpg"
   save "https://coverartarchive.org/release/${source%/*}/${source#*/}-1200.jpg" "$file" || return 0
   [[ -n $half ]] && take_part "$file" "$half"
   echo "  booklet back: $source${half:+ ($half)}"
@@ -166,23 +160,24 @@ fetch_booklet_back() {
 while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_release back_image; do
   if (($#)) && [[ " $* " != *" $slug "* ]]; then continue; fi
   echo "Downloading $slug"
+  mkdir -p "$dir/$slug"
   cover="release-group/$group"
   [[ -n $cover_release ]] && cover="release/$cover_release"
-  save "https://coverartarchive.org/$cover/front-1200" "$dir/covers/$slug.jpg" >/dev/null 2>&1 \
-    || save "https://coverartarchive.org/$cover/front-500" "$dir/covers/$slug.jpg" || true
+  save "https://coverartarchive.org/$cover/front-1200" "$dir/$slug/cover.jpg" >/dev/null 2>&1 \
+    || save "https://coverartarchive.org/$cover/front-500" "$dir/$slug/cover.jpg" || true
   if ! scans=$(find_scans "$group" "$release" "$back_image"); then
     echo "  could not reach MusicBrainz; kept any existing scans"
   else
     # With neither scan archived the output is empty, and the second read fails at end of input.
     { read -r disc; read -r back; } <<<"$scans" || true
     if [[ -n $disc ]]; then
-      save "$disc" "$dir/discs/$slug.jpg" && shrink "$dir/discs/$slug.jpg" && echo "  disc scan: $disc"
+      save "$disc" "$dir/$slug/disc.jpg" && shrink "$dir/$slug/disc.jpg" && echo "  disc scan: $disc"
     else
       echo "  no disc scan archived; the disc uses the cover"
     fi
     if [[ -n $back ]]; then
-      save "$back" "$dir/backs/$slug.jpg" && { [[ -z $back_half ]] || take_part "$dir/backs/$slug.jpg" "$back_half"; } \
-        && shrink "$dir/backs/$slug.jpg" && echo "  back insert: $back${back_half:+ ($back_half)}"
+      save "$back" "$dir/$slug/back.jpg" && { [[ -z $back_half ]] || take_part "$dir/$slug/back.jpg" "$back_half"; } \
+        && shrink "$dir/$slug/back.jpg" && echo "  back insert: $back${back_half:+ ($back_half)}"
     else
       echo "  no back insert archived; the case uses a generated one"
     fi
@@ -190,8 +185,8 @@ while IFS=$'\x1f' read -r slug group booklet_back release back_half cover_releas
   if [[ -n ${booklet_back:-} ]]; then
     fetch_booklet_back "$slug" "$booklet_back"
   fi
-  set_path "$slug" cover "covers/$slug.jpg"
-  set_path "$slug" disc "discs/$slug.jpg"
-  set_path "$slug" back "backs/$slug.jpg"
-  set_path "$slug" bookletBack "booklets/$slug-back.jpg"
+  set_path "$slug" cover "cover.jpg"
+  set_path "$slug" disc "disc.jpg"
+  set_path "$slug" back "back.jpg"
+  set_path "$slug" bookletBack "booklet-back.jpg"
 done < <(jq -r '.albums[] | [.id, .musicbrainz.releaseGroup, (.musicbrainz.bookletBack // ""), (.musicbrainz.release // ""), (.musicbrainz.backHalf // ""), (.musicbrainz.coverRelease // ""), (.musicbrainz.backImage // "")] | join("\u001f")' "$config")

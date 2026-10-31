@@ -4,8 +4,8 @@ import { A, HashRouter, Navigate, Route, useLocation, useNavigate, useParams } f
 import type { Accessor } from 'solid-js';
 import { GalleryScene, PLAYER_BUTTONS } from './scene';
 import type { PlayerButton, PointerState } from './scene';
-import { aboutPath, galleryLink, galleryModes, galleryPath, loadBand, moveQueryToHash } from './band';
-import type { Album, Band, GalleryLink, GalleryMode, Theme } from './band';
+import { aboutPath, galleryLink, galleryModes, galleryPath, loadCollection, moveQueryToHash } from './collection';
+import type { Album, Collection, GalleryLink, GalleryMode, Theme } from './collection';
 import type { PageSource } from 'leafthrough';
 import './style.css';
 
@@ -291,7 +291,7 @@ function applyTheme(theme: Theme, title: string) {
 }
 
 // 30-second previews from Apple Music: one lookup per album gives every track's preview URL, keyed
-// by the Apple track IDs that scripts/fetch-tracks.mjs stored. Preview URLs aren't kept in band.json
+// by the Apple track IDs that scripts/fetch-tracks.mjs stored. Preview URLs aren't kept in collection.json
 // since Apple may change them. Each album is fetched once a visit.
 const previews = new Map<string, Promise<Map<number, string>>>();
 
@@ -530,8 +530,8 @@ function bookletPages(album: Album) {
   return pages;
 }
 
-function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | null; onPath: (path: string) => void }) {
-  const { albums, theme } = props.band;
+function App(props: { collection: Collection; link: GalleryLink; jump: () => GalleryLink | null; onPath: (path: string) => void }) {
+  const { albums, theme } = props.collection;
   let stage!: HTMLDivElement;
   let scene: GalleryScene | undefined;
   // The scene is built a frame after the page, so the loading screen paints first (onMount).
@@ -637,8 +637,8 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     onFocus: (event: FocusEvent) => scene?.focusButton((event.currentTarget as HTMLElement).matches(':focus-visible') ? kind : null),
     onBlur: () => scene?.focusButton(null),
   });
-  // The album on Spotify and Apple Music, and where to buy the CD: the artist's shop when band.json
-  // names one, otherwise an Amazon search.
+  // The album on Spotify and Apple Music, and where to buy the CD: the artist's shop when
+  // collection.json names one, otherwise an Amazon search.
   const spotifyLink = () => `https://open.spotify.com/album/${selected().spotify}`;
   const appleLink = () => `https://music.apple.com/${selected().appleMusicCountry ?? 'us'}/album/${selected().appleMusic}`;
   const buyLink = () => selected().buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${selected().artist} ${selected().title} CD`)}&i=popular`;
@@ -1155,7 +1155,7 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
 // in the page (Back, Escape, Close) goes back to the entry it came from. Every other change of the
 // hash (the wordmark, the browser's Back and Forward, a link pasted into the tab) is a jump, which
 // App plays as one move rather than as the steps in between.
-function Gallery(props: { band: Band }) {
+function Gallery(props: { collection: Collection }) {
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams<{ album?: string; mode?: string }>();
@@ -1206,26 +1206,26 @@ function Gallery(props: { band: Band }) {
     }
   }, { defer: true }));
 
-  return <App band={props.band} link={link} jump={jump} onPath={write} />;
+  return <App collection={props.collection} link={link} jump={jump} onPath={write} />;
 }
 
 // The page is the collection's gallery, or why it couldn't load. An unknown album, or any other
 // hash, goes to the gallery's start.
 function Root() {
-  const [view, setView] = createSignal<{ band?: Band; error?: string } | null>(null);
+  const [view, setView] = createSignal<{ collection?: Collection; error?: string } | null>(null);
   moveQueryToHash();
-  loadBand('favorites').then(
-    (band) => {
-      applyTheme(band.theme, 'Discography');
-      setView({ band });
+  loadCollection().then(
+    (collection) => {
+      applyTheme(collection.theme, 'Discography');
+      setView({ collection });
     },
     (error: Error) => setView({ error: error.message }),
   );
   return (
     <Switch>
-      <Match when={view()?.band} keyed>{(band) => (
+      <Match when={view()?.collection} keyed>{(collection) => (
         <HashRouter>
-          <Route path={[aboutPath, '/:album?/:mode?']} matchFilters={{ album: band.albums.map((album) => album.id), mode: galleryModes }} component={() => <Gallery band={band} />} />
+          <Route path={[aboutPath, '/:album?/:mode?']} matchFilters={{ album: collection.albums.map((album) => album.id), mode: galleryModes }} component={() => <Gallery collection={collection} />} />
           <Route path="*" component={() => <Navigate href="/" />} />
         </HashRouter>
       )}</Match>

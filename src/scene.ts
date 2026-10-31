@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LeafThroughObject } from 'leafthrough';
 import type { LightingOptions, PageSource, PaperDeform } from 'leafthrough';
-import type { Album } from './band';
+import type { Album } from './collection';
 import { GRAIN_SIZE, generateProcedural, valueNoise } from './procedural';
 import type { ProceduralMaps, ProceduralParams } from './procedural';
 

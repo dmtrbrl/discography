@@ -9,7 +9,7 @@ way, what was tried and rejected, and what comes next. Keep it up to date when a
 decision changes.
 
 Album data, including each edition's image sources and Apple IDs, lives in
-`public/bands/favorites/band.json`.
+`public/albums/collection.json`, with each album's artwork in `public/albums/<id>/`.
 
 ## Status at a glance
 
@@ -37,13 +37,29 @@ Album data, including each edition's image sources and Apple IDs, lives in
 - **"Apple Music" is now "Apple"** (the user's suggestion, to save room): next to Spotify the
   service is clear, and the left pair stays about as wide as Buy the CD on phones. The about text
   still says Apple Music, which is prose.
-- **Album IDs** (`spotify` in `band.json`): found by searching Spotify's album pages and checked
+- **Album IDs** (`spotify` in `collection.json`): found by searching Spotify's album pages and checked
   against Spotify's public embed page for each ID (title, artist, type album, and a track count
   equal to the CD's: the 10-track It's Blitz!, not the 15-track edition; the 12-track Without You
   I'm Nothing, not the 13). MusicBrainz has no Spotify links on these release groups or releases,
   and Odesli's public API, which maps Apple IDs to Spotify, now answers 401. Mutter has two
   11-track entries with the same tracks, both playable from Austria; the one search engines rank
   as the album's main page (`7ikuEzL6xeAgu6yT6YVLy7`) is used, the other is `2tHCY2fDMi0NqeGZcAxNSc`.
+
+## One folder per album (31 October 2026)
+
+The artwork moved from `public/bands/favorites/` (grouped by kind: `covers/`, `discs/`, `backs/`,
+`booklets/`, `booklet-scans/<id>/`) to `public/albums/<id>/`: each album's `cover`, `disc`, `back`
+and `booklet-back` (`.avif`, with a `.webp` twin) and its `booklet/NN` pages, 176 files, 7.7 MB.
+The collection is `public/albums/collection.json` (was `band.json`); paths in an album's entry are
+relative to its folder, so every entry reads the same. `collection.ts` (was `band.ts`) resolves
+them per album, `loadCollection()` replaces `loadBand('favorites')`, and the `Band` types are
+`Collection`; the preload plugin, `index.html`, the data scripts (no band argument any more) and
+the checks follow. Gone at the same time: the folders of the earlier per-band collections
+(`crystal-castles`, `nirvana`, `rammstein`, `the-knife`, `the-prodigy`, 31 MB; Mutter's disc,
+back insert and booklet back came out of the Rammstein folder) and the JPEGs of the albums
+replaced on 30 October (37 MB). Verified by resolving every path in `collection.json` against the
+folders (nothing missing, nothing left over), a production build with its preload links, and the
+booklet and album checks.
 
 ## Performance pass (31 October 2026)
 
@@ -76,7 +92,7 @@ start. Also fixed here: the phone booklet's back cover no longer turns round to 
 - **Artwork as AVIF, at the drawn size.** `scripts/optimize-images.mjs` converts a band's JPEGs to
   AVIF (covers and booklet backs 1024 px, discs 1200 px since the scan is cropped to the disc before
   it is scaled, back inserts 1320 px, spreads 2048 px) with a WebP twin beside each, points
-  `band.json` at the `.avif` files and removes the JPEGs inside the band's folder (`sources` keeps
+  `collection.json` at the `.avif` files and removes the JPEGs inside the album's folder (`sources` keeps
   where each came from; Mutter's files in `rammstein/` stay for that folder's own config). `band.ts`
   decodes a 2 × 2 AVIF once and swaps every path to `.webp` where that fails. Startup artwork 18.4 MB
   → 3.0 MB (WebP twins 4.6 MB), booklets 41.9 MB → 4.7 MB; the build's `dist/` 136 MB → 87 MB. The
@@ -88,7 +104,7 @@ start. Also fixed here: the phone booklet's back cover no longer turns round to 
 - **Type served from the page.** `public/fonts/` holds the Latin woff2 files (DM Sans is one variable
   file for both weights, 85 KB in all, OFL), `style.css` declares them with `font-display: swap`, and
   `index.html` preloads the four the first screen uses. No more `@import`.
-- **Preloads.** `index.html` preloads `band.json` and the fonts; a Vite plugin (`preloadArtwork`)
+- **Preloads.** `index.html` preloads `collection.json` and the fonts; a Vite plugin (`preloadArtwork`)
   writes a `<link rel="preload" as="image">` for every album's disc and cover, then for the inserts
   and booklet backs at `fetchpriority="low"`, and a `modulepreload` for the tables chunk. They go
   after the script tag: forty image requests queued ahead of the script starved it (it arrived
@@ -112,7 +128,7 @@ start. Also fixed here: the phone booklet's back cover no longer turns round to 
 - **The single layout's loop went off, then came back** (`bookletLayout`): see Shadows below,
   and the LeafThrough notes for the fix.
 - `build.target: 'es2022'`, no `modulePreload` polyfill; `@types/node` and `sharp` as dev
-  dependencies (the config reads `band.json`; the script converts).
+  dependencies (the config reads `collection.json`; the script converts).
 
 ### Measured (before → after; Chrome on an Apple M2 Max, medians of 2 to 3 runs)
 
@@ -826,7 +842,7 @@ old links rewritten, `npm run typecheck` and `npm run build` pass.
 
 ## Mixed-artist collection (29 October 2026)
 
-The root URL now opens one mixed-artist gallery. `public/bands/favorites/band.json` holds the ten
+The root URL now opens one mixed-artist gallery. `public/albums/collection.json` (then `public/bands/favorites/band.json`) holds the ten
 selected albums; the former artist folders remain as source data. The album caption names its artist.
 Each album's `sources` entry records the exact edition and image used for its cover, disc, back insert
 and booklet.
@@ -850,7 +866,7 @@ collections. `appleMusicCountry` selects the storefront for both the preview loo
 link, and the preview cache includes it; a track without an Apple ID is listed but skipped by the
 player. Each album has a regression check, `scripts/check-<album-id>.mjs` (after
 `check-moon-safari.mjs`): it opens the booklet and asserts the page count and that every interior panel
-is drawn whole, then plays each available preview on desktop and mobile. Run one against a dev server:
+is drawn whole, checks the Spotify and Apple links, then plays each available preview on desktop and mobile. Run one against a dev server:
 `PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-<id>.mjs http://127.0.0.1:5174/`.
 
 The favicon is a full-size rounded square in the page's warm beige, with a solid dark CD, a beige
@@ -865,11 +881,10 @@ npm run dev        # Vite dev server
 npm run typecheck  # tsc, strict, no emit
 npm run build      # type-check, then production build into dist/
 npm run preview    # serve the build
-bash scripts/download-covers.sh nirvana   # refresh a band's artwork (needs curl and jq)
-bash scripts/download-covers.sh nirvana nevermind   # refresh only the listed albums
-bash scripts/download-covers.sh the-prodigy   # the same for any band folder
-node scripts/optimize-images.mjs favorites   # then: AVIF and WebP at the drawn sizes, band.json updated
-node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 18+), same arguments
+bash scripts/download-covers.sh   # refresh the collection's artwork (needs curl and jq)
+bash scripts/download-covers.sh mutter   # refresh only the listed albums
+node scripts/optimize-images.mjs   # then: AVIF and WebP at the drawn sizes, collection.json updated
+node scripts/fetch-tracks.mjs   # tracklists and Apple Music IDs (Node 18+), same arguments
 # #/ opens the gallery; #/<id> brings an album to the front, #/<id>/open opens it, /listen puts its
 # disc in the player and /booklet opens its booklet (the page keeps these up to date).
 ```
@@ -882,15 +897,15 @@ node scripts/fetch-tracks.mjs nirvana   # tracklists and Apple Music IDs (Node 1
 | --- | --- |
 | `src/scene.ts` | Everything 3D: the `GalleryScene` class (called `DiscScene` in phase 0), materials, shaders, input, motion, loading. All tuning lives in the `C` object at the top. |
 | `src/main.tsx` | Solid app: loading screen, masthead, GitHub link, caption and album arrows, bubble cursor, keyboard shortcuts, routing. Talks to the scene through its public methods. |
-| `public/bands/<band>/band.json` | Everything band-specific (since phase 1; was `src/data.js`): `name`, optional `logo`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`; no band sets one since the pre-phase) and `albums`. Each album: `id`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack` and `tracks`, `color`, `accent`, `motif` for generated art, and `musicbrainz` (`releaseGroup`, optional `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the JSON file. The page loads `favorites`; the other folders hold source artwork it points to. |
+| `public/albums/collection.json` | The collection (since 31 October 2026; was `public/bands/<band>/band.json` from phase 1, `src/data.js` before): `name`, optional `theme` (`background`, `backgroundCenter`, `backgroundEdge`, `ink`) and `albums`. Each album: `id`, `artist`, `title`, `year`, `kind`, `cover`, optional `disc`, `back`, `bookletBack`, `bookletScans`, `tracks`, `appleMusic`, `spotify`, `buy`, `sources`, and `musicbrainz` (`releaseGroup`, optional `release`, `bookletBack` pick) for the download script (see the pre-phase for its pinning options). Paths are relative to the album's folder, `public/albums/<id>/`. |
 | `src/band.ts` | Types for the band and album JSON (`BandConfig`, `AlbumConfig`) and what the page gets (`Band`, `Album`). Loads a band, resolves its paths and adds the band name to each album. Documents the JSON shape. |
 | `src/style.css` | Page shell (warm beige background with a light grain overlay, bottom bar, loading screen). |
-| `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs <band> [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `band.json`. See phase 2b. |
-| `scripts/download-covers.sh` | `download-covers.sh <band> [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in the band's `band.json` from MusicBrainz and the Cover Art Archive, and writes the paths it found back into the JSON. A failed image keeps the existing file. Run `optimize-images.mjs` afterwards. |
-| `scripts/optimize-images.mjs` | `node scripts/optimize-images.mjs <band> [album id ...]`: converts the archive's JPEGs to AVIF at the sizes the page draws, with a WebP twin for browsers without AVIF, points `band.json` at the `.avif` files and removes the JPEGs inside the band's folder (the `sources` entries keep where they came from). Needs the `sharp` dev dependency. See Performance pass. |
+| `scripts/fetch-tracks.mjs` | `node scripts/fetch-tracks.mjs [album id ...]`: writes each album's CD tracklist (MusicBrainz) and its Apple Music match (album and track IDs, for previews) into `collection.json`. See phase 2b. |
+| `scripts/download-covers.sh` | `download-covers.sh [album id ...]`: fetches covers, disc scans, back inserts and booklet back pages for the albums in `collection.json` from MusicBrainz and the Cover Art Archive into `public/albums/<id>/`, and writes the paths it found back into the JSON. A failed image keeps the existing file. Run `optimize-images.mjs` afterwards. |
+| `scripts/optimize-images.mjs` | `node scripts/optimize-images.mjs [album id ...]`: converts the archive's JPEGs to AVIF at the sizes the page draws, with a WebP twin for browsers without AVIF, points `collection.json` at the `.avif` files and removes the JPEGs inside the album's folder (the `sources` entries keep where they came from). Needs the `sharp` dev dependency. See Performance pass. |
 | `public/fonts/` | The page's three typefaces as woff2 (Latin subsets, SIL Open Font License, see its README), served from the page rather than Google Fonts. `style.css` declares them, `index.html` preloads them. |
-| `vite.config.ts` | Besides the Solid plugin: a `preloadArtwork` plugin that writes a `<link rel="preload">` into `index.html` for every album's disc, cover, back insert and booklet back (the build's `band.json`), and one for the strip light's lookup-table chunk; `base: './'`; `target: 'es2022'`. |
-| `public/bands/<band>/` | The band's `band.json`, `logo.svg`, and local artwork in `covers/`, `discs/`, `backs/`, `booklets/`, so the demo runs without network access. |
+| `vite.config.ts` | Besides the Solid plugin: a `preloadArtwork` plugin that writes a `<link rel="preload">` into `index.html` for every album's disc, cover, back insert and booklet back (the build's `collection.json`), and one for the strip light's lookup-table chunk; `base: './'`; `target: 'es2022'`. |
+| `public/albums/<id>/` | One album's artwork, so the page runs without network access: `cover`, `disc`, `back` and `booklet-back` (`.avif` with a `.webp` twin) and `booklet/NN` pages (was `public/bands/<band>/` with `covers/`, `discs/`, `backs/`, `booklets/`, `booklet-scans/<id>/`). |
 
 ### Scene API used by the UI
 

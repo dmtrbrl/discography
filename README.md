@@ -14,7 +14,7 @@ Everything is drawn in the browser with three.js from the real artwork: official
 
 ## Sources
 
-Disc, back insert and booklet scans come from the community-run [Cover Art Archive](https://coverartarchive.org/) and [MusicBrainz](https://musicbrainz.org/); the exact edition and image used for each album are recorded in its `sources` entry in `public/bands/favorites/band.json`. Covers and song previews come from Apple Music.
+Disc, back insert and booklet scans come from the community-run [Cover Art Archive](https://coverartarchive.org/) and [MusicBrainz](https://musicbrainz.org/); the exact edition and image used for each album are recorded in its `sources` entry in `public/albums/collection.json`. Covers and song previews come from Apple Music.
 
 Cover art, booklet scans, disc designs, and logos belong to their respective rights holders.
 

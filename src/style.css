@@ -7,7 +7,7 @@
 @font-face { font-family: 'Instrument Serif'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/instrument-serif.woff2') format('woff2'); }
 @font-face { font-family: 'Instrument Serif'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/instrument-serif-italic.woff2') format('woff2'); }
 
-/* The band's theme (band.json) sets these; the values here only show before it loads. */
+/* The collection's theme (collection.json) sets these; the values here only show before it loads. */
 :root { --bg: #ebe3d4; --bg-center: #f6f0e5; --bg-edge: #e1d7c5; --ink: #252521; font-family: 'DM Sans', Arial, sans-serif; color: var(--ink); font-synthesis: none; }
 /* The two bars match: the caption (artist and year over the title, in the bottom bar) sets the
    height of both, and the masthead is a band of that height at the same inset from the top, with

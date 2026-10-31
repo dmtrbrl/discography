@@ -8,4 +8,5 @@ looks that were tried and rejected), how changes were verified, and the next pha
   effect listed as rejected.
 - Update `ROADMAP.md` when a phase lands or a decision changes.
 - The ten albums are final. Their data, including each edition's image sources and Apple IDs, is in
-  `public/bands/favorites/band.json`; every album has a regression check in `scripts/check-<id>.mjs`.
+  `public/albums/collection.json`; each album's artwork is in `public/albums/<id>/`; every album has
+  a regression check in `scripts/check-<id>.mjs`.

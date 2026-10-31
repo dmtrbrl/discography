@@ -1,0 +1,980 @@
+{
+  "name": "Ten favorite albums",
+  "theme": {
+    "background": "#ebe3d4",
+    "backgroundCenter": "#f6f0e5",
+    "backgroundEdge": "#e1d7c5",
+    "ink": "#252521"
+  },
+  "albums": [
+    {
+      "id": "its-blitz",
+      "title": "It’s Blitz!",
+      "year": "2009",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "bookletFit": "contain",
+      "color": "#1d1f23",
+      "accent": "#f2b705",
+      "motif": "sun",
+      "appleMusic": 1443513213,
+      "appleMusicCountry": "at",
+      "spotify": "4dBMwYZJ84lj8HRTdL8Toj",
+      "tracks": [
+        {
+          "title": "Zero",
+          "length": 265,
+          "apple": 1443513217
+        },
+        {
+          "title": "Heads Will Roll",
+          "length": 222,
+          "apple": 1443513611
+        },
+        {
+          "title": "Soft Shock",
+          "length": 233,
+          "apple": 1443513615
+        },
+        {
+          "title": "Skeletons",
+          "length": 302,
+          "apple": 1443513618
+        },
+        {
+          "title": "Dull Life",
+          "length": 248,
+          "apple": 1443513620
+        },
+        {
+          "title": "Shame and Fortune",
+          "length": 211,
+          "apple": 1443513622
+        },
+        {
+          "title": "Runaway",
+          "length": 313,
+          "apple": 1443513626
+        },
+        {
+          "title": "Dragon Queen",
+          "length": 242,
+          "apple": 1443513632
+        },
+        {
+          "title": "Hysteric",
+          "length": 232,
+          "apple": 1443513634
+        },
+        {
+          "title": "Little Shadow",
+          "length": 237,
+          "apple": 1443513638
+        }
+      ],
+      "artist": "Yeah Yeah Yeahs",
+      "musicbrainz": {
+        "releaseGroup": "08e1a593-cbce-3943-8a90-79c4d8c2b693",
+        "release": "40e07af2-4115-4106-8544-d4156775065d",
+        "bookletBack": "40e07af2-4115-4106-8544-d4156775065d/24631822243@left",
+        "backImage": "24631835173",
+        "coverRelease": "40e07af2-4115-4106-8544-d4156775065d"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/1443513213",
+        "disc": "https://coverartarchive.org/release/40e07af2-4115-4106-8544-d4156775065d/24631838644.jpg",
+        "back": "https://coverartarchive.org/release/40e07af2-4115-4106-8544-d4156775065d/24631835173.jpg",
+        "booklet": "https://musicbrainz.org/release/40e07af2-4115-4106-8544-d4156775065d/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/40e07af2-4115-4106-8544-d4156775065d/24631822243.jpg",
+        "physicalBooklet": "https://www.discogs.com/release/6386980",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the centre spread) from the 2009 European single-CD jewel case, Polydor 1799713. Interiors are paper scans stored at half the archive resolution; no official digital booklet was found."
+      }
+    },
+    {
+      "id": "the-alternative",
+      "title": "The Alternative",
+      "year": "2006",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "bookletFit": "contain",
+      "color": "#141414",
+      "accent": "#f2c21d",
+      "motif": "lines",
+      "appleMusic": 1603342537,
+      "appleMusicCountry": "at",
+      "spotify": "3tn16ljSI5Y8drjKUQ2Ibv",
+      "tracks": [
+        {
+          "title": "President",
+          "length": 239,
+          "apple": 1603342538
+        },
+        {
+          "title": "The Alternative",
+          "length": 257,
+          "apple": 1603342540
+        },
+        {
+          "title": "Nightlife",
+          "length": 305,
+          "apple": 1603342541
+        },
+        {
+          "title": "Lulled by Numbers",
+          "length": 246,
+          "apple": 1603342542
+        },
+        {
+          "title": "Song of Imaginary Beings",
+          "length": 276,
+          "apple": 1603342543
+        },
+        {
+          "title": "The Negative Sex",
+          "length": 189,
+          "apple": 1603342544
+        },
+        {
+          "title": "Bring Me Back a Dog",
+          "length": 206,
+          "apple": 1603342545
+        },
+        {
+          "title": "S.H.E.",
+          "length": 242,
+          "apple": 1603342546
+        },
+        {
+          "title": "Spit It Out",
+          "length": 241,
+          "apple": 1603342547
+        },
+        {
+          "title": "After Every Party I Die",
+          "length": 232,
+          "apple": 1603342549
+        },
+        {
+          "title": "This Will Make You Love Again",
+          "length": 282,
+          "apple": 1603342551
+        }
+      ],
+      "artist": "IAMX",
+      "musicbrainz": {
+        "releaseGroup": "1101cc24-c874-3ea1-92a9-6cbbca4180e9",
+        "release": "2a26fa95-d64d-437c-bcaa-8f18e638685d",
+        "bookletBack": "2a26fa95-d64d-437c-bcaa-8f18e638685d/42640984426@left",
+        "backImage": "42640981102",
+        "coverRelease": "2a26fa95-d64d-437c-bcaa-8f18e638685d"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/1603342537",
+        "disc": "https://coverartarchive.org/release/2a26fa95-d64d-437c-bcaa-8f18e638685d/42640995785.png",
+        "back": "https://coverartarchive.org/release/2a26fa95-d64d-437c-bcaa-8f18e638685d/42640981102.png",
+        "booklet": "https://musicbrainz.org/release/2a26fa95-d64d-437c-bcaa-8f18e638685d/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/2a26fa95-d64d-437c-bcaa-8f18e638685d/42640984426.png",
+        "physicalBooklet": "https://musicbrainz.org/release/2a26fa95-d64d-437c-bcaa-8f18e638685d/cover-art",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer, labelled pages 2–11 by the archive. Stapled booklet (the archive labels every spread 'stapled booklet'; two staples visible at the centre spread) inside the single-CD digipak, UNFALL UNF007CD, barcode 0602557579673 (the 2018 pressing of the 2006 album; the 2006 German first pressing is 2620cb31-51f3-38dc-a789-831442bd84cc). The case back is the digipak's back panel with viewer-generated spines. Interiors are archive PNG scans stored at half resolution; no official digital booklet was found."
+      }
+    },
+    {
+      "id": "mezzanine",
+      "title": "Mezzanine",
+      "year": "1998",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "bookletFit": "contain",
+      "color": "#161616",
+      "accent": "#e5673b",
+      "motif": "lines",
+      "appleMusic": 724466069,
+      "appleMusicCountry": "at",
+      "spotify": "49MNmJhZQewjt06rpwp6QR",
+      "tracks": [
+        {
+          "title": "Angel",
+          "length": 381,
+          "apple": 724466660
+        },
+        {
+          "title": "Risingson",
+          "length": 299,
+          "apple": 724466687
+        },
+        {
+          "title": "Teardrop",
+          "length": 331,
+          "apple": 724466700
+        },
+        {
+          "title": "Inertia Creeps",
+          "length": 357,
+          "apple": 724466834
+        },
+        {
+          "title": "Exchange",
+          "length": 251,
+          "apple": 724466848
+        },
+        {
+          "title": "Dissolved Girl",
+          "length": 367,
+          "apple": 724466943
+        },
+        {
+          "title": "Man Next Door",
+          "length": 356,
+          "apple": 724467000
+        },
+        {
+          "title": "Black Milk",
+          "length": 382,
+          "apple": 724467020
+        },
+        {
+          "title": "Mezzanine",
+          "length": 357,
+          "apple": 724467035
+        },
+        {
+          "title": "Group Four",
+          "length": 492,
+          "apple": 724467042
+        },
+        {
+          "title": "(Exchange)",
+          "length": 250,
+          "apple": 724467179
+        }
+      ],
+      "artist": "Massive Attack",
+      "musicbrainz": {
+        "releaseGroup": "6f9f6899-c0d3-311d-ae87-a10ae6bc53a9",
+        "release": "9f584586-8fa3-3fd3-a7bb-76ae991495a0",
+        "bookletBack": "9f584586-8fa3-3fd3-a7bb-76ae991495a0/25945038064@left",
+        "backImage": "25945077550",
+        "coverRelease": "9f584586-8fa3-3fd3-a7bb-76ae991495a0"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/724466069",
+        "disc": "https://coverartarchive.org/release/9f584586-8fa3-3fd3-a7bb-76ae991495a0/25945069750.jpg",
+        "back": "https://coverartarchive.org/release/9f584586-8fa3-3fd3-a7bb-76ae991495a0/25945077550.jpg",
+        "booklet": "https://musicbrainz.org/release/9f584586-8fa3-3fd3-a7bb-76ae991495a0/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/9f584586-8fa3-3fd3-a7bb-76ae991495a0/25945038064.png",
+        "physicalBooklet": "https://musicbrainz.org/release/9f584586-8fa3-3fd3-a7bb-76ae991495a0",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the centre spread) from the 1998 UK single-CD jewel case, Wild Bunch / Circa / Virgin WBRCD4, 7243 8 45599 2 2. Interiors are archive PNG scans saved as JPEG at their original dimensions; no official digital booklet was found."
+      }
+    },
+    {
+      "id": "feel-it-break",
+      "title": "Feel It Break",
+      "year": "2011",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "bookletFit": "contain",
+      "color": "#2a2530",
+      "accent": "#d9a441",
+      "motif": "sun",
+      "appleMusic": 433925038,
+      "appleMusicCountry": "at",
+      "spotify": "3oLPpRHmcR2fPdxb1RVf4X",
+      "tracks": [
+        {
+          "title": "Darken Her Horse",
+          "length": 321,
+          "apple": 433925040
+        },
+        {
+          "title": "Lose It",
+          "length": 269
+        },
+        {
+          "title": "The Future",
+          "length": 243,
+          "apple": 433925047
+        },
+        {
+          "title": "Beat and the Pulse",
+          "length": 296,
+          "apple": 433925053
+        },
+        {
+          "title": "Spellwork",
+          "length": 310,
+          "apple": 433925057
+        },
+        {
+          "title": "The Choke",
+          "length": 252,
+          "apple": 433925062
+        },
+        {
+          "title": "Hate Crime",
+          "length": 242,
+          "apple": 433925064
+        },
+        {
+          "title": "The Villain",
+          "length": 246,
+          "apple": 433925065
+        },
+        {
+          "title": "Shoot the Water",
+          "length": 203,
+          "apple": 433925070
+        },
+        {
+          "title": "The Noise",
+          "length": 212,
+          "apple": 433925072
+        },
+        {
+          "title": "The Beast",
+          "length": 243,
+          "apple": 433925073
+        }
+      ],
+      "artist": "Austra",
+      "musicbrainz": {
+        "releaseGroup": "4ddef6f3-bce0-4227-8c58-c7675c55fea1",
+        "release": "26ffc3a6-b1f7-4e79-b770-709a71503414",
+        "bookletBack": "26ffc3a6-b1f7-4e79-b770-709a71503414/29795986026@left",
+        "backImage": "29795985366",
+        "coverRelease": "26ffc3a6-b1f7-4e79-b770-709a71503414"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/433925038",
+        "disc": "https://coverartarchive.org/release/26ffc3a6-b1f7-4e79-b770-709a71503414/29795990346.jpg",
+        "back": "https://coverartarchive.org/release/26ffc3a6-b1f7-4e79-b770-709a71503414/29795985366.jpg",
+        "booklet": "https://musicbrainz.org/release/26ffc3a6-b1f7-4e79-b770-709a71503414/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/26ffc3a6-b1f7-4e79-b770-709a71503414/29795986026.jpg",
+        "physicalBooklet": "https://www.discogs.com/release/2873869",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer, ordered by the lyrics' track sequence. Stapled booklet (Discogs: 'standard jewel case with 12-page lyrics booklet'; two staples visible at the portrait centre spread) from the 2011 European single-CD jewel case, Domino WIGCD270, barcode 5034202027027. Archive JPEG scans copied unchanged; no official digital booklet was found. Apple's album listing omits track 2, 'Lose It' (a former free single of the week), in every storefront checked, so it has no preview."
+      }
+    },
+    {
+      "id": "citizen-of-glass",
+      "title": "Citizen of Glass",
+      "year": "2016",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif"
+      ],
+      "bookletPageCount": 8,
+      "bookletFit": "contain",
+      "color": "#8a5a4a",
+      "accent": "#cfd9dc",
+      "motif": "arches",
+      "appleMusic": 1132114456,
+      "appleMusicCountry": "at",
+      "spotify": "3jTTLPuVcL6J9pgujnU1lS",
+      "tracks": [
+        {
+          "title": "Stretch Your Eyes",
+          "length": 311,
+          "apple": 1132115986
+        },
+        {
+          "title": "Familiar",
+          "length": 236,
+          "apple": 1132115987
+        },
+        {
+          "title": "Red Virgin Soil",
+          "length": 163,
+          "apple": 1132115988
+        },
+        {
+          "title": "It’s Happening Again",
+          "length": 260,
+          "apple": 1132115989
+        },
+        {
+          "title": "Stone",
+          "length": 237,
+          "apple": 1132116129
+        },
+        {
+          "title": "Trojan Horses",
+          "length": 334,
+          "apple": 1132116206
+        },
+        {
+          "title": "Citizen of Glass",
+          "length": 169,
+          "apple": 1132116284
+        },
+        {
+          "title": "Golden Green",
+          "length": 239,
+          "apple": 1132116286
+        },
+        {
+          "title": "Grasshopper",
+          "length": 158,
+          "apple": 1132116287
+        },
+        {
+          "title": "Mary",
+          "length": 347,
+          "apple": 1132116290
+        }
+      ],
+      "artist": "Agnes Obel",
+      "musicbrainz": {
+        "releaseGroup": "84c308ce-c0bc-4d0d-aa06-93e7e907c3a4",
+        "release": "42772342-3ac0-4d51-a3d9-394fa820c309",
+        "bookletBack": "42772342-3ac0-4d51-a3d9-394fa820c309/27427825154@left",
+        "backImage": "27427819553",
+        "coverRelease": "42772342-3ac0-4d51-a3d9-394fa820c309"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/1132114456",
+        "disc": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427838525.jpg",
+        "back": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427819553.jpg",
+        "booklet": "https://musicbrainz.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427825154.jpg",
+        "physicalBooklet": "https://www.discogs.com/release/15030887",
+        "bookletFormat": "8 printed pages, including front and back; three complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the centre spread) from the European single-CD digipak, [PIAS] PIASR905CDX, barcode 5414939944321; the scanned copy is the 2020 Optimal Media pressing (42772342-3ac0-4d51-a3d9-394fa820c309) of the 2016 release (cce8129c-ac88-444e-9f69-98c35b4f5458). The case back is the digipak's back panel and spine cut from the outer scan. Interiors are archive scans re-encoded at JPEG quality 90; no official digital booklet was found."
+      }
+    },
+    {
+      "id": "mutter",
+      "title": "Mutter",
+      "year": "2001",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "color": "#6f655c",
+      "accent": "#e2d9cc",
+      "motif": "arches",
+      "musicbrainz": {
+        "releaseGroup": "833a9e1a-62c0-32f6-ab47-7797c4d83b07",
+        "release": "eed328a1-5f3c-33d5-bf9e-b9033175124c",
+        "bookletBack": "eed328a1-5f3c-33d5-bf9e-b9033175124c/9614674636@left"
+      },
+      "back": "back.avif",
+      "disc": "disc.avif",
+      "bookletBack": "booklet-back.avif",
+      "appleMusic": 1440770702,
+      "spotify": "7ikuEzL6xeAgu6yT6YVLy7",
+      "tracks": [
+        {
+          "title": "Mein Herz brennt",
+          "length": 280,
+          "apple": 1440771222
+        },
+        {
+          "title": "Links 2 3 4",
+          "length": 217,
+          "apple": 1440771243
+        },
+        {
+          "title": "Sonne",
+          "length": 273,
+          "apple": 1440771250
+        },
+        {
+          "title": "Ich will",
+          "length": 218,
+          "apple": 1440771494
+        },
+        {
+          "title": "Feuer frei!",
+          "length": 191,
+          "apple": 1440771498
+        },
+        {
+          "title": "Mutter",
+          "length": 273,
+          "apple": 1440771501
+        },
+        {
+          "title": "Spieluhr",
+          "length": 286,
+          "apple": 1440771505
+        },
+        {
+          "title": "Zwitter",
+          "length": 257,
+          "apple": 1440771510
+        },
+        {
+          "title": "Rein raus",
+          "length": 190,
+          "apple": 1440771520
+        },
+        {
+          "title": "Adios",
+          "length": 230,
+          "apple": 1440771762
+        },
+        {
+          "title": "Nebel",
+          "length": 295,
+          "apple": 1440771764
+        }
+      ],
+      "artist": "Rammstein",
+      "sources": {
+        "cover": "https://music.apple.com/us/album/1440770702",
+        "booklet": "https://musicbrainz.org/release/eed328a1-5f3c-33d5-bf9e-b9033175124c/cover-art"
+      },
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif",
+        "booklet/07.avif",
+        "booklet/08.avif"
+      ],
+      "bookletPageCount": 16
+    },
+    {
+      "id": "without-you-im-nothing",
+      "title": "Without You I’m Nothing",
+      "year": "1998",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "bookletFit": "contain",
+      "color": "#1f1812",
+      "accent": "#e6b23c",
+      "motif": "sun",
+      "appleMusic": 961067195,
+      "appleMusicCountry": "at",
+      "spotify": "4Os5775jebMZAT5b9mGSof",
+      "tracks": [
+        {
+          "title": "Pure Morning",
+          "length": 255,
+          "apple": 961067388
+        },
+        {
+          "title": "Brick Shithouse",
+          "length": 198,
+          "apple": 961067395
+        },
+        {
+          "title": "You Don’t Care About Us",
+          "length": 238,
+          "apple": 961067398
+        },
+        {
+          "title": "Ask for Answers",
+          "length": 320,
+          "apple": 961067399
+        },
+        {
+          "title": "Without You I’m Nothing",
+          "length": 249,
+          "apple": 961067400
+        },
+        {
+          "title": "Allergic (to Thoughts of Mother Earth)",
+          "length": 229,
+          "apple": 961067401
+        },
+        {
+          "title": "The Crawl",
+          "length": 179,
+          "apple": 961067402
+        },
+        {
+          "title": "Every You Every Me",
+          "length": 214,
+          "apple": 961067403
+        },
+        {
+          "title": "My Sweet Prince",
+          "length": 345,
+          "apple": 961067404
+        },
+        {
+          "title": "Summer’s Gone",
+          "length": 186,
+          "apple": 961067586
+        },
+        {
+          "title": "Scared of Girls",
+          "length": 181,
+          "apple": 961067587
+        },
+        {
+          "title": "Burger Queen / Evil Dildo",
+          "length": 1359,
+          "apple": 961067588
+        }
+      ],
+      "artist": "Placebo",
+      "musicbrainz": {
+        "releaseGroup": "b568aff6-f2b2-3fe0-980f-417df6ccfad4",
+        "release": "febbd996-fc2b-4811-a389-ef339c015664",
+        "bookletBack": "febbd996-fc2b-4811-a389-ef339c015664/40075682478@left",
+        "backImage": "40075691495",
+        "coverRelease": "febbd996-fc2b-4811-a389-ef339c015664"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/961067195",
+        "disc": "https://coverartarchive.org/release/febbd996-fc2b-4811-a389-ef339c015664/40075691088.jpg",
+        "back": "https://coverartarchive.org/release/febbd996-fc2b-4811-a389-ef339c015664/40075691495.jpg",
+        "booklet": "https://musicbrainz.org/release/febbd996-fc2b-4811-a389-ef339c015664/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/febbd996-fc2b-4811-a389-ef339c015664/40075682478.jpg",
+        "physicalBooklet": "https://www.discogs.com/release/370045",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer, labelled 2–6 by the archive. Stapled booklet (staples visible at the centre spread and on the outer spine) from the 1998 European single-CD jewel case, Hut / Elevator Music CDFLOOR8, 7243 846531 2 5. Interiors are paper scans stored at half the archive resolution; no official digital booklet was found."
+      }
+    },
+    {
+      "id": "the-now-now",
+      "title": "The Now Now",
+      "year": "2018",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "bookletFit": "contain",
+      "color": "#1a1a26",
+      "accent": "#ff4fa3",
+      "motif": "rings",
+      "appleMusic": 1387814084,
+      "appleMusicCountry": "at",
+      "spotify": "2S5icSqd4OrTBCX87XchIS",
+      "tracks": [
+        {
+          "title": "Humility",
+          "length": 198,
+          "apple": 1387814980
+        },
+        {
+          "title": "Tranz",
+          "length": 163,
+          "apple": 1387815136
+        },
+        {
+          "title": "Hollywood",
+          "length": 293,
+          "apple": 1387815137
+        },
+        {
+          "title": "Kansas",
+          "length": 248,
+          "apple": 1387815138
+        },
+        {
+          "title": "Sorcererz",
+          "length": 180,
+          "apple": 1387815139
+        },
+        {
+          "title": "Idaho",
+          "length": 222,
+          "apple": 1387815140
+        },
+        {
+          "title": "Lake Zurich",
+          "length": 254,
+          "apple": 1387815141
+        },
+        {
+          "title": "Magic City",
+          "length": 240,
+          "apple": 1387815142
+        },
+        {
+          "title": "Fire Flies",
+          "length": 233,
+          "apple": 1387815143
+        },
+        {
+          "title": "One Percent",
+          "length": 141,
+          "apple": 1387815144
+        },
+        {
+          "title": "Souk Eye",
+          "length": 275,
+          "apple": 1387815145
+        }
+      ],
+      "artist": "Gorillaz",
+      "musicbrainz": {
+        "releaseGroup": "593abbcc-0803-47ae-b0fc-e1f5666e9bbc",
+        "release": "996c0dbe-bb55-48ad-9b29-186e6d5f1626",
+        "bookletBack": "996c0dbe-bb55-48ad-9b29-186e6d5f1626/22799860624@left",
+        "backImage": "7021aff6-1f49-4ce7-9035-70150682ff38/36666160016",
+        "coverRelease": "996c0dbe-bb55-48ad-9b29-186e6d5f1626"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/1387814084",
+        "disc": "https://coverartarchive.org/release/996c0dbe-bb55-48ad-9b29-186e6d5f1626/22799857818.jpg",
+        "back": "https://coverartarchive.org/release/7021aff6-1f49-4ce7-9035-70150682ff38/36666160016.jpg",
+        "booklet": "https://musicbrainz.org/release/996c0dbe-bb55-48ad-9b29-186e6d5f1626/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/996c0dbe-bb55-48ad-9b29-186e6d5f1626/22799860624.jpg",
+        "physicalBooklet": "https://musicbrainz.org/release/996c0dbe-bb55-48ad-9b29-186e6d5f1626/cover-art",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the pink credits centre spread) from the 2018 European single-CD jewel case, Parlophone 0190295643430. The archive files are raw full-bed scanner images; each was cropped to the booklet's edges and stored at half resolution. The rear insert comes from the sister European release's 1200 dpi scan, which prints this edition's barcode. No official digital booklet was found."
+      }
+    },
+    {
+      "id": "surrender",
+      "title": "Surrender",
+      "year": "1999",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif"
+      ],
+      "bookletPageCount": 8,
+      "bookletFit": "contain",
+      "color": "#8c3b2e",
+      "accent": "#6fa6c9",
+      "motif": "sun",
+      "appleMusic": 714172597,
+      "appleMusicCountry": "at",
+      "spotify": "1QJP73UumgERuzp3yJSXw3",
+      "tracks": [
+        {
+          "title": "Music: Response",
+          "length": 320,
+          "apple": 714174301
+        },
+        {
+          "title": "Under the Influence",
+          "length": 256,
+          "apple": 714174303
+        },
+        {
+          "title": "Out of Control",
+          "length": 440,
+          "apple": 714174310
+        },
+        {
+          "title": "Orange Wedge",
+          "length": 187,
+          "apple": 714174357
+        },
+        {
+          "title": "Let Forever Be",
+          "length": 236,
+          "apple": 714174360
+        },
+        {
+          "title": "The Sunshine Underground",
+          "length": 519,
+          "apple": 714174364
+        },
+        {
+          "title": "Asleep From Day",
+          "length": 287,
+          "apple": 714174366
+        },
+        {
+          "title": "Got Glint?",
+          "length": 326,
+          "apple": 714174369
+        },
+        {
+          "title": "Hey Boy Hey Girl",
+          "length": 290,
+          "apple": 714174441
+        },
+        {
+          "title": "Surrender",
+          "length": 270,
+          "apple": 714174443
+        },
+        {
+          "title": "Dream On",
+          "length": 407,
+          "apple": 714174447
+        }
+      ],
+      "artist": "The Chemical Brothers",
+      "musicbrainz": {
+        "releaseGroup": "22ca85ec-ee39-3895-aef9-dee5d5c2f4d6",
+        "release": "b4820c33-41f0-3fd5-854e-8b9f98a60b50",
+        "bookletBack": "b4820c33-41f0-3fd5-854e-8b9f98a60b50/28026661414@left",
+        "backImage": "28026660067",
+        "coverRelease": "b4820c33-41f0-3fd5-854e-8b9f98a60b50"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/714172597",
+        "disc": "https://coverartarchive.org/release/b4820c33-41f0-3fd5-854e-8b9f98a60b50/28026660887.jpg",
+        "back": "https://coverartarchive.org/release/b4820c33-41f0-3fd5-854e-8b9f98a60b50/28026660067.jpg",
+        "booklet": "https://musicbrainz.org/release/b4820c33-41f0-3fd5-854e-8b9f98a60b50/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/b4820c33-41f0-3fd5-854e-8b9f98a60b50/28026661414.jpg",
+        "physicalBooklet": "https://myrecordlist.com/iskaldur/1GAEEB",
+        "bookletFormat": "8 printed pages, including front and back; three complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the crowd centre spread and on the outer spine) from the 1999 UK single-CD jewel case, Freestyle Dust / Virgin XDUSTCD4, 7243 8 47610 2 8. Interiors are archive scans kept unchanged on disk; no official digital booklet was found."
+      }
+    },
+    {
+      "id": "moon-safari",
+      "bookletFit": "contain",
+      "appleMusicCountry": "at",
+      "spotify": "206GTDefY2qRMQxYXmfb0a",
+      "artist": "Air",
+      "title": "Moon Safari",
+      "year": "1998",
+      "kind": "Studio album",
+      "cover": "cover.avif",
+      "disc": "disc.avif",
+      "back": "back.avif",
+      "bookletBack": "booklet-back.avif",
+      "bookletScans": [
+        "booklet/02.avif",
+        "booklet/03.avif",
+        "booklet/04.avif",
+        "booklet/05.avif",
+        "booklet/06.avif"
+      ],
+      "bookletPageCount": 12,
+      "color": "#88a8bd",
+      "accent": "#ed9959",
+      "motif": "waves",
+      "appleMusic": 697240234,
+      "tracks": [
+        {
+          "title": "La femme d'argent",
+          "length": 427,
+          "apple": 697240265
+        },
+        {
+          "title": "Sexy Boy",
+          "length": 298,
+          "apple": 697240266
+        },
+        {
+          "title": "All I Need",
+          "length": 268,
+          "apple": 697240267
+        },
+        {
+          "title": "Kelly Watch the Stars",
+          "length": 226,
+          "apple": 697240268
+        },
+        {
+          "title": "Talisman",
+          "length": 257,
+          "apple": 697240309
+        },
+        {
+          "title": "Remember",
+          "length": 154,
+          "apple": 697240310
+        },
+        {
+          "title": "You Make It Easy",
+          "length": 242,
+          "apple": 697240313
+        },
+        {
+          "title": "Ce matin-là",
+          "length": 219,
+          "apple": 697240314
+        },
+        {
+          "title": "New Star in the Sky",
+          "length": 341,
+          "apple": 697240318
+        },
+        {
+          "title": "Le voyage de Pénélope",
+          "length": 191,
+          "apple": 697240320
+        }
+      ],
+      "musicbrainz": {
+        "releaseGroup": "b0bf2b77-b8cf-32f6-8893-9741d757b400",
+        "release": "4c55906c-349b-362d-922e-956762912b42",
+        "bookletBack": "4c55906c-349b-362d-922e-956762912b42/1257693473@left",
+        "backImage": "1257732487",
+        "coverRelease": "4c55906c-349b-362d-922e-956762912b42"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/697240234",
+        "disc": "https://coverartarchive.org/release/4c55906c-349b-362d-922e-956762912b42/1257747364.jpg",
+        "back": "https://coverartarchive.org/release/4c55906c-349b-362d-922e-956762912b42/1257732487.jpg",
+        "booklet": "https://musicbrainz.org/release/4c55906c-349b-362d-922e-956762912b42/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/4c55906c-349b-362d-922e-956762912b42/1257693473.jpg",
+        "physicalBooklet": "https://www.musik-sammler.de/release/air-moon-safari-cd-1045496/",
+        "digitalBookletListing": "https://www.qobuz.com/at-de/album/moon-safari-air/0724384497859",
+        "bookletFormat": "12 printed pages, including front and back; five complete interior two-page scans split by the viewer. Stapled booklet from the 1998 French single-CD edition. Interior artwork is scanned paper, not a verified native digital PDF. Qobuz lists a digital booklet, but its file was not obtained or used."
+      }
+    }
+  ]
+}

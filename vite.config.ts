@@ -4,26 +4,27 @@ import type { Plugin } from 'vite';
 import solid from 'vite-plugin-solid';
 
 // The gallery shows nothing until every case has its disc and cover, and the browser would learn
-// of those files only once the script has run and fetched band.json. A preload for each lets them
+// of those files only once the script has run and fetched collection.json. A preload for each lets them
 // download alongside the script. They go after the script and stylesheet tags, at the priority of
 // images, so the script isn't starved by forty requests queued ahead of it (on a slow connection it
 // arrived after most of the artwork); the back inserts and booklet backs, which the reveal doesn't
 // wait for (scene.ts, setAlbums), queue behind the discs and covers at a lower priority still. type=
-// names the format, so a browser without AVIF skips them and loads the .webp twins band.ts points
-// it at instead. The strip light's lookup tables, a chunk the script imports once it runs, are
+// names the format, so a browser without AVIF skips them and loads the .webp twins collection.ts
+// points it at instead. The strip light's lookup tables, a chunk the script imports once it runs, are
 // preloaded too, so they come with the script rather than after it.
-function preloadArtwork(band: string): Plugin {
+function preloadArtwork(): Plugin {
   return {
     name: 'preload-artwork',
     transformIndexHtml: {
       order: 'post',
       handler(_html, { bundle }) {
-        const config = JSON.parse(readFileSync(`public/bands/${band}/band.json`, 'utf8')) as { albums: Record<string, string | undefined>[] };
+        const config = JSON.parse(readFileSync('public/albums/collection.json', 'utf8')) as { albums: Record<string, string | undefined>[] };
         const links = (kinds: string[], priority?: 'low') => config.albums.flatMap((album) => kinds.flatMap((kind) => {
           const path = album[kind];
           if (!path) return [];
-          // Relative to the page, as the build's other URLs are (base './'), with any ../ resolved.
-          const href = `.${new URL(path, `file:///bands/${band}/`).pathname}`;
+          // Paths are relative to the album's folder; the href relative to the page, as the build's
+          // other URLs are (base './').
+          const href = `.${new URL(path, `file:///albums/${album.id}/`).pathname}`;
           return [{ tag: 'link', attrs: { rel: 'preload', as: 'image', href, type: `image/${href.split('.').pop()}`, ...(priority ? { fetchpriority: priority } : {}) }, injectTo: 'head' as const }];
         }));
         const tables = Object.keys(bundle ?? {}).find((file) => /RectAreaLightUniformsLib/.test(file));
@@ -41,7 +42,7 @@ function preloadArtwork(band: string): Plugin {
 // The page itself is the only URL: views live in the hash.
 export default defineConfig({
   base: './',
-  plugins: [solid(), preloadArtwork('favorites')],
+  plugins: [solid(), preloadArtwork()],
   build: {
     // Every browser with WebGL2 runs this; no lowering to older syntax.
     target: 'es2022',
