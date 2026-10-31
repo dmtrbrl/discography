@@ -707,14 +707,6 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
     if (revealed() && !leaving()) props.onPath(path);
   });
 
-  // The tab names the album while its case is open, its disc is in the player or its booklet is
-  // out; on the row and on the about page it is the page's own name.
-  createEffect(() => {
-    const album = albums[active()];
-    const inView = !aboutOpen() && (bookletOpen() || listening() || pointer().opened >= 0);
-    document.title = inView ? `Discography · ${album.title} · ${album.artist}` : 'Discography';
-  });
-
   // A jump: the view leaves and the gallery starts again on the link's view with the intro, fading
   // in as on the first reveal, as if the page had opened there. The steps in between don't play.
   // The gallery fades out as the view leaves; the player or the booklet drops out of view first, so
@@ -1187,6 +1179,15 @@ function Gallery(props: { collection: Collection }) {
     return !mode ? 0 : mode === 'open' ? 1 : 2;
   };
   const [jump, setJump] = createSignal<GalleryLink | null>(null, { equals: false });
+
+  // The tab names the album while the route is one of its views (open case, player, booklet); on
+  // the row and the about page it is the page's own name. From the route, which the browser's Back
+  // changes before the scene follows, so the tab never lags a view it has left.
+  createEffect(() => {
+    const [, id, mode] = location.pathname.split('/');
+    const album = mode ? props.collection.albums.find((item) => item.id === id) : undefined;
+    document.title = album ? `Discography · ${album.title} · ${album.artist}` : 'Discography';
+  });
 
   function write(path: string) {
     if (returning) {

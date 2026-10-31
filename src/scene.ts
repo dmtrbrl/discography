@@ -2370,17 +2370,22 @@ function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
     const offset = Math.max(0, phase - C.playerScreenHold) * speed;
     ctx.fillText(title, x - offset, middle);
     ctx.fillText(title, x - offset + titleWidth + gap, middle);
-    const fade = (from: number, to: number) => {
+    const fade = (from: number, to: number, strength: number) => {
+      if (strength <= 0) return;
       const gradient = ctx.createLinearGradient(from, 0, to, 0);
-      gradient.addColorStop(0, 'rgba(0,0,0,1)');
+      gradient.addColorStop(0, `rgba(0,0,0,${strength})`);
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fillStyle = gradient;
       ctx.fillRect(Math.min(from, to), 0, Math.abs(to - from), height);
       ctx.globalCompositeOperation = 'source-over';
     };
-    fade(x, x + unit * 3);
-    fade(x + room, x + room - unit * 3);
+    // The right edge always cuts the title, so it always fades. The left edge fades only while the
+    // title is passing under it: in as it starts to move, out as the next pass arrives, so the
+    // title at rest reads whole from its first letter.
+    const edge = unit * 3;
+    fade(x, x + edge, Math.min(1, offset / edge, (titleWidth + gap - offset) / edge));
+    fade(x + room, x + room - edge, 1);
   } else {
     ctx.fillText(title, x, middle);
   }

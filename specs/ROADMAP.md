@@ -221,8 +221,9 @@ short:
 ### The page and its controls
 
 - One page, the gallery; the project description is in the README. The tab is "Discography" on
-  the row and on the about page, and "Discography · <title> · <artist>" while a case is open, its
-  disc is in the player or its booklet is out; no view name. The wordmark is plain text on
+  the row and on the about page, and "Discography · <title> · <artist>" while the route is one of
+  an album's views (open case, player, booklet); no view name. It follows the route, not the
+  scene, so the browser's Back changes it at once. The wordmark is plain text on
   the row (a click would do nothing) and a link to `#/` elsewhere; "GitHub" top right; "About" top
   left on the row, replaced by "Close" (open case) or "Eject" (player), which say what they do
   ("Back" didn't). Type is Instrument Serif throughout, italic for the controls and the artist
