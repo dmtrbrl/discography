@@ -61,7 +61,7 @@ node scripts/optimize-images.mjs [album id ...]  # then AVIF and WebP at the siz
 node scripts/fetch-tracks.mjs [album id ...]     # the CD's tracklist from MusicBrainz and its Apple Music match (Node 18+)
 ```
 
-The booklet pages and the Spotify IDs were picked and verified by hand; `ROADMAP.md` records how.
+The booklet pages and the Spotify IDs were picked and verified by hand; `spec/ROADMAP.md` records how.
 
 ## Checks
 
@@ -82,4 +82,4 @@ PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scrip
 
 ## More
 
-[ROADMAP.md](ROADMAP.md) has the current state, what is still open and the design decisions from review, including what was tried and rejected. [BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md) is the implementation reference for the booklet's animation.
+The `spec/` folder holds the documents for development: [ROADMAP.md](spec/ROADMAP.md) has the current state, what is still open and the design decisions from review, including what was tried and rejected; [BOOKLET_ANIMATION.md](spec/BOOKLET_ANIMATION.md) is the implementation reference for the booklet's animation.

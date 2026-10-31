@@ -5,8 +5,8 @@ Implementation reference for the booklet extraction, reading and return animatio
 its review; the points still open for sign-off are listed in [ROADMAP.md](ROADMAP.md) under Open.
 
 The project's state and the decisions to keep are in [ROADMAP.md](ROADMAP.md). The implementation
-lives primarily in [src/scene.ts](src/scene.ts); page loading and interface controls are in
-[src/main.tsx](src/main.tsx).
+lives primarily in [src/scene.ts](../src/scene.ts); page loading and interface controls are in
+[src/main.tsx](../src/main.tsx).
 
 ## 1. Intended movement
 
@@ -536,9 +536,9 @@ references and interrupt a lifecycle check.
 
 | Script | Coverage |
 | --- | --- |
-| [check-booklet.mjs](scripts/check-booklet.mjs) | Initial sheet count, lazy interior scans, shared object identity, no automatic first turn, outside clicks, page navigation, Escape/Close, reopening, restored lighting, browser/WebGL errors and reduced motion. Uses Surrender on desktop and a portrait phone, Mutter on a landscape phone and Citizen of Glass with reduced motion. |
-| [check-booklet-roll.mjs](scripts/check-booklet-roll.mjs) | Actual formed-and-rolled shader vertices through WebGL2 transform feedback, 201 forward poses and reverse wrapper/bend/compression poses at 1440 × 900, 390 × 844 and 844 × 390. Album is an optional second argument (Surrender by default; Mutter is the thick booklet). |
-| [check-case-transition.mjs](scripts/check-case-transition.mjs) | Projected case geometry at matching Listen/Booklet pan values, exact return values, shared camera amount throughout, final lens amount one and matching 2.4/1.9-second durations. |
+| [check-booklet.mjs](../scripts/check-booklet.mjs) | Initial sheet count, lazy interior scans, shared object identity, no automatic first turn, outside clicks, page navigation, Escape/Close, reopening, restored lighting, browser/WebGL errors and reduced motion. Uses Surrender on desktop and a portrait phone, Mutter on a landscape phone and Citizen of Glass with reduced motion. |
+| [check-booklet-roll.mjs](../scripts/check-booklet-roll.mjs) | Actual formed-and-rolled shader vertices through WebGL2 transform feedback, 201 forward poses and reverse wrapper/bend/compression poses at 1440 × 900, 390 × 844 and 844 × 390. Album is an optional second argument (Surrender by default; Mutter is the thick booklet). |
+| [check-case-transition.mjs](../scripts/check-case-transition.mjs) | Projected case geometry at matching Listen/Booklet pan values, exact return values, shared camera amount throughout, final lens amount one and matching 2.4/1.9-second durations. |
 
 The roll check explicitly tests lid plate, flanges, stops, holders, tray, disc and hinge-strip
 clearance. It checks resting stack depth, a measurable travelling paper bend and equivalence

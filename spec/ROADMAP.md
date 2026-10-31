@@ -2,12 +2,12 @@
 
 The hand-off document between sessions: what exists, what is still open, and the decisions from
 review that later work must respect (including looks that were tried and rejected). How to run the
-project, its layout, the data scripts and the checks are in [README.md](README.md); the booklet
+project, its layout, the data scripts and the checks are in [README.md](../README.md); the booklet
 animation's implementation is in [BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md).
 
-Until 31 October 2026 this file was a dated log of every round of work, about 1,650 lines. That
-history is in git (`ROADMAP.md` at commit `fe2455b` and before); this file keeps only what still
-applies. Keep it that way: when something lands or a decision changes, update the section it
+Until 31 October 2026 this file was a dated log of every round of work, about 1,650 lines, at the
+repository's root. That history is in git (`ROADMAP.md` at commit `fe2455b` and before); this
+file keeps only what still applies. Keep it that way: when something lands or a decision changes, update the section it
 belongs to rather than appending a dated entry.
 
 ## What exists (31 October 2026)
