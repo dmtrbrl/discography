@@ -1171,6 +1171,13 @@ function Gallery(props: { collection: Collection }) {
   let known = location.pathname;
   let returning = false;
   let queued: string | null = null;
+  // The tab's history index this page started at (the router stamps each entry's index on its
+  // state as `_depth`). Entries beyond it were pushed by this page, so Close can step back over
+  // them; on the start entry (a link straight into a view, or a reload there) it replaces instead.
+  // Before, the reveal's two writes in one tick were merged by the router into a replace of the
+  // start entry carrying a parent, and stepping back from it left the site.
+  const entryDepth = () => (window.history.state?._depth as number | undefined) ?? window.history.length - 1;
+  const startDepth = entryDepth();
   // How deep a view is: 0 for the row, 1 for the open case or the about page, 2 for the player or
   // the booklet.
   const depth = (path: string) => {
@@ -1197,7 +1204,7 @@ function Gallery(props: { collection: Collection }) {
     if (path === known) return;
     const from = known;
     known = path;
-    if (depth(path) < depth(from) && window.history.state?.parent === path) {
+    if (depth(path) < depth(from) && entryDepth() > startDepth && window.history.state?.parent === path) {
       returning = true;
       navigate(-1);
     } else if (depth(path) > depth(from)) {

@@ -250,7 +250,11 @@ short:
   away plays as the page's own controls would; anything further jumps: the view leaves in one
   move (the player drops, the booklet slides down, 0.6 s), the gallery resets unseen and fades in
   with the intro. Shrinking the cases away before the new intro was rejected (it read as a reset).
-  Old `?album=` links move into the hash.
+  Old `?album=` links move into the hash. Close steps back only over entries this page pushed
+  (the router stamps each entry's history index as `_depth`; beyond the index the page started at
+  means pushed here); on the start entry, a link straight into a view or a reload there, it
+  replaces instead. Before, the reveal's two writes in one tick were merged by the router into a
+  replace of the start entry carrying a parent, and Close stepped back out of the site.
 - No input during a view change (`viewBusy()`): Back, Escape, Enter, Space, the wordmark, the
   caption, Booklet, Listen, clicks and drags do nothing while the intro, a jump, an opening, a
   closing or the disc's transfer plays; moving along the row still works. A double click on a
