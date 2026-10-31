@@ -256,8 +256,9 @@ short:
   is going away (About to Close, arrows to Booklet or Listen, the caption to Listen, and back;
   Listen to Play; a store link or the transport row to Booklet or Listen after an eject). One
   `:focus-visible` ring for every control. The caption is a button on the row only.
-- Loading screen: "Loading 0 to 100", eased toward the real progress, fading only once it shows
-  100; a `progressbar` for screen readers. Reduced motion: transitions jump, the page reveals at
+- Loading screen: a hairline ring filling clockwise from the top with the count inside, 0 to 100
+  and no word ("Loading" and a plain bar until 31 October 2026), eased toward the real progress,
+  fading only once it shows 100; a `progressbar` for screen readers. Reduced motion: transitions jump, the page reveals at
   once. The favicon is a rounded beige square with a dark disc (reflective and outlined versions
   were less legible at tab size).
 

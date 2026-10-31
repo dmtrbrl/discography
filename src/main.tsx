@@ -1044,13 +1044,18 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
       </button>
       <a class="corner-button github-link" classList={{ 'is-shown': revealed(), 'has-bubble': canBubble }} href={repository} target="_blank" rel="noopener" {...cursor.button}>GitHub</a>
       {cursor.view()}
-      {/* The counter is hidden from screen readers, which would announce every step; they get the
-          progress bar's value instead. */}
+      {/* A hairline ring that fills clockwise from the top, with the count inside: no word. The count
+          is hidden from screen readers, which would announce every step; they get the progress
+          bar's value instead. pathLength 100 makes the dash offset the percentage left, whatever
+          the radius. */}
       <div class="preloader" classList={{ 'is-done': loaded() }} aria-hidden={loaded()} onTransitionEnd={onPreloaderFaded}>
-        <span class="preloader-label">Loading <strong aria-hidden="true">{Math.round(percent())}</strong></span>
-        <span class="preloader-track" role="progressbar" aria-label="Loading albums" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress())}>
-          <span class="preloader-fill" style={{ transform: `scaleX(${percent() / 100})` }} />
-        </span>
+        <div class="preloader-ring" role="progressbar" aria-label="Loading albums" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress())}>
+          <svg class="preloader-dial" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="preloader-rail" cx="50" cy="50" r="49" />
+            <circle class="preloader-arc" cx="50" cy="50" r="49" pathLength="100" style={{ 'stroke-dashoffset': 100 - percent() }} />
+          </svg>
+          <span class="preloader-count" aria-hidden="true">{Math.round(percent())}</span>
+        </div>
       </div>
       {/* Under the player: its four buttons again, with the same symbols, once the disc has landed.
           They press the player's own buttons (so those move too), and keyboard focus on one lights

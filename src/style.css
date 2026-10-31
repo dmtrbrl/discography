@@ -128,13 +128,17 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
 .bottom-bar.is-hidden { opacity: 0; visibility: hidden; }
 /* During a jump the controls go with the view, and come back with the intro. */
 .bottom-bar.is-leaving { opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
-.preloader { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 14px; pointer-events: none; transition: opacity .5s ease, visibility .5s ease; }
+.preloader { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; pointer-events: none; transition: opacity .5s ease, visibility .5s ease; }
 .preloader.is-done { opacity: 0; visibility: hidden; }
-.preloader-label { font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; color: color-mix(in srgb, var(--ink) 60%, var(--bg)); }
-/* Tabular figures, so the label doesn't shift as the count changes. */
-.preloader-label strong { display: inline-block; min-width: 1.6em; color: var(--ink); font-weight: 400; font-variant-numeric: tabular-nums; text-align: left; }
-.preloader-track { width: 120px; height: 1px; background: color-mix(in srgb, var(--ink) 15%, var(--bg)); overflow: hidden; }
-.preloader-fill { display: block; height: 100%; background: var(--ink); transform-origin: left; }
+/* The ring: a faint hairline rail and the ink arc over it, drawn from the top clockwise (the SVG is
+   turned a quarter back); the stroke is 1.3 of the 100 viewBox units, one CSS pixel at 78 px. */
+.preloader-ring { position: relative; display: grid; place-items: center; width: 78px; height: 78px; }
+.preloader-dial { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.preloader-rail, .preloader-arc { fill: none; stroke-width: 1.3; }
+.preloader-rail { stroke: color-mix(in srgb, var(--ink) 15%, var(--bg)); }
+.preloader-arc { stroke: var(--ink); stroke-dasharray: 100; }
+/* Tabular figures, so the count doesn't shift as it changes. */
+.preloader-count { font: italic 400 21px/1 'Instrument Serif', Georgia, serif; color: var(--ink); font-variant-numeric: tabular-nums; }
 /* Player view: the transport row centred just under the player (the page sets its top from the
    scene): the player's four buttons again, with its symbols in ink, 60% see-through. A press pushes the symbol in and lets it spring back, as on the
    player. The row fades in once the disc has landed (the scene's `seated`) and out as it leaves. */
@@ -196,4 +200,4 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .case-action { font-size: 15px; }
   .album-arrow { font-size: 17px; translate: 0 -50%; }
 }
-@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .preloader-fill, .back-label, .about { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .stage, .masthead, .corner-button, .bottom-bar, .album-caption, .bubble-body, .bubble-label, .bubble-tag, .album-arrow, .case-action, .transport, .transport-track, .preloader, .back-label, .about { transition: none; } }
