@@ -201,7 +201,7 @@ const C = {
   bookletWrinkles: 0.055, bookletBulge: 0.22,
   // LeafThrough's gap between stacked sheets in the lid, in mm a sheet, so they sort by real depth
   // (also from behind, in the lid) instead of meeting at the spine. The 0.12 mm the 17-sheet Kid A
-  // stack had in review; the 1 unit camera near plane resolves far finer (see ROADMAP.md). The
+  // stack had in review; the 1 unit camera near plane resolves far finer (see specs/DECISIONS.md). The
   // formed cover already lies against the lid plate's inside face: a thicker stack in the lid
   // (0.16 to 0.4 mm) came through the plate, as spots on the closed case. Out from under the lid
   // the stack opens up to bookletStackOut mm, as a pressed booklet springs open when it is let go
@@ -237,7 +237,7 @@ const C = {
   bookletFloorShadow: 0.15, bookletShadowIn: 0.6, bookletShadowOut: 0.25, bookletFloorGap: 0.24, bookletShadowReach: [1.3, 0.9], bookletShadowMap: 2048,
   // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
   // one, 500 falling to about 200 across the disc, were tried and rejected, and 200 later read as too
-  // busy, see ROADMAP.md), and how long it takes to
+  // busy, see specs/DECISIONS.md), and how long it takes to
   // spin up and coast down (time constants in seconds; spinDownEject, much quicker, when the disc is
   // taken out while it turns, so it brakes as it leaves). At this speed the print is blurred over the
   // arc it turns in spinBlur seconds, like a camera's exposure, so it reads as a spinning disc

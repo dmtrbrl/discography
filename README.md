@@ -61,7 +61,7 @@ node scripts/optimize-images.mjs [album id ...]  # then AVIF and WebP at the siz
 node scripts/fetch-tracks.mjs [album id ...]     # the CD's tracklist from MusicBrainz and its Apple Music match (Node 18+)
 ```
 
-The booklet pages and the Spotify IDs were picked and verified by hand; `specs/ROADMAP.md` records how.
+The booklet pages and the Spotify IDs were picked and verified by hand; `specs/DECISIONS.md` (The data) records how.
 
 ## Checks
 
@@ -80,6 +80,15 @@ PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scrip
 | `check-insert-path.mjs` | The disc never goes into the player on its way in or out, at ten screen sizes for three albums, and never jumps between samples. |
 | `check-album.mjs [url] [album id ...]` | Albums end to end (all ten without ids), with the expectations read from collection.json: the booklet's page count and every panel drawn whole from its scan, every page reached, the Apple and Spotify links, and every preview Apple provides played, on desktop and mobile. `SHOTS=<dir>` saves captures. |
 
+Run them after a change to the case, the booklet, the player or the data; `npm run build` type-checks. The first four run on the current gallery: Surrender as the thin eight-page booklet, Mutter as the thick sixteen-page one, Citizen of Glass for the lazy interior requests.
+
+Beyond the checks, review has used ad-hoc scripts kept outside the repo, with `playwright-core` and headless Chrome on the GPU (`--use-angle=metal --enable-gpu --ignore-gpu-blocklist`; SwiftShader runs at about 9 fps):
+
+- Screenshots and frame-by-frame captures of a motion, diffed pixel by pixel against the committed build served from a `git worktree`; crops around the pointer for the bubble.
+- `requestAnimationFrame` intervals and `longtask` entries per segment of a scripted session, and the time in `compileShader`, `linkProgram` and `texSubImage2D` patched on the WebGL prototypes.
+- Time to the reveal under CDP `Network.emulateNetworkConditions` (3G, 4G, 10 Mbps), the order and timing of every request, Lighthouse against a local server that gzips text as GitHub Pages does (`vite preview` doesn't), and CDP `Profiler` runs of the start at 1× and 4× CPU throttling.
+- Load with `waitUntil: 'commit'` when timing the loading screen: the page's `load` event waits for the artwork. Keep source files unchanged during a run; a Vite reload breaks a lifecycle check.
+
 ## More
 
-The `specs/` folder holds the documents for development: [ROADMAP.md](specs/ROADMAP.md) has the current state, what is still open and the design decisions from review, including what was tried and rejected; [BOOKLET_ANIMATION.md](specs/BOOKLET_ANIMATION.md) is the implementation reference for the booklet's animation.
+The `specs/` folder holds the documents for development: [DECISIONS.md](specs/DECISIONS.md) has what is built and the design decisions from review, including what was tried and rejected; [ROADMAP.md](specs/ROADMAP.md) has what is still open; [BOOKLET_ANIMATION.md](specs/BOOKLET_ANIMATION.md) is the implementation reference for the booklet's animation.

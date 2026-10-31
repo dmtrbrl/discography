@@ -4,7 +4,7 @@ Implementation reference for the booklet extraction, reading and return animatio
 31 October 2026. This document describes the implemented behavior and the decisions made during
 its review; the points still open for sign-off are listed in [ROADMAP.md](ROADMAP.md) under Open.
 
-The project's state and the decisions to keep are in [ROADMAP.md](ROADMAP.md). The implementation
+The project's state and the decisions to keep are in [DECISIONS.md](DECISIONS.md). The implementation
 lives primarily in [src/scene.ts](../src/scene.ts); page loading and interface controls are in
 [src/main.tsx](../src/main.tsx).
 

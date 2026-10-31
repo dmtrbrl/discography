@@ -995,7 +995,7 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
         if (reducedMotion) reveal();
       },
     });
-    // The dev server hands the scene to scripted checks (the insert path test in ROADMAP.md), and
+    // The dev server hands the scene to scripted checks (the scripts in scripts/, see the README), and
     // shows a slow motion control for its animations.
     if (import.meta.env.DEV) {
       Object.assign(window, { scene });
