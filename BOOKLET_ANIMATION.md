@@ -1,10 +1,10 @@
 # Booklet animation: behavior, implementation and tuning
 
 Implementation reference for the booklet extraction, reading and return animation, as of
-30 October 2026. The current motion is still under visual review. This document describes the
-implemented behavior and the decisions made during that review.
+31 October 2026. This document describes the implemented behavior and the decisions made during
+its review; the points still open for sign-off are listed in [ROADMAP.md](ROADMAP.md) under Open.
 
-The project overview and review history are in [ROADMAP.md](ROADMAP.md). The implementation
+The project's state and the decisions to keep are in [ROADMAP.md](ROADMAP.md). The implementation
 lives primarily in [src/scene.ts](src/scene.ts); page loading and interface controls are in
 [src/main.tsx](src/main.tsx).
 
@@ -525,7 +525,7 @@ In another terminal:
 npm run build
 PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-booklet.mjs http://127.0.0.1:5175/
 PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-booklet-roll.mjs http://127.0.0.1:5175/
-PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-booklet-roll.mjs http://127.0.0.1:5175/ kid-a
+PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-booklet-roll.mjs http://127.0.0.1:5175/ mutter
 PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scripts/check-case-transition.mjs http://127.0.0.1:5175/
 ```
 
@@ -536,8 +536,8 @@ references and interrupt a lifecycle check.
 
 | Script | Coverage |
 | --- | --- |
-| [check-booklet.mjs](scripts/check-booklet.mjs) | Initial sheet count, lazy interior scans, shared object identity, no automatic first turn, outside clicks, page navigation, Escape/Close, reopening, restored lighting, browser/WebGL errors and reduced motion. Uses Nevermind desktop/portrait, Kid A landscape and Crystal Castles reduced motion. |
-| [check-booklet-roll.mjs](scripts/check-booklet-roll.mjs) | Actual formed-and-rolled shader vertices through WebGL2 transform feedback, 201 forward poses and reverse wrapper/bend/compression poses at 1440 × 900, 390 × 844 and 844 × 390. Album is an optional second argument. |
+| [check-booklet.mjs](scripts/check-booklet.mjs) | Initial sheet count, lazy interior scans, shared object identity, no automatic first turn, outside clicks, page navigation, Escape/Close, reopening, restored lighting, browser/WebGL errors and reduced motion. Uses Surrender on desktop and a portrait phone, Mutter on a landscape phone and Citizen of Glass with reduced motion. |
+| [check-booklet-roll.mjs](scripts/check-booklet-roll.mjs) | Actual formed-and-rolled shader vertices through WebGL2 transform feedback, 201 forward poses and reverse wrapper/bend/compression poses at 1440 × 900, 390 × 844 and 844 × 390. Album is an optional second argument (Surrender by default; Mutter is the thick booklet). |
 | [check-case-transition.mjs](scripts/check-case-transition.mjs) | Projected case geometry at matching Listen/Booklet pan values, exact return values, shared camera amount throughout, final lens amount one and matching 2.4/1.9-second durations. |
 
 The roll check explicitly tests lid plate, flanges, stops, holders, tray, disc and hinge-strip
@@ -553,8 +553,9 @@ booklet can legitimately be larger than its reading size on a short viewport. Th
 measure height, centre and viewing pitch; they do not assert an identical curved-page silhouette
 or a full perspective homography throughout the turn.
 
-The final shared-camera version passed these checks for the ordinary and thicker Kid A stacks
-(four and 17 sheets in the reviewed examples), with no sampled solid intersections. Measured
+The final shared-camera version passed these checks for an ordinary and a thick stack (four and
+17 sheets in the reviewed examples, Nevermind and Kid A, since replaced in the gallery by
+Surrender and Mutter, four and eight sheets), with no sampled solid intersections. Measured
 maximum projected-height ratios were about 1.0011–1.0012 relative to landing height, with
 viewing-pitch variation rounding to 0.000°. These are sampled regression results, not a proof
 of continuous collision freedom at every possible viewport, album or parameter combination.
