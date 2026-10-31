@@ -712,7 +712,7 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
   createEffect(() => {
     const album = albums[active()];
     const inView = !aboutOpen() && (bookletOpen() || listening() || pointer().opened >= 0);
-    document.title = inView ? `${album.title} · ${album.artist}` : 'Discography';
+    document.title = inView ? `Discography · ${album.title} · ${album.artist}` : 'Discography';
   });
 
   // A jump: the view leaves and the gallery starts again on the link's view with the intro, fading
