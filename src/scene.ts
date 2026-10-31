@@ -110,9 +110,10 @@ const C = {
   playerWear: 2.5, playerWearScale: 90, playerTurntableGrain: 14, playerTurntableBump: 1.5, playerTurntableSpeckle: 0.22, playerTurntableTone: 1.15,
   // The screen: text in playerScreenColor (the page's background), shown through a fine matrix of
   // dots playerScreenDot millimetres apart, the unlit dots faintly showing (playerScreenUnlit);
-  // margin (mm), canvas pixels a millimetre, and how fast a long title scrolls.
+  // margin (mm), canvas pixels a millimetre, how fast a long title scrolls (mm/s) and how long it
+  // rests before it starts and after each pass (s).
   playerScreenColor: '#ebe3d4', playerScreenDot: 0.3, playerScreenUnlit: 0.06,
-  playerScreenMargin: 3, playerScreenResolution: 14, playerScreenScroll: 9,
+  playerScreenMargin: 3, playerScreenResolution: 14, playerScreenScroll: 9, playerScreenHold: 1.5,
   playerGrilleRows: 4, playerGrillePitch: 2.4, playerGrilleHole: 0.7,
   // Along the left side, in millimetres from its middle toward the front (the corners begin at
   // ±playerSize / 2 - playerCorner): the jack's centre and the speaker band's ends. On the front,
@@ -2054,8 +2055,9 @@ interface Player {
   // The turntable and its clamp balls, which turn with the disc.
   spindle: THREE.Group;
   // The screen (drawPlayerScreen): its canvas and texture, the patterns that cut what it shows into
-  // dots and show the unlit ones, and whether its title is scrolling.
-  screen: { ctx: CanvasRenderingContext2D; dots: CanvasPattern; unlit: CanvasPattern; texture: THREE.CanvasTexture; scrolls: boolean };
+  // dots and show the unlit ones, whether its title is scrolling, and the title shown and since when
+  // (a long title rests before it scrolls).
+  screen: { ctx: CanvasRenderingContext2D; dots: CanvasPattern; unlit: CanvasPattern; texture: THREE.CanvasTexture; scrolls: boolean; title: string; since: number };
   // The buttons: each one's cap for picking, its symbol's material, which lights under the pointer
   // (hover, 0 to 1), and the group that moves into the face (position.z, millimetres) as it is
   // pressed (press, 0 to 1, run by `tween`).
@@ -2275,7 +2277,7 @@ function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
   const screenState = {
     ctx,
     dots: dotPattern('#fff'), unlit: dotPattern(`rgba(${unlit.toArray().map((value) => Math.round(value * 255)).join(', ')}, ${C.playerScreenUnlit})`),
-    texture: screenMap, scrolls: false,
+    texture: screenMap, scrolls: false, title: '', since: 0,
   };
   return { group, seat, spindle, screen: screenState, buttons, resources };
 }
@@ -2289,8 +2291,9 @@ function playerScreenSize(): [number, number, number] {
 }
 
 // What the screen shows. Stopped: the album and the number of tracks. Playing or paused: the play
-// or pause mark, the track number, its title and the elapsed time. A title too long to fit scrolls,
-// driven by `now` (seconds); `scrolls` tells the scene to keep redrawing it.
+// or pause mark, the track number, its title and the elapsed time. A title too long to fit rests
+// playerScreenHold, scrolls past once and rests again, driven by `now` (seconds) from the moment the
+// title appeared; `scrolls` tells the scene to keep redrawing it.
 interface ScreenState { album?: Album; track: number | null; seconds: number; playing: boolean }
 
 function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
@@ -2315,6 +2318,11 @@ function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
     left = String(state.track).padStart(2, '0');
     title = tracks[state.track - 1]?.title ?? '';
     right = `${Math.floor(state.seconds / 60)}:${String(Math.floor(state.seconds % 60)).padStart(2, '0')}`;
+  }
+  // A new title starts at rest. (Phased on the clock alone, it came in part way through a pass.)
+  if (title !== player.screen.title) {
+    player.screen.title = title;
+    player.screen.since = now;
   }
   let x = pad;
   if (state.track !== null) {
@@ -2356,7 +2364,10 @@ function drawPlayerScreen(player: Player, state: ScreenState, now = 0) {
   ctx.clip();
   if (player.screen.scrolls) {
     const gap = unit * 14;
-    const offset = ((now * C.playerScreenScroll * unit) % (titleWidth + gap));
+    const speed = C.playerScreenScroll * unit;
+    const cycle = C.playerScreenHold + (titleWidth + gap) / speed;
+    const phase = (now - player.screen.since) % cycle;
+    const offset = Math.max(0, phase - C.playerScreenHold) * speed;
     ctx.fillText(title, x - offset, middle);
     ctx.fillText(title, x - offset + titleWidth + gap, middle);
     const fade = (from: number, to: number) => {

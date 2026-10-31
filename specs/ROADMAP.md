@@ -189,7 +189,8 @@ short:
   round the well, worn like the cases. Modelled, not painted: no textures but the screen and the
   contact shadow, no logo or text. The front has a dot-matrix-style screen (DM Sans and DM Mono
   seen through a fine dot grid; a 5 × 7 pixel font read badly) and four buttons; the left side a
-  headphone jack and speaker holes. Fixed pose, turned 45° so a corner faces the camera, seen from
+  headphone jack and speaker holes. A title too long for the screen rests 1.5 s, scrolls past once
+  and rests again (phased on the clock alone it came in mid-pass). Fixed pose, turned 45° so a corner faces the camera, seen from
   26° above through a lens shift (`setLens`, FOV 18°), verticals kept vertical. Rejected: tilting
   the player (30°, 56°) or an isometric turn; a floor reflection; white and silver versions; a
   brushed aluminium panel with a wordmark; grilles, ports and engraved lines on the top; a plain box
