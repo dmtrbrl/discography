@@ -45,11 +45,14 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
    (visible at once, so it can take focus; only the fade waits). */
 .album-arrow.is-shown { opacity: 1; visibility: visible; transition: opacity .3s ease .3s, visibility 0s; }
 .album-arrow.is-shown:disabled { opacity: .25; }
-/* Booklet and Listen (a case is open) and Apple Music and Buy the CD (in the player) take the
-   arrows' places, in the corner buttons' italic. */
+/* Booklet and Listen (a case is open) and the store links (in the player: Spotify and Apple left,
+   Buy the CD right) take the arrows' places, in the corner buttons' italic. */
 .case-action { position: absolute; top: 50%; translate: 0 -50%; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; pointer-events: auto; white-space: nowrap; text-decoration: none; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
-.case-action.is-left { left: -10px; }
+.case-action.is-left, .store-links.is-left { left: -10px; }
 .case-action.is-right { right: -10px; }
+/* Two links side by side where one control goes: the group takes the place, the links sit in it. */
+.store-links { position: absolute; top: 50%; translate: 0 -50%; display: flex; gap: 4px; pointer-events: none; }
+.store-links .case-action { position: static; translate: none; }
 .case-action.is-shown { opacity: 1; visibility: visible; transition: opacity .3s ease .3s, visibility 0s; }
 /* The store links come with the transport row once the disc has landed, and fade in as it does:
    by then the pair before them is long gone, so they don't wait for it. */
@@ -155,7 +158,7 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   :root { --bar-inset: 24px; --wordmark-size: 24px; --eyebrow-size: 14px; --title-size: 28px; }
   .bottom-bar { left: 20px; right: 20px; }
   /* No room beside a long title on phones: the side controls sit a row above the caption. */
-  .case-action { top: auto; bottom: calc(100% + 12px); translate: none; }
+  .case-action, .store-links { top: auto; bottom: calc(100% + 12px); translate: none; }
   /* Big enough for a fingertip (about 51 × 45 px each). */
   .transport-button { padding: 14px 17px; }
   .transport-button svg { width: 17px; height: 17px; }

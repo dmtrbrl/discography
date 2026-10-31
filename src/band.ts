@@ -58,6 +58,8 @@ export interface AlbumConfig {
   appleMusic?: number;
   // Storefront used for both album and track IDs; older entries use the US catalogue.
   appleMusicCountry?: string;
+  // The album on Spotify (its album ID), for the link in the player.
+  spotify?: string;
   // Where to buy the CD, when the artist's own shop sells it; otherwise the page searches Amazon.
   buy?: string;
   color?: string;

@@ -22,10 +22,28 @@ Album data, including each edition's image sources and Apple IDs, lives in
 | 2b | Disc to CD player animation, tracklist, 30-second previews | First version (28 October 2026), in review |
 | Collection | One gallery with ten albums by ten artists | First version (29 October 2026) |
 | Single page | Gallery as the only page: title screen, artist list, band label and Albums menu removed | Done (29 October 2026) |
-| Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row | First version (29 October 2026) |
+| Player view | Tracklist removed; centred, larger player with a transport row and the store links in the bottom row (Spotify and Apple left, Buy the CD right) | First version (29 October 2026); Spotify link 31 October 2026 |
 | Mobile | Partly open case on phones | In progress (29 October 2026) |
 | Routes | Hash routes with `@solidjs/router`, a history entry per view, jumps instead of replayed steps | First version (29 October 2026) |
 | Performance | Artwork as AVIF at the drawn size, self-hosted type, preloads, a reveal that waits for the row only, a start without the long stall | Done (31 October 2026), see Performance pass |
+
+## Spotify link (31 October 2026)
+
+- **Spotify beside Apple in the player's bottom row.** The left side holds two links, Spotify and
+  Apple, in a `.store-links` group where one control went: the group takes the arrow's place (and
+  on phones upright the row above the caption, as the single links did), the links are static in
+  it, 4 px apart plus their padding. Buy the CD stays on the right. A link shows only when the
+  album has the ID (`Show`), as Apple's did with `appleMusic`.
+- **"Apple Music" is now "Apple"** (the user's suggestion, to save room): next to Spotify the
+  service is clear, and the left pair stays about as wide as Buy the CD on phones. The about text
+  still says Apple Music, which is prose.
+- **Album IDs** (`spotify` in `band.json`): found by searching Spotify's album pages and checked
+  against Spotify's public embed page for each ID (title, artist, type album, and a track count
+  equal to the CD's: the 10-track It's Blitz!, not the 15-track edition; the 12-track Without You
+  I'm Nothing, not the 13). MusicBrainz has no Spotify links on these release groups or releases,
+  and Odesli's public API, which maps Apple IDs to Spotify, now answers 401. Mutter has two
+  11-track entries with the same tracks, both playable from Austria; the one search engines rank
+  as the album's main page (`7ikuEzL6xeAgu6yT6YVLy7`) is used, the other is `2tHCY2fDMi0NqeGZcAxNSc`.
 
 ## Performance pass (31 October 2026)
 

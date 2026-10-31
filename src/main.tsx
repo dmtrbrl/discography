@@ -637,8 +637,9 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
     onFocus: (event: FocusEvent) => scene?.focusButton((event.currentTarget as HTMLElement).matches(':focus-visible') ? kind : null),
     onBlur: () => scene?.focusButton(null),
   });
-  // The album on Apple Music, and where to buy the CD: the artist's shop when band.json names one,
-  // otherwise an Amazon search.
+  // The album on Spotify and Apple Music, and where to buy the CD: the artist's shop when band.json
+  // names one, otherwise an Amazon search.
+  const spotifyLink = () => `https://open.spotify.com/album/${selected().spotify}`;
   const appleLink = () => `https://music.apple.com/${selected().appleMusicCountry ?? 'us'}/album/${selected().appleMusic}`;
   const buyLink = () => selected().buy ?? `https://www.amazon.com/s?k=${encodeURIComponent(`${selected().artist} ${selected().title} CD`)}&i=popular`;
   // What a click does, for the bubble cursor.
@@ -1077,14 +1078,22 @@ function App(props: { band: Band; link: GalleryLink; jump: () => GalleryLink | n
       {/* The caption, with controls level with it either side. On the row it opens the album in front
           (Tab reaches it between the arrows); in the other views it only names it, Booklet and Listen
           doing the rest. Either side: the arrows while the row is browsed (and to turn the booklet's
-          pages while it is out), Booklet and Listen while a case is open, Apple Music and Buy the CD once the disc has
-          landed in the player (with the transport row). Each pair fades out before the next fades
-          in. */}
+          pages while it is out), Booklet and Listen while a case is open, Spotify and Apple (left) and
+          Buy the CD (right) once the disc has landed in the player (with the transport row). Each
+          pair fades out before the next fades in. */}
       <footer class="bottom-bar" classList={{ 'is-hidden': !revealed(), 'is-leaving': leaving() || aboutOpen() }}>
         <button class="case-action is-left" classList={{ 'is-shown': caseActions(), 'has-bubble': canBubble }} type="button" ref={bookletButton}
           inert={caseActions() ? undefined : true} onClick={() => { if (!busy()) scene?.openBooklet(); }} {...cursor.button}>Booklet</button>
-        <a class="case-action store-link is-left" classList={{ 'is-shown': seated() && Boolean(selected().appleMusic), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
-          inert={seated() && selected().appleMusic ? undefined : true} {...cursor.button}>Apple Music</a>
+        <span class="store-links is-left">
+          <Show when={selected().spotify}>
+            <a class="case-action store-link" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} href={spotifyLink()} target="_blank" rel="noopener"
+              inert={seated() ? undefined : true} {...cursor.button}>Spotify</a>
+          </Show>
+          <Show when={selected().appleMusic}>
+            <a class="case-action store-link" classList={{ 'is-shown': seated(), 'has-bubble': canBubble }} href={appleLink()} target="_blank" rel="noopener"
+              inert={seated() ? undefined : true} {...cursor.button}>Apple</a>
+          </Show>
+        </span>
         <button class="album-arrow is-prev" ref={prevArrow} classList={{ 'is-shown': browsing() || pageArrows(), 'has-bubble': canBubble }} type="button"
           aria-label={bookletOpen() ? 'Previous booklet pages' : 'Previous album'} disabled={bookletOpen() ? bookletPage().first <= 0 : active() === 0}
           inert={browsing() || pageArrows() ? undefined : true} onClick={() => (bookletOpen() ? scene?.turnPage(-1) : scene?.step(-1))} {...cursor.button}>←</button>

@@ -30,6 +30,7 @@
       "motif": "sun",
       "appleMusic": 1443513213,
       "appleMusicCountry": "at",
+      "spotify": "4dBMwYZJ84lj8HRTdL8Toj",
       "tracks": [
         {
           "title": "Zero",
@@ -123,6 +124,7 @@
       "motif": "lines",
       "appleMusic": 1603342537,
       "appleMusicCountry": "at",
+      "spotify": "3tn16ljSI5Y8drjKUQ2Ibv",
       "tracks": [
         {
           "title": "President",
@@ -221,6 +223,7 @@
       "motif": "lines",
       "appleMusic": 724466069,
       "appleMusicCountry": "at",
+      "spotify": "49MNmJhZQewjt06rpwp6QR",
       "tracks": [
         {
           "title": "Angel",
@@ -319,6 +322,7 @@
       "motif": "sun",
       "appleMusic": 433925038,
       "appleMusicCountry": "at",
+      "spotify": "3oLPpRHmcR2fPdxb1RVf4X",
       "tracks": [
         {
           "title": "Darken Her Horse",
@@ -414,6 +418,7 @@
       "motif": "arches",
       "appleMusic": 1132114456,
       "appleMusicCountry": "at",
+      "spotify": "3jTTLPuVcL6J9pgujnU1lS",
       "tracks": [
         {
           "title": "Stretch Your Eyes",
@@ -502,6 +507,7 @@
       "disc": "../rammstein/discs/mutter.avif",
       "bookletBack": "../rammstein/booklets/mutter-back.avif",
       "appleMusic": 1440770702,
+      "spotify": "7ikuEzL6xeAgu6yT6YVLy7",
       "tracks": [
         {
           "title": "Mein Herz brennt",
@@ -598,6 +604,7 @@
       "motif": "sun",
       "appleMusic": 961067195,
       "appleMusicCountry": "at",
+      "spotify": "4Os5775jebMZAT5b9mGSof",
       "tracks": [
         {
           "title": "Pure Morning",
@@ -701,6 +708,7 @@
       "motif": "rings",
       "appleMusic": 1387814084,
       "appleMusicCountry": "at",
+      "spotify": "2S5icSqd4OrTBCX87XchIS",
       "tracks": [
         {
           "title": "Humility",
@@ -797,6 +805,7 @@
       "motif": "sun",
       "appleMusic": 714172597,
       "appleMusicCountry": "at",
+      "spotify": "1QJP73UumgERuzp3yJSXw3",
       "tracks": [
         {
           "title": "Music: Response",
@@ -876,6 +885,7 @@
       "id": "moon-safari",
       "bookletFit": "contain",
       "appleMusicCountry": "at",
+      "spotify": "206GTDefY2qRMQxYXmfb0a",
       "artist": "Air",
       "title": "Moon Safari",
       "year": "1998",
