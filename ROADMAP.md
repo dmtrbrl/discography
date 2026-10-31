@@ -61,13 +61,11 @@ belongs to rather than appending a dated entry.
    for the artist, title and CD. MusicBrainz has almost no shop links; pick them by hand if wanted.
 6. **One preview missing**: "Lose It" (Feel It Break) has no Apple track ID in the Austrian
    storefront. Another storefront might have it.
-7. **A check for Mutter.** Every album has `scripts/check-<id>.mjs` except Mutter (16 pages,
-   the thick booklet); the lifecycle, roll and insert-path checks do use it.
-8. **Loose ends in the code** (noted when the project moved to TypeScript, left as they were):
+7. **Loose ends in the code** (noted when the project moved to TypeScript, left as they were):
    discs still carry hover, spin, push and tween fields from when they were standalone, unused;
    `endPress` reads `this.cases[spinning]` without a guard; `destroy()` calls `setAlbums([])`,
    which reports `onProgress(0, 0)`.
-9. **Ideas, not planned**: clicking the spinning disc to pause; clear trays (needs `Tray` scans
+8. **Ideas, not planned**: clicking the spinning disc to pause; clear trays (needs `Tray` scans
    or a generated inside of the insert); glossier paper (LeafThrough `paper.roughness` 0.3 gave the
    curl a faint highlight and changed nothing else; a one-line option).
 
@@ -317,9 +315,10 @@ short:
 ## Verifying
 
 The checks in `scripts/` (how to run them: README) cover the booklet's lifecycle, the roll's
-geometry on the GPU, the case's exit against Listen's, the disc's path into the player, and each
-album end to end. They run on the current gallery: Surrender as the thin eight-page booklet,
-Mutter as the thick sixteen-page one, Citizen of Glass for the lazy interior requests. Run them
+geometry on the GPU, the case's exit against Listen's, the disc's path into the player, and any
+album end to end, with its expectations read from `collection.json`. The first four run on the
+current gallery: Surrender as the thin eight-page booklet, Mutter as the thick sixteen-page one,
+Citizen of Glass for the lazy interior requests. Run them
 after a change to the case, the booklet, the player or the data; `npm run build` type-checks.
 
 Beyond the checks, review has used ad-hoc scripts kept outside the repo, with `playwright-core`

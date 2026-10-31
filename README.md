@@ -78,7 +78,7 @@ PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scrip
 | `check-booklet-roll.mjs [url] [album]` | The page shaders on the GPU through transform feedback: 201 poses of the roll at three screen sizes, clearance of the lid, holders and tray, a reversible path, a flat landing and the paper's speed profile. |
 | `check-case-transition.mjs` | The case's exit for the booklet against Listen's: the same projection at matching pan values, the shared lens, the 2.4 and 1.9 s durations. |
 | `check-insert-path.mjs` | The disc never goes into the player on its way in or out, at ten screen sizes for three albums, and never jumps between samples. |
-| `check-<album id>.mjs` | One album end to end: the booklet's page count and every panel drawn whole, the Spotify and Apple links, and every available preview played, on desktop and mobile. `SHOTS=<dir>` saves captures. |
+| `check-album.mjs [url] [album id ...]` | Albums end to end (all ten without ids), with the expectations read from collection.json: the booklet's page count and every panel drawn whole from its scan, every page reached, the Spotify and Apple links, and every preview Apple provides played, on desktop and mobile. `SHOTS=<dir>` saves captures. |
 
 ## More
 

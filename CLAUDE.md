@@ -12,5 +12,4 @@ reference.
   dated history lives in git, not in the file. How-to material goes in `README.md`.
 - The ten albums are final. Their data, including each edition's image sources and the Apple and
   Spotify IDs, is in `public/albums/collection.json`; each album's artwork is in
-  `public/albums/<id>/`; the albums have regression checks in `scripts/check-<id>.mjs` (Mutter's
-  is still to write).
+  `public/albums/<id>/`; `scripts/check-album.mjs` checks any album end to end against the data.
