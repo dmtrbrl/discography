@@ -37,35 +37,29 @@ belongs to rather than appending a dated entry.
 
 ## Open
 
-1. **LeafThrough 0.1.7.** The library's single layout had a glitch in the closing turn with
-   `loop`: the pages settled flat under the pile lay newest on top, so the back cover uncovered an
-   inside page, and they all crossed as the magazine shut. Fixed in the library's working tree on
-   31 October 2026 (`SingleEngine`: settled pages in closed order, cover first; a depth test
-   covers the mid-turn). Release it, bump `leafthrough` here, and drop this item. Until then the
-   deployed gallery shows the glitch on phones.
-2. **Booklet motion sign-off.** Still marked "in review" when the log closed: the way out (two
+1. **Booklet motion sign-off.** Still marked "in review" when the log closed: the way out (two
    arcs, then round one cylinder), the landing and the lighting crossfade; the paper's
    show-through amount; and the single layout on phones, where the next page shows at the right
    edge under the current one.
-3. **Mobile loading.** The mobile Lighthouse score is held by the time to the reveal on its
+2. **Mobile loading.** The mobile Lighthouse score is held by the time to the reveal on its
    emulated 3G (LCP is the album title, which appears with the gallery) and by LeafThrough's
    start cost for ten booklets (`createSpreadGeometry`, about 8 ms each, 320 ms at a phone's
    speed). The library-side items below would help most.
-4. **LeafThrough upstream notes** (found while profiling): `createPaperPattern` runs for every
+3. **LeafThrough upstream notes** (found while profiling): `createPaperPattern` runs for every
    magazine (78 ms each; a module-level cache would do; the gallery passes one shared grain
    instead); `createSpreadGeometry` runs for every magazine too; a `Texture` passed as a page is
    uploaded again on every load (`needsUpdate = true` in `load`); `update({ pages })` uploads every
    preloaded page in one task (a dozen 1024 px pages, 55 ms; the gallery applies pages at the
    landing to hide it).
-5. **Official shop links.** No album has a `buy` link; Buy the CD falls back to an Amazon search
+4. **Official shop links.** No album has a `buy` link; Buy the CD falls back to an Amazon search
    for the artist, title and CD. MusicBrainz has almost no shop links; pick them by hand if wanted.
-6. **One preview missing**: "Lose It" (Feel It Break) has no Apple track ID in the Austrian
+5. **One preview missing**: "Lose It" (Feel It Break) has no Apple track ID in the Austrian
    storefront. Another storefront might have it.
-7. **Loose ends in the code** (noted when the project moved to TypeScript, left as they were):
+6. **Loose ends in the code** (noted when the project moved to TypeScript, left as they were):
    discs still carry hover, spin, push and tween fields from when they were standalone, unused;
    `endPress` reads `this.cases[spinning]` without a guard; `destroy()` calls `setAlbums([])`,
    which reports `onProgress(0, 0)`.
-8. **Ideas, not planned**: clicking the spinning disc to pause; clear trays (needs `Tray` scans
+7. **Ideas, not planned**: clicking the spinning disc to pause; clear trays (needs `Tray` scans
    or a generated inside of the insert); glossier paper (LeafThrough `paper.roughness` 0.3 gave the
    curl a faint highlight and changed nothing else; a one-line option).
 
@@ -162,7 +156,9 @@ short:
 - It stays on its cover until a page is turned (no automatic first turn). Spreads centre as they
   open, a closed cover only once its turn has landed. Outside clicks close nothing; Close and
   Escape do. On phones the single layout loops: the back cover turns and the booklet shuts back
-  onto the cover, and Next stays enabled there (see Open, 1, for the library glitch in that turn).
+  onto the cover, and Next stays enabled there. A glitch in that turn (an inside page showing
+  under the back cover, then the cover rising through it) was the library's; LeafThrough 0.1.7
+  settles the read pages in closed order, cover first, and the gallery uses it since 31 October.
 - The pages shown are announced only by the hidden live region. The count in the caption and a
   label under the landed booklet were both reverted at the user's request.
 - Paper: a gentle resting curve everywhere (`bookletWrinkles` 0.055, `bookletBulge` 0.22); flat

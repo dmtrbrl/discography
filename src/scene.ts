@@ -1790,8 +1790,7 @@ function seatInBooklet(model: LeafThroughObject) {
 
 // The page object's layout options. One page at a time (phones) it loops: LeafThrough turns the
 // last page, the back cover, only then, and turning it shuts the booklet back onto its cover. The
-// open spread stops on its back page. (The loop was off for a day, 31 October 2026, for a glitch
-// in that turn; it is LeafThrough's, fixed there after 0.1.6, see ROADMAP.)
+// open spread stops on its back page.
 function bookletLayout(layout: 'spread' | 'single') {
   return { layout, loop: layout === 'single' };
 }
