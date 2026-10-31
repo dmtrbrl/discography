@@ -25,7 +25,7 @@ belongs to rather than appending a dated entry.
 - **The player**: a graphite top-loading CD player. The disc lifts from the tray, the case pans up
   out of view, the player rises and the disc drops onto the spindle. Play, pause, next and
   previous on the player and in a transport row under it; 30-second previews from Apple;
-  Spotify, Apple and Buy the CD links in the bottom row. Eject reverses the path.
+  Apple, Spotify and Buy the CD links in the bottom row. Eject reverses the path.
 - **Routes** in the hash (`#/<id>`, `/open`, `/listen`, `/booklet`, `#/about`), one history entry
   per view, jumps for distant changes and steps for adjacent ones; an about page.
 - **Loading**: AVIF artwork at the drawn sizes with WebP twins, self-hosted type, preloads after the
@@ -211,9 +211,10 @@ short:
   buttons as SVG symbols (a row with arrows, a Play word and the track and time was rejected: the
   screen shows those), one 40% see-through layer, 20 px under the player's measured bottom, a
   bubble group so the dot shows the whole row. On phones a line under the row names the track.
-  The bottom row keeps the caption (inactive, it only names the album) with Spotify and Apple on
-  the left and Buy the CD on the right, shown with the transport row. "Apple", not "Apple Music":
-  next to Spotify the service is clear and the pair stays as wide as Buy the CD on phones.
+  The bottom row keeps the caption (inactive, it only names the album) with Apple and Spotify on
+  the left (Apple first: the previews are theirs) and Buy the CD on the right, shown with the
+  transport row. "Apple", not "Apple Music": next to Spotify the service is clear and the pair
+  stays as wide as Buy the CD on phones.
   Booklet and Listen come back only once an ejected disc is back in its case.
 
 ### The page and its controls

@@ -45,7 +45,7 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
    (visible at once, so it can take focus; only the fade waits). */
 .album-arrow.is-shown { opacity: 1; visibility: visible; transition: opacity .3s ease .3s, visibility 0s; }
 .album-arrow.is-shown:disabled { opacity: .25; }
-/* Booklet and Listen (a case is open) and the store links (in the player: Spotify and Apple left,
+/* Booklet and Listen (a case is open) and the store links (in the player: Apple and Spotify left,
    Buy the CD right) take the arrows' places, in the corner buttons' italic. */
 .case-action { position: absolute; top: 50%; translate: 0 -50%; padding: 4px 10px; border: 0; background: none; color: var(--ink); font: italic 400 18px/1.1 'Instrument Serif', Georgia, serif; pointer-events: auto; white-space: nowrap; text-decoration: none; opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility .3s; }
 .case-action.is-left, .store-links.is-left { left: -10px; }
