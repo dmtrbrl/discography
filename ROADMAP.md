@@ -91,7 +91,8 @@ start. Also fixed here: the phone booklet's back cover no longer turns round to 
   `KHR_parallel_shader_compile` the links don't hold the thread and the first frame doesn't wait.
 - **Booklet pages at the landing.** Scans that arrive during the flight wait for `animateRead`'s end
   (`pendingPages`), so LeafThrough's upload burst falls on the resting booklet, not the flight.
-- **No loop in the single layout** (`bookletLayout`): see the reversal under Shadows below.
+- **The single layout's loop went off, then came back** (`bookletLayout`): see Shadows below,
+  and the LeafThrough notes for the fix.
 - `build.target: 'es2022'`, no `modulePreload` polyfill; `@types/node` and `sharp` as dev
   dependencies (the config reads `band.json`; the script converts).
 
@@ -133,6 +134,14 @@ fixed there:
 - A `Texture` passed as a page is uploaded again on every load (`needsUpdate = true` in `load`),
   so pre-uploading pages, or sharing a texture with another material, still costs an upload.
 - `update({ pages })` uploads every preloaded page in one task (a dozen 1024 px pages, 55 ms).
+- **Fixed in the library's working tree (31 October 2026), after 0.1.6**: with `loop`, the single
+  layout's last page uncovered the latest page settled flat under the pile (they lay newest on
+  top), and as the magazine shut they all crossed on the way to their closed order, the cover
+  rising through the rest. `SingleEngine` now settles them in closed order, the cover first, and
+  shutting lifts them as one; the depth bias sorts them the same way. A depth test covers the
+  mid-turn (flat paper, where nothing else hides it). The gallery shows the fix once that ships
+  (`leafthrough` 0.1.7) and the dependency is bumped; until then the glitch is in the deployed
+  site, with the loop on.
 
 ### Verifying (performance)
 
@@ -311,10 +320,11 @@ Review, same day (details in BOOKLET_ANIMATION.md):
   compares it with Listen less its rise. The flight's camera-facing pitch correction went, and
   the zoom ceiling uses the paper's own height.
 - **The phone's back cover turns**: the single layout loops, so its last page turns, shutting the
-  booklet onto its cover; Next stays enabled there. Reversed on 31 October 2026 (see Performance
-  pass): a tap on the back cover turned the booklet round to the front cover, with an inside page
-  showing behind the turning sheet on the way, which read as the first page bleeding into the last.
-  Neither layout loops now; the back cover is the end.
+  booklet onto its cover; Next stays enabled there. The loop was off for a day (31 October 2026,
+  the performance pass): a tap on the back cover showed an inside page behind the turning sheet,
+  then the cover rising through it, which read as the first page bleeding into the last. That was
+  a LeafThrough glitch, not the loop (see its notes under the performance pass); with it fixed
+  there, the loop is back. Without it the last page did nothing, which is not what a tap says.
 - The roll check's landing assertions test for reversal (no dip and rise, no tilt back) instead
   of a stop by 0.72. All checks pass: roll (Nevermind, Kid A), lifecycle, case transition.
 - **Out by hand, then round one cylinder** (in review): the edge lifts on a steep arc over the

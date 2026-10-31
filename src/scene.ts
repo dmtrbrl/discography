@@ -266,7 +266,8 @@ export interface SceneOptions {
   // The inside pages of case `index`'s booklet (the scene adds its cover and back page), and which
   // of them show once it is out: the first and last visible page and how many there are.
   bookletPages?: (index: number) => Promise<PageSource[]>;
-  onPage?: (first: number, last: number, count: number) => void;
+  // loops: whether the last page turns too, back onto the cover (see bookletLayout).
+  onPage?: (first: number, last: number, count: number, loops: boolean) => void;
   fogColor?: string;
   // The case in front when the gallery first appears, and whether it is already open then (both from
   // the page's URL).
@@ -1788,12 +1789,10 @@ function seatInBooklet(model: LeafThroughObject) {
 
 // The page object's layout options. One page at a time (phones) it loops: LeafThrough turns the
 // last page, the back cover, only then, and turning it shuts the booklet back onto its cover. The
-// open spread stops on its back page.
-// Neither layout loops: the back cover is the end of a phone's single pages too. It turned on
-// (30 October 2026), round to the front cover, with an inside page showing behind the turning
-// sheet on the way, which read as the first page bleeding into the last.
+// open spread stops on its back page. (The loop was off for a day, 31 October 2026, for a glitch
+// in that turn; it is LeafThrough's, fixed there after 0.1.6, see ROADMAP.)
 function bookletLayout(layout: 'spread' | 'single') {
-  return { layout, loop: false };
+  return { layout, loop: layout === 'single' };
 }
 
 // The page object's lighting options: the sun as the booklet view's, and whether its sheets cast
@@ -3419,7 +3418,7 @@ export class GalleryScene {
     // Nothing casts a shadow any more: draw the map once more, empty, so the booklet's last pose
     // doesn't stay in it.
     this.renderer.shadowMap.needsUpdate = true;
-    this.onPage?.(0, 0, 0);
+    this.onPage?.(0, 0, 0, false);
     this.updateCursor();
   }
 
@@ -3435,7 +3434,7 @@ export class GalleryScene {
     const magazine = this.magazine;
     if (!magazine) return;
     const pages = magazine.visiblePages;
-    this.onPage?.(pages[0] ?? 0, pages[pages.length - 1] ?? 0, magazine.pageCount);
+    this.onPage?.(pages[0] ?? 0, pages[pages.length - 1] ?? 0, magazine.pageCount, magazine.layout === 'single');
   }
 
   // Whether the open case has finished opening: until then its disc and booklet don't answer, so

@@ -394,6 +394,97 @@
       }
     },
     {
+      "id": "citizen-of-glass",
+      "title": "Citizen of Glass",
+      "year": "2016",
+      "kind": "Studio album",
+      "cover": "covers/citizen-of-glass.avif",
+      "disc": "discs/citizen-of-glass.avif",
+      "back": "backs/citizen-of-glass.avif",
+      "bookletBack": "booklets/citizen-of-glass-back.avif",
+      "bookletScans": [
+        "booklet-scans/citizen-of-glass/02.avif",
+        "booklet-scans/citizen-of-glass/03.avif",
+        "booklet-scans/citizen-of-glass/04.avif"
+      ],
+      "bookletPageCount": 8,
+      "bookletFit": "contain",
+      "color": "#8a5a4a",
+      "accent": "#cfd9dc",
+      "motif": "arches",
+      "appleMusic": 1132114456,
+      "appleMusicCountry": "at",
+      "tracks": [
+        {
+          "title": "Stretch Your Eyes",
+          "length": 311,
+          "apple": 1132115986
+        },
+        {
+          "title": "Familiar",
+          "length": 236,
+          "apple": 1132115987
+        },
+        {
+          "title": "Red Virgin Soil",
+          "length": 163,
+          "apple": 1132115988
+        },
+        {
+          "title": "It’s Happening Again",
+          "length": 260,
+          "apple": 1132115989
+        },
+        {
+          "title": "Stone",
+          "length": 237,
+          "apple": 1132116129
+        },
+        {
+          "title": "Trojan Horses",
+          "length": 334,
+          "apple": 1132116206
+        },
+        {
+          "title": "Citizen of Glass",
+          "length": 169,
+          "apple": 1132116284
+        },
+        {
+          "title": "Golden Green",
+          "length": 239,
+          "apple": 1132116286
+        },
+        {
+          "title": "Grasshopper",
+          "length": 158,
+          "apple": 1132116287
+        },
+        {
+          "title": "Mary",
+          "length": 347,
+          "apple": 1132116290
+        }
+      ],
+      "artist": "Agnes Obel",
+      "musicbrainz": {
+        "releaseGroup": "84c308ce-c0bc-4d0d-aa06-93e7e907c3a4",
+        "release": "42772342-3ac0-4d51-a3d9-394fa820c309",
+        "bookletBack": "42772342-3ac0-4d51-a3d9-394fa820c309/27427825154@left",
+        "backImage": "27427819553",
+        "coverRelease": "42772342-3ac0-4d51-a3d9-394fa820c309"
+      },
+      "sources": {
+        "cover": "https://music.apple.com/at/album/1132114456",
+        "disc": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427838525.jpg",
+        "back": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427819553.jpg",
+        "booklet": "https://musicbrainz.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/cover-art",
+        "bookletBack": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427825154.jpg",
+        "physicalBooklet": "https://www.discogs.com/release/15030887",
+        "bookletFormat": "8 printed pages, including front and back; three complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the centre spread) from the European single-CD digipak, [PIAS] PIASR905CDX, barcode 5414939944321; the scanned copy is the 2020 Optimal Media pressing (42772342-3ac0-4d51-a3d9-394fa820c309) of the 2016 release (cce8129c-ac88-444e-9f69-98c35b4f5458). The case back is the digipak's back panel and spine cut from the outer scan. Interiors are archive scans re-encoded at JPEG quality 90; no official digital booklet was found."
+      }
+    },
+    {
       "id": "without-you-im-nothing",
       "title": "Without You I’m Nothing",
       "year": "1998",
@@ -874,97 +965,6 @@
         "booklet-scans/mutter/08.avif"
       ],
       "bookletPageCount": 16
-    },
-    {
-      "id": "citizen-of-glass",
-      "title": "Citizen of Glass",
-      "year": "2016",
-      "kind": "Studio album",
-      "cover": "covers/citizen-of-glass.avif",
-      "disc": "discs/citizen-of-glass.avif",
-      "back": "backs/citizen-of-glass.avif",
-      "bookletBack": "booklets/citizen-of-glass-back.avif",
-      "bookletScans": [
-        "booklet-scans/citizen-of-glass/02.avif",
-        "booklet-scans/citizen-of-glass/03.avif",
-        "booklet-scans/citizen-of-glass/04.avif"
-      ],
-      "bookletPageCount": 8,
-      "bookletFit": "contain",
-      "color": "#8a5a4a",
-      "accent": "#cfd9dc",
-      "motif": "arches",
-      "appleMusic": 1132114456,
-      "appleMusicCountry": "at",
-      "tracks": [
-        {
-          "title": "Stretch Your Eyes",
-          "length": 311,
-          "apple": 1132115986
-        },
-        {
-          "title": "Familiar",
-          "length": 236,
-          "apple": 1132115987
-        },
-        {
-          "title": "Red Virgin Soil",
-          "length": 163,
-          "apple": 1132115988
-        },
-        {
-          "title": "It’s Happening Again",
-          "length": 260,
-          "apple": 1132115989
-        },
-        {
-          "title": "Stone",
-          "length": 237,
-          "apple": 1132116129
-        },
-        {
-          "title": "Trojan Horses",
-          "length": 334,
-          "apple": 1132116206
-        },
-        {
-          "title": "Citizen of Glass",
-          "length": 169,
-          "apple": 1132116284
-        },
-        {
-          "title": "Golden Green",
-          "length": 239,
-          "apple": 1132116286
-        },
-        {
-          "title": "Grasshopper",
-          "length": 158,
-          "apple": 1132116287
-        },
-        {
-          "title": "Mary",
-          "length": 347,
-          "apple": 1132116290
-        }
-      ],
-      "artist": "Agnes Obel",
-      "musicbrainz": {
-        "releaseGroup": "84c308ce-c0bc-4d0d-aa06-93e7e907c3a4",
-        "release": "42772342-3ac0-4d51-a3d9-394fa820c309",
-        "bookletBack": "42772342-3ac0-4d51-a3d9-394fa820c309/27427825154@left",
-        "backImage": "27427819553",
-        "coverRelease": "42772342-3ac0-4d51-a3d9-394fa820c309"
-      },
-      "sources": {
-        "cover": "https://music.apple.com/at/album/1132114456",
-        "disc": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427838525.jpg",
-        "back": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427819553.jpg",
-        "booklet": "https://musicbrainz.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/cover-art",
-        "bookletBack": "https://coverartarchive.org/release/42772342-3ac0-4d51-a3d9-394fa820c309/27427825154.jpg",
-        "physicalBooklet": "https://www.discogs.com/release/15030887",
-        "bookletFormat": "8 printed pages, including front and back; three complete interior two-page scans split by the viewer. Stapled booklet (two staples visible at the centre spread) from the European single-CD digipak, [PIAS] PIASR905CDX, barcode 5414939944321; the scanned copy is the 2020 Optimal Media pressing (42772342-3ac0-4d51-a3d9-394fa820c309) of the 2016 release (cce8129c-ac88-444e-9f69-98c35b4f5458). The case back is the digipak's back panel and spine cut from the outer scan. Interiors are archive scans re-encoded at JPEG quality 90; no official digital booklet was found."
-      }
     }
   ]
 }
