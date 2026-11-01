@@ -159,6 +159,11 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   own page: reset to the blank inside pages, a phone opened straight into the booklet
   (`#/<id>/booklet`) showed blank paper inside, since its full-size cover comes after the small
   one (1 November 2026).
+- The cover and the booklet's back page each keep one texture from the start, and later artwork
+  (the full-size cover, the back page's scan) goes into it in place, so the booklet isn't rebuilt
+  (`setPrint`, `syncBooklet`): given a new texture, LeafThrough rebuilt every sheet and fed the
+  textures back nearest page first, and the back page in a case opened from a link went blank for
+  about 150 ms a second after the load (1 November 2026).
 - On phones the landed booklet switches to the single-page layout, which builds new sheets. When
   the scans arrive after the landing, as in Safari, that happens in the library's ready event,
   inside the frame's tick, so the new sheets are ticked at once: drawn before their first tick

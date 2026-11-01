@@ -341,6 +341,8 @@ interface JewelCase extends Push {
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
   bookletModel: LeafThroughObject;
   bookletSources: PageSource[];
+  // The pages last given to the booklet (syncBooklet), to rebuild it only when they change.
+  bookletPages: PageSource[];
   // The inside pages' textures, made and uploaded by the gallery (loadBooklet), freed with the case.
   bookletTextures: THREE.Texture[];
   bookletReady: boolean;
@@ -2009,7 +2011,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTextures: [], bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletPages: [...bookletSources], bookletTextures: [], bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -3108,6 +3110,9 @@ export class GalleryScene {
       const placeholder = item.bookletSources[0] as HTMLCanvasElement;
       this.setArt(item.disc, placeholder);
       this.setPrint(item, 'cover', placeholder);
+      // The booklet's back page gets its texture now too, with the generated back in it, so the scan
+      // goes into it in place and the booklet isn't rebuilt as the case is opened (setPrint).
+      this.setPrint(item, 'bookletBack', item.bookletSources[item.bookletSources.length - 1] as HTMLCanvasElement);
       // The disc prefers a scan of the printed disc, then the cover. The reveal waits for these
       // two, which show on the row; the back insert and the booklet's back page come once the row
       // is up and the intro done (afterIntro), since they show only once a case is turned over or
@@ -3205,9 +3210,20 @@ export class GalleryScene {
   // Sets one of a case's printed parts: the cover, the back insert or the booklet's back page. The
   // cover and the back page are drawn as the booklet's outer pages: it gets the same textures (one
   // copy of each in memory) once syncBooklet is called, and uploads them itself; only the insert's
-  // is uploaded from here, through the frame loop's queue (upload).
+  // is uploaded from here, through the frame loop's queue (upload). Once a page has its texture,
+  // later artwork goes into that same texture, so the booklet keeps its pages: given a new one,
+  // LeafThrough rebuilt every sheet and fed the textures back nearest first, so the back page in
+  // an open case went blank for about 150 ms as its scan came in.
   private setPrint(item: JewelCase, part: PrintPart, canvas: HTMLCanvasElement) {
     const material = item.prints[part];
+    if (material.map && part !== 'insert') {
+      material.map.image = canvas;
+      // Freed and sent again whole, as the new picture's size can differ.
+      material.map.dispose();
+      material.map.needsUpdate = true;
+      this.request();
+      return;
+    }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = this.shared.anisotropy;
@@ -3220,10 +3236,14 @@ export class GalleryScene {
     this.request();
   }
 
-  // Gives the booklet its current outer pages: one rebuild for both.
+  // Gives the booklet its current outer pages: one rebuild for both, and none when they are the
+  // pages it has (artwork that went into a texture it already holds, setPrint).
   private syncBooklet(item: JewelCase) {
+    const { bookletSources: pages, bookletPages: given } = item;
+    if (pages.length === given.length && pages.every((page, index) => page === given[index])) return;
     item.bookletReady = false;
-    item.bookletModel.update({ pages: item.bookletSources });
+    item.bookletPages = [...pages];
+    item.bookletModel.update({ pages });
   }
 
   private playIntro() {
@@ -3669,6 +3689,7 @@ export class GalleryScene {
         // pages instead, a phone opened straight into the booklet lost its scans to the full-size
         // cover, which comes after the small one.
         item.bookletSources = pages;
+        item.bookletPages = [...pages];
         item.bookletModel.update({ pages, preload: pages.length });
         this.request();
       };
