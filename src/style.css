@@ -183,10 +183,6 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   /* Big enough for a fingertip (about 51 × 45 px each). */
   .transport-button { padding: 14px 17px; }
   .transport-button svg { width: 17px; height: 17px; }
-  /* The track under the buttons, one line, cut short with an ellipsis. */
-  .transport-track { display: flex; gap: 10px; align-items: baseline; justify-content: center; max-width: calc(100vw - 80px); min-height: 1.3em; margin: 0; font: 400 14px/1.3 'DM Sans', sans-serif; color: color-mix(in srgb, var(--ink) 70%, var(--bg)); white-space: nowrap; }
-  .transport-track-number { font: 400 11px/1 'DM Mono', monospace; color: color-mix(in srgb, var(--ink) 50%, var(--bg)); }
-  .transport-track-title { overflow: hidden; text-overflow: ellipsis; }
   .about { padding-top: calc(var(--masthead-top) + var(--wordmark-size) + 30px + var(--safe-top)); padding-left: calc(22px + var(--safe-left)); padding-right: calc(22px + var(--safe-right)); }
   .about-body { font-size: 17px; }
   .about-credit { margin-top: 32px; padding-bottom: 24px; font-size: 11px; }
@@ -196,6 +192,12 @@ h1, .album-title { margin: 2px 0 0; font-family: 'Instrument Serif', Georgia, se
   .corner-button { left: calc(10px + var(--safe-left)); top: calc(var(--masthead-top) - 2.65px + var(--safe-top)); }
   .github-link { left: auto; right: calc(10px + var(--safe-right)); }
   .album-caption { max-width: calc(100vw - 120px); }
+}
+/* Phones, either way up: the track under the buttons, one line, cut short with an ellipsis. */
+@media (max-width: 650px), (max-height: 500px) and (orientation: landscape) {
+  .transport-track { display: flex; gap: 10px; align-items: baseline; justify-content: center; max-width: calc(100vw - 80px); min-height: 1.3em; margin: 0; font: 400 14px/1.3 'DM Sans', sans-serif; color: color-mix(in srgb, var(--ink) 70%, var(--bg)); white-space: nowrap; }
+  .transport-track-number { font: 400 11px/1 'DM Mono', monospace; color: color-mix(in srgb, var(--ink) 50%, var(--bg)); }
+  .transport-track-title { overflow: hidden; text-overflow: ellipsis; }
 }
 /* Short landscape screens (a phone turned sideways): the type round the graphics smaller and closer
    to the edges, so the cases and the player get the height (the scene sizes them for it too). */

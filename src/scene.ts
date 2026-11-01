@@ -143,10 +143,11 @@ const C = {
   // than the gallery's (playerFOV degrees; the camera backs off to keep the framing). A soft shadow
   // (playerShadow opacity) grounds it.
   // On short landscape screens it is playerScaleShort bigger and playerRaiseShort up instead, so it
-  // and the transport row under it fit above the caption, with as much room above it as between it
-  // and the row's symbols (the row sits closer to it there, see .transport in style.css).
+  // and the transport row under it, with the track's line, fit above the caption, with as much room
+  // above it as between it and the row's symbols (the row sits closer to it there, see .transport
+  // in style.css). 1.25 and 0.24 left no room for the track's line.
   playerYaw: 45, playerView: 26, playerScale: 0.7, playerFOV: 18, playerShadow: 0.3, playerRaise: 0.1,
-  playerScaleShort: 1.25, playerRaiseShort: 0.24,
+  playerScaleShort: 1.08, playerRaiseShort: 0.3,
   // Inserting: the disc lifts insertLift out of the tray toward the camera, the row slides up out of
   // view by insertPan while the player rises into its place, then the disc glides over the well,
   // insertHover above the spindle, and drops onto it. Ejecting plays it backwards. Whatever that path
@@ -3616,7 +3617,13 @@ export class GalleryScene {
     this.bookletShown = true;
     this.bookletShift = this.bookletTarget = 0.5;
     this.scene.add(magazine);
-    if (this.bookletSingle) magazine.update(bookletLayout('single'));
+    if (this.bookletSingle) {
+      // The new layout's sheets are laid out on their first tick. Called from the ready event, this
+      // runs inside the frame's tick, so without one here they were drawn unstacked for a frame and
+      // a page from inside showed over the cover (Safari, whose scans land after the booklet does).
+      magazine.update(bookletLayout('single'));
+      magazine.tick(this.lastTime);
+    }
     this.fadeFloorShadow(1, C.bookletShadowIn);
     item.booklet.visible = false;
     magazine.visible = true;
@@ -4558,11 +4565,17 @@ export class GalleryScene {
       if (forward.z > 0.2) {
         const halfWidth = (C.caseWidth / 2) * MM, halfHeight = (C.caseHeight / 2) * MM;
         const front = CASE.trayFront * MM + C.insertClearance * MM;
+        // Past the plane of the case's back (reach out from the edge) a point is beside and behind
+        // the case, so there the slope curves away, steepening without a kink. Running on straight,
+        // it caught the landed disc far below the tipped case, which on landscape phones (a bigger
+        // case) held it 27 mm off the spindle; cut off, the push stopped with a jump.
+        const reach = front - CASE.back * MM;
         let deficit = 0;
         for (const sample of DISC_SAMPLES) {
           point.copy(sample).applyMatrix4(matrix);
-          const outside = Math.max(Math.abs(point.x) - halfWidth, Math.abs(point.y) - halfHeight);
-          deficit = Math.max(deficit, front - Math.max(0, outside) - point.z);
+          const outside = Math.max(0, Math.abs(point.x) - halfWidth, Math.abs(point.y) - halfHeight);
+          const past = Math.max(0, outside - reach);
+          deficit = Math.max(deficit, front - outside - (past * past) / (2 * reach) - point.z);
         }
         if (deficit > 0) disc.position.z += deficit / forward.z;
       }

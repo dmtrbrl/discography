@@ -155,6 +155,10 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   1 November 2026). On desktop the pages' textures go to the GPU one per frame during the flight,
   so the landing has nothing left to upload; on touch devices they upload at the landing, while
   the paper is still, since an upload there could cost a frame of the flight.
+- On phones the landed booklet switches to the single-page layout, which builds new sheets. When
+  the scans arrive after the landing, as in Safari, that happens in the library's ready event,
+  inside the frame's tick, so the new sheets are ticked at once: drawn before their first tick
+  they lay unstacked and a page from inside showed over the cover for a frame (1 November 2026).
 - The pages shown are announced only by the hidden live region. The count in the caption and a
   label under the landed booklet were both reverted at the user's request.
 - Paper: a gentle resting curve everywhere (`bookletWrinkles` 0.055, `bookletBulge` 0.22); flat
@@ -198,6 +202,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   meanwhile. The disc never enters the player: 108 points of it are kept 3 mm above the top (a 45°
   slope off the edges, the well's floor over the well), and `insertLift` is 0.6 (36 mm) so the
   tilted case passes behind the disc on its way up and down (at 0.45 the tray drew over it).
+  The disc is held 3 mm in front of the case the same way; that slope curves away past the plane
+  of the case's back: running on straight it caught the landed disc far below the tipped case and
+  held it 27 mm off the spindle on landscape phones, and cut off there the push ended with a jump.
   While the row pans out and the player rises in, each is drawn only while some of it is still on
   screen, judged from the open case's and the player's projected extents (`offscreen`): drawing
   both through the whole handoff cost a phone 40 ms a frame.
@@ -235,7 +242,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
 - The page: no tracklist (removed 29 October). A transport row under the player repeats its four
   buttons as SVG symbols (a row with arrows, a Play word and the track and time was rejected: the
   screen shows those), one 40% see-through layer, 20 px under the player's measured bottom, a
-  bubble group so the dot shows the whole row. On phones a line under the row names the track.
+  bubble group so the dot shows the whole row. On phones, either way up, a line under the row
+  names the track; on landscape phones the player is drawn smaller for it (`playerScaleShort`
+  1.08, `playerRaiseShort` 0.3; 1.25 and 0.24 left no room).
   The bottom row keeps the caption (inactive, it only names the album) with Apple and Spotify on
   the left (Apple first: the previews are theirs) and Buy the CD on the right, shown with the
   transport row. Buy the CD is an Amazon search for the artist, title and CD; hand-picked shop
