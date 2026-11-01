@@ -108,8 +108,9 @@ const C = {
   playerSize: 146, playerHeight: 18, playerCorner: 7, playerBevel: 1, playerFrame: 1.4, playerRing: 2.2, wellRadius: 62, wellDepth: 10, wellZ: 0, playerDiscDrop: 4,
   playerEnvLift: 1.4, playerAmbient: 0.9, playerColor: '#3a3c41', playerRough: 0.38, playerTop: '#2c2e32', playerTopBack: '#5a5d64', playerTopSheen: 0.12,
   playerChrome: '#e2e4e8', playerTrim: '#141517', playerWell: '#18191c', playerHoles: '#101113',
-  // The ring round the well and the jack's collar: polished dark metal, darker than the body.
-  playerMetal: '#1c1d20',
+  // The ring round the well and the jack's collar: matte black rubber, darker than the body
+  // (polished dark metal until 1 November 2026: it glared on a phone).
+  playerMetal: '#1c1d20', playerRubberRough: 0.9, playerRubberEnv: 0.45,
   // Wear on the body and top: fine scratches and wipe marks that catch the light (playerWear), the
   // wear map repeating every playerWearScale millimetres.
   playerWear: 2.5, playerWearScale: 90, playerTurntableGrain: 14, playerTurntableBump: 1.5, playerTurntableSpeckle: 0.22, playerTurntableTone: 1.15,
@@ -243,11 +244,13 @@ const C = {
   // Spin while playing, in turns a minute (a real disc turns 200 to 500; faster speeds and the real
   // one, 500 falling to about 200 across the disc, were tried and rejected, and 200 later read as too
   // busy, see specs/DECISIONS.md), and how long it takes to
-  // spin up and coast down (time constants in seconds; spinDownEject, much quicker, when the disc is
+  // spin up (a time constant in seconds) and brake to a stop at a steady deceleration, from full
+  // speed in spinDown seconds (spinDownEject, much quicker, when the disc is
   // taken out while it turns, so it brakes as it leaves). At this speed the print is blurred over the
-  // arc it turns in spinBlur seconds, like a camera's exposure, so it reads as a spinning disc
-  // rather than strobing; spinBlurSamples samples along that arc.
-  spinRpm: 150, spinUp: 0.4, spinDown: 1, spinDownEject: 0.25, spinBlur: 0.025, spinBlurSamples: 24,
+  // arc it turns in spinBlur seconds, like a camera's exposure, or in the frame's real interval
+  // when that is longer (a phone under 60 fps), so it reads as a spinning disc rather than
+  // strobing; spinBlurSamples samples along that arc.
+  spinRpm: 120, spinUp: 0.4, spinDown: 1, spinDownEject: 0.25, spinBlur: 0.025, spinBlurSamples: 24,
 } as const;
 
 // overDisc, overBooklet: the pointer is over the open case's disc or booklet (overDisc also over the
@@ -2127,8 +2130,9 @@ function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
   // The pane's edge: matte black, the fine line round the top.
   const trim = keep(new THREE.MeshStandardMaterial({ color: C.playerTrim, roughness: 0.8, metalness: 0, envMapIntensity: C.playerEnvLift }));
   group.add(new THREE.Mesh(keep(makePlayerTopGeometry()), [top, trim]));
-  // The ring round the well, and the jack's collar: thin polished dark metal.
-  const darkMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerMetal, roughness: 0.18, metalness: 1, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: C.playerEnvLift, side: THREE.DoubleSide }));
+  // The ring round the well, and the jack's collar: matte black rubber, a soft broad sheen and
+  // little of the room in it (thin polished dark metal until 1 November 2026: it glared on a phone).
+  const darkMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerMetal, roughness: C.playerRubberRough, metalness: 0, envMapIntensity: C.playerEnvLift * C.playerRubberEnv, side: THREE.DoubleSide }));
   group.add(new THREE.Mesh(keep(makeWellRingGeometry()), darkMetal));
 
   // The well, as on most top-loaders: a matte black floor with one opening toward the back, where
@@ -2311,7 +2315,7 @@ function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
   }
   side.add(grille);
 
-  // The jack: a polished dark collar standing 0.4 mm proud round the dark 3.5 mm socket.
+  // The jack: a matte dark collar standing 0.4 mm proud round the dark 3.5 mm socket.
   const collar = new THREE.Mesh(keep(new THREE.LatheGeometry(
     ([[3.1, 0], [3, 0.25], [2.7, 0.4], [2.15, 0.4], [1.9, 0.2], [1.75, 0]] as Point[]).map(([x, y]) => new THREE.Vector2(x, y)), 48).rotateX(Math.PI / 2)), darkMetal);
   const socket = new THREE.Mesh(keep(new THREE.CircleGeometry(1.75, 32)), holes);
@@ -2529,6 +2533,8 @@ export class GalleryScene {
   private playerScale = 1;
   // A touch device (a coarse pointer): phones and tablets.
   private touch = false;
+  // The frames' real interval, smoothed (trackFrameTime): the disc's blur covers at least that.
+  private frameInterval = 1 / 60;
   private playerRest: THREE.Vector3;
   // How far an open case's lid swings, in degrees (lidOpenAngle, or lidOpenAngleNarrow on phones).
   private lidAngle: number = C.lidOpenAngle;
@@ -4262,6 +4268,7 @@ export class GalleryScene {
   private trackFrameTime(interval: number) {
     const stats = this.frameStats;
     stats.awake += 1;
+    if (stats.awake >= 3 && interval <= 0.08) this.frameInterval += (interval - this.frameInterval) * 0.2;
     if (stats.awake < 3 || interval > 0.08 || this.quality >= QUALITY.length - 1) return;
     stats.total += interval;
     stats.count += 1;
@@ -4402,9 +4409,13 @@ export class GalleryScene {
     const tilt = this.playerLean * C.hoverTiltStrength * C.openHoverTilt * C.playerHoverTilt;
     player.rotation.set(tilt * this.pointer.y, THREE.MathUtils.degToRad(C.playerYaw) + tilt * this.pointer.x, 0);
 
-    const target = this.playing && !this.reducedMotion ? (C.spinRpm / 60) * Math.PI * 2 : 0;
+    const full = (C.spinRpm / 60) * Math.PI * 2;
+    const target = this.playing && !this.reducedMotion ? full : 0;
     const slowing = this.inPlayer ? C.spinDown : C.spinDownEject;
-    this.spinRate += (target - this.spinRate) * (1 - Math.exp(-dt / (target > this.spinRate ? C.spinUp : slowing)));
+    // Up like a motor; down like a brake, steadily, to a definite stop (an exponential coast
+    // crawled to a halt).
+    if (target > this.spinRate) this.spinRate += (target - this.spinRate) * (1 - Math.exp(-dt / C.spinUp));
+    else this.spinRate = Math.max(target, this.spinRate - (full / slowing) * dt);
     if (target === 0 && this.spinRate < 0.02) this.spinRate = 0;
     // The symbol of the button under the pointer, or with keyboard focus, lights up; the others dim back.
     for (const button of this.player.buttons) {
@@ -4424,7 +4435,7 @@ export class GalleryScene {
       drawPlayerScreen(this.player, this.screenState, performance.now() / 1000);
       this.forceFrames = Math.max(this.forceFrames, 2);
     }
-    item.disc.blur.value = this.spinRate * C.spinBlur;
+    item.disc.blur.value = this.spinRate * Math.max(C.spinBlur, this.frameInterval);
 
     const { trayPosition, trayQuaternion, trayScale, seatPosition, seatQuaternion, seatScale, matrix, inverse, axis, forward, point } = PLAYER_SCRATCH;
     item.body.updateWorldMatrix(true, false);
@@ -4629,7 +4640,7 @@ export class GalleryScene {
       magazine.scale.copy(rig.scale);
     }
     // Back on its cover and centred on it again: the booklet takes over for the way back.
-    if (this.closingBooklet && magazine.page === 0 && !magazine.turning && this.bookletShift === 0.5) this.putBookletBack();
+    if (this.closingBooklet && magazine.page === 0 && !magazine.turning && Math.abs(this.bookletShift - 0.5) < 0.03) this.putBookletBack();
   }
 
   // Frame the curved paper and keep it above the case. Fit by adjusting the paper's scale,
@@ -4762,7 +4773,9 @@ export class GalleryScene {
     // it opens; a closed one (on its cover or back page) only once the last turn has landed, so it
     // doesn't slide while a page is still turning.
     const pages = magazine.visiblePages;
-    if (!this.bookletShown || magazine.layout === 'single') this.bookletTarget = 0.5;
+    // Closing, the booklet centres on its cover while its pages turn back, so the way back can
+    // start as the turn lands (centred only after it, the flight waited most of a second).
+    if (!this.bookletShown || magazine.layout === 'single' || this.closingBooklet) this.bookletTarget = 0.5;
     else if (pages.length > 1) this.bookletTarget = 0;
     else if (!magazine.turning) this.bookletTarget = pages[0] === 0 ? 0.5 : -0.5;
     const target = this.bookletTarget;

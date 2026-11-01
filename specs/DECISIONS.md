@@ -66,9 +66,9 @@ rainbow on the front rim; a rainbow in the clear hub; a dark, grey or separately
 on the data side; many, long or uniformly bright scratches, and since 30 October any scratches on
 the discs at all (`texScratches` and `scratchAmount` are 0 at the user's request; the code stays);
 saturated rainbow spokes with dark gaps (real discs show soft pastel wedges on bright silver); a
-light outline round the hub or at the print edge. Spin in the player: 150 rpm (`spinRpm`). A real
-disc's 500 to 200 rpm looked weird, 400 and 260 too fast, 100 and 48 too slow; 200 read as too much
-moving metal. Rotational motion blur (`withSpinBlur`, a 25 ms exposure) keeps the print from
+light outline round the hub or at the print edge. Spin in the player: 120 rpm (`spinRpm`; 150 until
+1 November 2026, when it read as too fast on a phone). A real disc's 500 to 200 rpm looked weird,
+400 and 260 too fast, 100 and 48 too slow; 200 read as too much moving metal. Rotational motion blur (`withSpinBlur`, a 25 ms exposure) keeps the print from
 strobing.
 
 ### The cases
@@ -136,7 +136,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   head-on (`bookletTilt` 0, the camera level; only Listen raises it): facing a raised camera the
   square page drew 10% taller than wide.
 - It stays on its cover until a page is turned (no automatic first turn). Spreads centre as they
-  open, a closed cover only once its turn has landed. Outside clicks close nothing; Close and
+  open, a closed cover only once its turn has landed. Closing, the booklet centres on its cover
+  while the pages turn back, and the way back starts as the turn lands (centred only after it,
+  the flight waited most of a second after turned pages). Outside clicks close nothing; Close and
   Escape do. On phones the single layout loops: the back cover turns and the booklet shuts back
   onto the cover, and Next stays enabled there. A glitch in that turn (an inside page showing
   under the back cover, then the cover rising through it) was the library's; LeafThrough 0.1.7
@@ -169,8 +171,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
 ### The player
 
 - A lidless top-loader with an open round well, slim (18 mm), a little larger than the disc, in
-  glossy graphite with a matte black edge round the top and a thin ring of polished dark metal
-  round the well, worn like the cases. Modelled, not painted: no textures but the screen and the
+  glossy graphite with a matte black edge round the top and a ring of matte black rubber round the
+  well, like the jack's collar (polished dark metal until 1 November 2026: it glared on a phone),
+  worn like the cases. Modelled, not painted: no textures but the screen and the
   contact shadow, no logo or text. The front has a dot-matrix-style screen (DM Sans and DM Mono
   seen through a fine dot grid; a 5 × 7 pixel font read badly) and four buttons; the left side a
   headphone jack and speaker holes. A title too long for the screen rests 1.5 s, scrolls past once
@@ -189,13 +192,20 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   slope off the edges, the well's floor over the well), and `insertLift` is 0.6 (36 mm) so the
   tilted case passes behind the disc on its way up and down (at 0.45 the tray drew over it).
 - Nothing works until the disc has landed (`seated`): the screen stays dark, the buttons and Space
-  do nothing, the transport row is hidden. Only Play starts the music, as on a CD player: stopped,
-  next and previous cue a track at 0:00. Pausing coasts the spin down in 1 s; ejecting brakes it in
-  0.25 s. A click on the landed disc ejects. The player leans toward the cursor at 0.35 of the open
+  do nothing, the transport row is hidden. Leaving the tab (or the app, on a phone) pauses the
+  music and brakes the disc; it stays paused until Play. Only Play starts the music, as on a CD player: stopped,
+  next and previous cue a track at 0:00. Pausing brakes the spin to a stop in 1 s, ejecting in
+  0.25 s, at a steady deceleration (an exponential coast crawled to a halt); the print's motion
+  blur covers the frame's real interval where that is longer than its 25 ms exposure, so a phone
+  under 60 fps shows a spinning disc, not a strobing one. A click on the landed disc ejects. The player leans toward the cursor at 0.35 of the open
   case's tilt (0.5 felt too strong). A track change keeps the disc spinning: the pause of the old
   preview before the new one loads no longer stops it (the disc coasted down and up at every next
-  or previous), and the next track's preview is fetched while one plays and kept as an object URL,
-  so a change never waits for the network (Apple's preview files allow the cross-origin fetch).
+  or previous). Two audio elements take turns: the next track's preview is fetched while one
+  plays (Apple's files allow the cross-origin fetch) and primed on the idle element as an object
+  URL, so a change only starts an element that already holds its file; changing the one element's
+  source stalled Safari on iPhones while it set its native player up again. The first press plays
+  a moment of silence on the idle element, since iPhones let an element play on its own only
+  after a gesture has played it.
 - The contact shadow under the player is a canvas blurred as the canvas's own shadow of the shape,
   drawn off the canvas with the shadow shifted back on: the 2D context's blur filter, used before,
   is missing in Safari, where the shadow drew as a hard-edged dark border (1 November 2026).
@@ -266,7 +276,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   were less legible at tab size).
 - On iPhones the page runs under Safari's bars (`viewport-fit=cover`), so they take the page's
   beige rather than white; the bars, corner buttons and about page keep clear of the screen's safe
-  areas (`--safe-top` and the rest, style.css).
+  areas (`--safe-top` and the rest, style.css). Safari 26 paints its bars in the root background
+  colour, so on touch devices the page's vignette fades to that flat colour before the edges
+  (it met the darker corner otherwise).
 
 ### Loading and performance
 

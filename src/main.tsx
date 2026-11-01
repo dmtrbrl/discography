@@ -339,28 +339,51 @@ interface Previews {
 // them) play, pause and skip; the next track follows when one ends. Tracks Apple has no preview for
 // are skipped. Playing and pausing spin and stop the disc (onPlaying); the display follows the
 // track and time (onDisplay). Leaving the player stops the music.
+// A moment of silence (eight samples of 8-bit PCM), for unlocking an audio element on iPhones.
+const SILENCE = 'data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQgAAACAgICAgICAgA==';
+
 function createPreviews(options: {
   album: () => Album; shown: () => boolean;
   onPlaying: (playing: boolean) => void; onDisplay: (track: number | null, seconds: number) => void;
 }): Previews {
-  const audio = new Audio();
-  audio.preload = 'none';
+  // Two audio elements, used in turn: while one plays, the other is primed with the next track's
+  // preview (fetched ahead and kept as an object URL; Apple's files allow the fetch), so a change
+  // only starts an element that already holds its file. Changing the one element's source stalled
+  // Safari on iPhones while it tore its native player down and set it up again, and the disc's
+  // spin paused with it. On the first press, a user gesture, the idle element plays a moment of
+  // silence: iPhones let an element load and play on its own only after a gesture has played it.
+  const players = [new Audio(), new Audio()];
+  for (const player of players) player.preload = 'auto';
+  let audio = players[0];
+  const other = () => (audio === players[0] ? players[1] : players[0]);
+  const objectUrls = new Map<HTMLAudioElement, string>();
+  const release = (player: HTMLAudioElement) => {
+    const url = objectUrls.get(player);
+    if (url) URL.revokeObjectURL(url);
+    objectUrls.delete(player);
+  };
+  const clear = (player: HTMLAudioElement) => {
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+    release(player);
+  };
+  let unlocked = false;
+  const unlock = () => {
+    if (unlocked) return;
+    unlocked = true;
+    const idle = other();
+    idle.src = SILENCE;
+    idle.play().then(() => idle.pause(), () => {});
+  };
   const [current, setCurrent] = createSignal(-1);
   const [state, setState] = createSignal<PreviewState>('stopped');
   const [seconds, setSeconds] = createSignal(0);
   const [failed, setFailed] = createSignal(false);
   const tracks = () => options.album().tracks ?? [];
   let request = 0;
-  // The next track's preview, fetched while the current one plays and kept as an object URL, so a
-  // track change doesn't wait for the network (on iPhones the disc's spin paused while it did).
-  // Apple's preview files allow the cross-origin fetch. `held` is the object URL now playing,
-  // revoked only once the audio has moved on from it (Safari needs it while it plays).
-  let ahead: { index: number; src: string } | null = null;
-  let held: string | null = null;
-  const dropAhead = () => {
-    if (ahead) URL.revokeObjectURL(ahead.src);
-    ahead = null;
-  };
+  // The idle element primed with a track, ready to start.
+  let ahead: { index: number; player: HTMLAudioElement } | null = null;
   async function fetchAhead(index: number) {
     const album = options.album();
     const track = tracks()[index];
@@ -372,19 +395,27 @@ function createPreviews(options: {
     try {
       const blob = await (await fetch(url)).blob();
       if (ticket !== request) return;
-      dropAhead();
-      ahead = { index, src: URL.createObjectURL(blob) };
+      const idle = other();
+      clear(idle);
+      const src = URL.createObjectURL(blob);
+      objectUrls.set(idle, src);
+      idle.src = src;
+      idle.load();
+      ahead = { index, player: idle };
     } catch {}
   }
+  // The element a track change has moved on from lets its file go a moment later, so the
+  // teardown doesn't share a frame with the start.
+  const retire = (player: HTMLAudioElement) => {
+    window.setTimeout(() => {
+      if (player !== audio && ahead?.player !== player) clear(player);
+    }, 600);
+  };
 
   function stop() {
     request++;
-    audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
-    dropAhead();
-    if (held) URL.revokeObjectURL(held);
-    held = null;
+    ahead = null;
+    players.forEach(clear);
     setCurrent(-1);
     setState('stopped');
     setSeconds(0);
@@ -394,7 +425,8 @@ function createPreviews(options: {
 
   // Plays track `index`, or with autoplay false only cues it: the track is chosen and shown, paused
   // at its start, as a CD player skips while paused. The previous track's audio is dropped at once,
-  // so Play pressed while the new one loads can't resume the old one.
+  // so Play pressed while the new one loads can't resume the old one. A track primed on the idle
+  // element starts at once, within the press.
   async function play(index: number, autoplay = true) {
     const album = options.album();
     const track = tracks()[index];
@@ -405,32 +437,51 @@ function createPreviews(options: {
       return;
     }
     const ticket = ++request;
-    audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
+    const primed = ahead?.index === index ? ahead.player : null;
+    ahead = null;
+    const previous = audio;
+    previous.pause();
+    if (primed) {
+      audio = primed;
+      retire(previous);
+    } else {
+      previous.removeAttribute('src');
+      previous.load();
+      release(previous);
+    }
     setCurrent(index);
     setState(autoplay ? 'loading' : 'paused');
     setSeconds(0);
     options.onDisplay(index + 1, 0);
-    const urls = await loadPreviews(album.appleMusic, album.appleMusicCountry).catch(() => null);
-    if (ticket !== request) return;
-    const url = urls?.get(track.apple);
-    if (!url) {
-      setFailed(true);
-      stop();
-      return;
+    if (!primed) {
+      const urls = await loadPreviews(album.appleMusic, album.appleMusicCountry).catch(() => null);
+      if (ticket !== request) return;
+      const url = urls?.get(track.apple);
+      if (!url) {
+        setFailed(true);
+        stop();
+        return;
+      }
+      audio.src = url;
     }
     setFailed(false);
-    // The preview fetched ahead, if it is this track's; the one played before it can go now.
-    if (held) URL.revokeObjectURL(held);
-    held = ahead?.index === index ? ahead.src : null;
-    if (held) ahead = null;
-    audio.src = held ?? url;
     if (!autoplay) return;
     audio.play().catch(() => {
-      if (ticket === request) stop();
+      // Refused or aborted while still wanted: stopped (a pause meanwhile, say for a hidden tab,
+      // has already settled the state).
+      if (ticket === request && state() === 'loading') stop();
     });
   }
+
+  // Leaving the tab (or the app, on a phone) pauses the music, and the disc brakes with it; it
+  // stays paused until Play, as a CD player would.
+  const onVisibility = () => {
+    if (!document.hidden || (state() !== 'playing' && state() !== 'loading')) return;
+    audio.pause();
+    setState('paused');
+    options.onPlaying(false);
+  };
+  document.addEventListener('visibilitychange', onVisibility);
 
   // The next track with a preview after `index`, or -1.
   const nextTrack = (index: number) => tracks().findIndex((track, n) => n > index && track.apple);
@@ -442,6 +493,7 @@ function createPreviews(options: {
   // otherwise goes back one. Only Play starts the music: unless a track is playing, next and
   // previous only cue one, paused at its start. Stopped counts as sitting at the first track.
   function button(kind: PlayerButton) {
+    unlock();
     const stopped = state() === 'stopped';
     const index = stopped ? -1 : current();
     const autoplay = state() === 'playing' || state() === 'loading';
@@ -467,39 +519,46 @@ function createPreviews(options: {
     }
   }
 
-  audio.addEventListener('playing', () => {
-    setState('playing');
-    options.onPlaying(true);
-    void fetchAhead(nextTrack(current()));
-  });
-  audio.addEventListener('pause', () => {
-    // A track change pauses the old track before loading the new one: with the music about to go
-    // on (loading), the disc keeps spinning rather than coasting down and up again.
-    if (audio.ended || state() === 'stopped' || state() === 'loading' || !audio.src) return;
-    setState('paused');
-    options.onPlaying(false);
-  });
-  audio.addEventListener('ended', () => {
-    const next = nextTrack(current());
-    if (next >= 0) play(next);
-    else stop();
-  });
-  audio.addEventListener('timeupdate', () => {
-    const now = Math.floor(audio.currentTime);
-    if (!audio.duration || now === seconds()) return;
-    setSeconds(now);
-    options.onDisplay(current() + 1, now);
-  });
+  // Only the playing element's events count; the idle one's (its moment of silence, its priming)
+  // are its own.
+  const active = (event: Event) => event.currentTarget === audio;
+  for (const player of players) {
+    player.addEventListener('playing', (event) => {
+      if (!active(event)) return;
+      setState('playing');
+      options.onPlaying(true);
+      void fetchAhead(nextTrack(current()));
+    });
+    player.addEventListener('pause', (event) => {
+      // A track change pauses the old track before the new one starts: with the music about to
+      // go on (loading), the disc keeps spinning rather than coasting down and up again.
+      if (!active(event) || audio.ended || state() === 'stopped' || state() === 'loading' || !audio.src) return;
+      setState('paused');
+      options.onPlaying(false);
+    });
+    player.addEventListener('ended', (event) => {
+      if (!active(event)) return;
+      const next = nextTrack(current());
+      if (next >= 0) play(next);
+      else stop();
+    });
+    player.addEventListener('timeupdate', (event) => {
+      if (!active(event)) return;
+      const now = Math.floor(audio.currentTime);
+      if (!audio.duration || now === seconds()) return;
+      setSeconds(now);
+      options.onDisplay(current() + 1, now);
+    });
+  }
 
   createEffect(on(options.shown, (shown) => {
     if (!shown) stop();
   }, { defer: true }));
   onCleanup(() => {
+    document.removeEventListener('visibilitychange', onVisibility);
     request++;
-    audio.pause();
-    audio.removeAttribute('src');
-    dropAhead();
-    if (held) URL.revokeObjectURL(held);
+    ahead = null;
+    players.forEach(clear);
   });
 
   return {

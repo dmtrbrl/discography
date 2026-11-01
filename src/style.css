@@ -23,6 +23,13 @@
 /* One background for every page, on the document itself: switching views fades only the content, so
    the page never shows a different colour underneath. */
 html { background: radial-gradient(circle at 48% 38%, var(--bg-center) 0, var(--bg) 68%, var(--bg-edge) 100%) fixed var(--bg); }
+/* On phones the browser paints its bars in the page's colour: the theme-color meta tag on Android
+   and iOS before 26, the root background colour on iOS 26 (with viewport-fit=cover, index.html).
+   Both are the flat page tone, so there the vignette fades to it before the edges, and a bar
+   continues the page instead of meeting its darker corner. */
+@media (hover: none) and (pointer: coarse) {
+  html { background-image: radial-gradient(circle at 48% 38%, var(--bg-center) 0, var(--bg) 62%, var(--bg) 100%); }
+}
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; width: 100%; min-height: 100%; }
 button, input { font: inherit; }

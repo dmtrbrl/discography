@@ -89,10 +89,11 @@ try {
       const played = [];
       for (const [i, n] of playable.entries()) {
         await page.waitForFunction((track) => {
-          const audio = window.__audio.at(-1), state = window.scene.screenState;
+          // The element playing now: the page keeps two, one primed with the next track.
+          const audio = window.__audio.find((a) => !a.paused && !a.ended && a.currentTime > 0.1) ?? window.__audio.at(-1), state = window.scene.screenState;
           return state.track === track && state.playing && audio.currentTime > 0.1 && !audio.paused && !audio.error;
         }, n, { timeout: 30000 });
-        played.push(await page.evaluate(() => ({ track: window.scene.screenState.track, title: window.scene.screenState.album.tracks[window.scene.screenState.track - 1].title, time: window.__audio.at(-1).currentTime })));
+        played.push(await page.evaluate(() => ({ track: window.scene.screenState.track, title: window.scene.screenState.album.tracks[window.scene.screenState.track - 1].title, time: (window.__audio.find((a) => !a.paused && !a.ended && a.currentTime > 0.1) ?? window.__audio.at(-1)).currentTime })));
         if (i < playable.length - 1) await page.getByRole('button', { name: 'Next track', exact: true }).click();
       }
       assert.deepEqual(played.map((p) => p.track), playable, 'Every track with a preview plays, the others are skipped');
