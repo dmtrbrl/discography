@@ -2,7 +2,7 @@ import { render } from 'solid-js/web';
 import { For, Match, Show, Switch, batch, createComputed, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from 'solid-js';
 import { A, HashRouter, Navigate, Route, useLocation, useNavigate, useParams } from '@solidjs/router';
 import type { Accessor } from 'solid-js';
-import { GalleryScene, PLAYER_BUTTONS } from './scene';
+import { GalleryScene, PLAYER_BUTTONS, prefersReducedMotion } from './scene';
 import type { PlayerButton, PointerState } from './scene';
 import { aboutPath, galleryLink, galleryModes, galleryPath, loadCollection, moveQueryToHash } from './collection';
 import type { Album, Collection, GalleryLink, GalleryMode, Theme } from './collection';
@@ -60,7 +60,7 @@ interface ButtonProps {
 }
 
 function createBubble(options: BubbleOptions) {
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = prefersReducedMotion();
   let bubble!: HTMLDivElement;
   let layer!: HTMLDivElement;
   let body!: HTMLSpanElement;
@@ -440,7 +440,9 @@ function createPreviews(options: {
     options.onPlaying(true);
   });
   audio.addEventListener('pause', () => {
-    if (audio.ended || state() === 'stopped' || !audio.src) return;
+    // A track change pauses the old track before loading the new one: with the music about to go
+    // on (loading), the disc keeps spinning rather than coasting down and up again.
+    if (audio.ended || state() === 'stopped' || state() === 'loading' || !audio.src) return;
     setState('paused');
     options.onPlaying(false);
   });
@@ -550,7 +552,7 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
   const [shown, setShown] = createSignal(startIndex);
   const [captionHidden, setCaptionHidden] = createSignal(false);
   const selected = () => albums[shown()];
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = prefersReducedMotion();
   let captionTimer = 0;
 
   let backButton!: HTMLButtonElement;

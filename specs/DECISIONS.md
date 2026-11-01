@@ -1,14 +1,15 @@
 # Discography: what is built and the decisions to keep
 
 The reference between sessions: what exists, and the decisions from review that later work must
-respect, including looks that were tried and rejected. What is still open is in
-[ROADMAP.md](ROADMAP.md); how to run the project, its layout, the data scripts and the checks are
-in [README.md](../README.md); the booklet animation's implementation is in
-[BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md).
+respect, including looks that were tried and rejected, and at the end the known gaps and the ideas
+not planned. Nothing is open: the project is complete (1 November 2026). How to run the project,
+its layout, the data scripts and the checks are in [README.md](../README.md); the booklet
+animation's implementation is in [BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md).
 
-Until 31 October 2026 all of this was a dated log of every round of work, about 1,650 lines, in
-`ROADMAP.md` at the repository's root. That history is in git (commit `fe2455b` and before); this
-file keeps only what still applies. Keep it that way: when something lands or a decision changes,
+Until 31 October 2026 all of this was a dated log of every round of work, about 1,650 lines, in a
+`ROADMAP.md` at the repository's root; a slimmed roadmap of open items followed until the last of
+them closed on 1 November 2026. That history is in git (commit `fe2455b` and before, and `4a7b195`
+for the last roadmap); this file keeps only what still applies. Keep it that way: when something lands or a decision changes,
 update the section it belongs to rather than appending a dated entry.
 
 ## What is built (31 October 2026)
@@ -29,9 +30,10 @@ update the section it belongs to rather than appending a dated entry.
   Apple, Spotify and Buy the CD links in the bottom row. Eject reverses the path.
 - **Routes** in the hash (`#/<id>`, `/open`, `/listen`, `/booklet`, `#/about`), one history entry
   per view, jumps for distant changes and steps for adjacent ones; an about page.
-- **Loading**: AVIF artwork at the drawn sizes with WebP twins, self-hosted type, preloads after the
-  script, procedural textures from a worker, a reveal that waits for the row's discs and covers
-  only. Lighthouse 12.8 (1 November 2026): 68 mobile, 98 desktop.
+- **Loading**: AVIF artwork at the drawn sizes with WebP twins, small copies first on phones,
+  self-hosted type, procedural textures from a worker, a reveal that waits for the front case and
+  its neighbours only, the rest arriving one job per frame. Lighthouse 12.8 (1 November 2026): 76
+  mobile, 98 desktop; on a slow 4G phone the row is up in 5 s (was 12).
 - **The data**: `public/albums/collection.json` and `public/albums/<id>/`. The ten albums are
   final, each with a verified stapled booklet, the printed disc and the back insert of a real
   edition, recorded in `sources`.
@@ -103,6 +105,11 @@ strobing.
   Row gap `hGapNarrow` 0.9 (0.8 too tight, 1.0 pushed the neighbours off). Landscape phones:
   `openFitShortMargin` 100 px, so the case's booklet grows to the reader's size rather than
   shrinking; the picture is raised to even the gaps (`rowRaiseShort`, `openRaiseShort`).
+  A touch held still on the front case for `flipHoldTime` (0.45 s) turns it over, or back, since
+  on touch a horizontal drag browses the row (1 November 2026); a long touch opens no selection or
+  menu (nothing on the page is selectable but the about page's text). Touch devices render with
+  MSAA and their pixel ratio capped at 2 (`pixelRatioNarrow`; 1.5 without MSAA stepped the cases'
+  edges): their tile-based GPUs resolve it cheaply, and the adaptive resolution still steps down.
 
 ### The booklet
 
@@ -178,7 +185,12 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   do nothing, the transport row is hidden. Only Play starts the music, as on a CD player: stopped,
   next and previous cue a track at 0:00. Pausing coasts the spin down in 1 s; ejecting brakes it in
   0.25 s. A click on the landed disc ejects. The player leans toward the cursor at 0.35 of the open
-  case's tilt (0.5 felt too strong).
+  case's tilt (0.5 felt too strong). A track change keeps the disc spinning: the pause of the old
+  preview before the new one loads no longer stops it (the disc coasted down and up at every next
+  or previous).
+- The contact shadow under the player is a canvas blurred as the canvas's own shadow of the shape,
+  drawn off the canvas with the shadow shifted back on: the 2D context's blur filter, used before,
+  is missing in Safari, where the shadow drew as a hard-edged dark border (1 November 2026).
 - The page: no tracklist (removed 29 October). A transport row under the player repeats its four
   buttons as SVG symbols (a row with arrows, a Play word and the track and time was rejected: the
   screen shows those), one 40% see-through layer, 20 px under the player's measured bottom, a
@@ -239,9 +251,14 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   `:focus-visible` ring for every control. The caption is a button on the row only.
 - Loading screen: a hairline ring filling clockwise from the top with the count inside, 0 to 100
   and no word ("Loading" and a plain bar until 31 October 2026), eased toward the real progress,
-  fading only once it shows 100; a `progressbar` for screen readers. Reduced motion: transitions jump, the page reveals at
+  fading only once it shows 100; a `progressbar` for screen readers. Reduced motion, on desktop
+  screens only (phones play the motion whatever the setting says: the page is the motion, and the
+  setting is often on for other reasons; 1 November 2026): transitions jump, the page reveals at
   once. The favicon is a rounded beige square with a dark disc (reflective and outlined versions
   were less legible at tab size).
+- On iPhones the page runs under Safari's bars (`viewport-fit=cover`), so they take the page's
+  beige rather than white; the bars, corner buttons and about page keep clear of the screen's safe
+  areas (`--safe-top` and the rest, style.css).
 
 ### Loading and performance
 
@@ -249,30 +266,44 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   scan is cropped to the disc before scaling, back inserts 1320 px, booklet spreads 2048 px) with a
   WebP twin beside each file; `collection.ts` decodes a 2 × 2 AVIF once and swaps every path to
   `.webp` where that fails. WebP alone is about a third larger at like quality.
-- The reveal waits for the row only: each case's disc and cover (1.5 MB); the back inserts and
-  booklet backs load right after and go in as they arrive. A 12 s timeout reveals with placeholder
-  art. `index.html` preloads the fonts and `collection.json`; a Vite plugin writes a preload for
-  every disc and cover, then the inserts and booklet backs at `fetchpriority="low"`, all after the
-  script tag (ahead of it, forty image requests starved the script on 3G), and a `modulepreload`
-  for the strip light's lookup tables, which are their own chunk. `fetchpriority="high"` on the
-  images was rejected (the script arrived at 13.9 s instead of 6.9 s on 3G); no preloads at all
-  was 300 ms worse at 10 Mbps.
+- The reveal waits for the front case and its neighbours (`revealRadius` 1): each one's disc and
+  cover. The rest of the row's arrive as the intro plays, and the back inserts and booklet backs
+  once it is done (`afterIntro`), since they show only once a case is turned over or opened. A
+  12 s timeout reveals with generated art in place of what hasn't come. On phones (650 px and
+  narrower) the discs and covers come first as small copies (`discSmall`, `coverSmall`: 512 and
+  640 px, a third of the bytes), the full size replacing them after the intro, one upload per
+  frame. `index.html` preloads the fonts and `collection.json`; a Vite plugin writes a preload
+  for every disc and cover, with a `media` query so phones get only the first album's small
+  copies (the scene asks for the others as soon as it runs, the front's neighbours first: sharing
+  a slow connection with twenty images, the script itself arrived late), all after the script tag,
+  and a `modulepreload` for the strip light's lookup tables, which are their own chunk.
+  `fetchpriority="high"` on the images was rejected (the script arrived at 13.9 s instead of
+  6.9 s on 3G); no preloads at all was 300 ms worse at 10 Mbps. Until 1 November 2026 the reveal
+  waited for the whole row (1.5 MB) with the inserts preloaded at low priority: on a slow 4G phone
+  with its CPU slowed 4× the row took 12 s to appear; it takes 5 s now.
 - The type is served from `public/fonts/` (woff2, OFL, `font-display: swap`); no Google Fonts
   `@import`.
 - The start: the disc print's and tray's procedural maps and LeafThrough's paper grain are
   generated in a worker, one grain for all ten booklets; the scene is built after the loading
-  screen's first paint; placeholder art isn't uploaded; the booklet shares the case's cover and
-  back-page textures (handed over as `Texture`s with their colour space set; LeafThrough 0.1.7
-  takes them as they are, without a second upload); shaders compile with `compileAsync`; images
-  decode off the main thread.
-  Longest task before the reveal: 79 ms (was 1,064 ms). Booklet scans that arrive during the flight
-  wait for the landing (`pendingPages`); that and the grain from the worker stay after the
-  measurement on LeafThrough 0.1.7 (Lighthouse 12.8, 1 November 2026, three runs each: 68 mobile,
-  98 desktop; the mobile score is held by the LCP, the album title at 6.0 s on the emulated slow
-  4G, and by 0.4 s of blocking time at its 4× CPU slowdown): dropping them could only bring back
-  the hitch in the flight, not move the score.
+  screen's first paint; the player is built after the intro in idle time, or on the first Listen
+  (its extruded body and buttons were a quarter of the start); the disc is found in each scan on
+  a small copy made off the main thread (`locateDisc`); the stand-in art is the album's colour,
+  the generated art drawn only when nothing comes; every texture upload and each case's inside
+  goes through a queue, one job per frame in a task of its own (`inFrame`), since ten arrivals
+  handled as they came held a phone's main thread for a long moment; the booklet shares the case's
+  cover and back-page textures (handed over as `Texture`s with their colour space set; LeafThrough
+  0.1.7 takes them as they are, without a second upload); shaders compile with `compileAsync`;
+  images decode off the main thread. Booklet scans that arrive during the flight wait for the
+  landing (`pendingPages`); that and the grain from the worker stay.
+  Measured on 1 November 2026 (Lighthouse 12.8, five runs each, median): 76 mobile and 98 desktop,
+  from 68 and 98; blocking time 250 ms, from 380. Lighthouse's mobile LCP is a model built from a
+  local trace, the bytes fetched before the first big paint, so it moves with what the page
+  preloads and not with when the row is up: naming the album on the loading screen moved its LCP
+  element without moving the estimate, and was reverted. Loading changes go by the real throttled
+  time to the reveal (README, Checks), with Lighthouse beside it; its run-to-run noise is about
+  five points.
 - Frame budget: adaptive resolution (the pixel ratio steps down when frames run long), an 8 MP
-  canvas cap, no MSAA on high-DPI screens, no `transmission` anywhere (two renders a frame and a
+  canvas cap, MSAA only on screens of one pixel ratio and on touch devices (see The cases), no `transmission` anywhere (two renders a frame and a
   blurred copy of the art), textures uploaded at load, the render loop idle when nothing moves.
   Every view ran at 60 fps at 1440 × 900 (2×) and 390 × 844 (3×) in the last audit.
 
@@ -300,3 +331,13 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   two identical 11-track entries; the one search engines rank as the main page is used
   (`7ikuEzL6xeAgu6yT6YVLy7`; the other is `2tHCY2fDMi0NqeGZcAxNSc`). MusicBrainz has no Spotify
   links for these albums and Odesli's public API is closed.
+
+## Known gaps and ideas not planned
+
+- "Lose It" (Feel It Break, track 2) has no preview: Apple's album listing omits it in every
+  storefront checked (it was a free single of the week), so there is no track ID to fetch. Nothing
+  to do unless Apple adds it; `check-album.mjs` skips tracks without an Apple ID.
+- Not planned: clicking the spinning disc to pause; clear trays (needs `Tray` scans or a generated
+  inside of the insert); glossier paper (LeafThrough `paper.roughness` 0.3 gave the curl a faint
+  highlight and changed nothing else; a one-line option); official shop links in place of the
+  Amazon search.

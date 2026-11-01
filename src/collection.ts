@@ -41,6 +41,10 @@ export interface AlbumConfig {
   cover: string;
   // Scan of the printed CD.
   disc?: string;
+  // Small copies of the disc scan and the cover (scripts/optimize-images.mjs), loaded first on
+  // phones so the row shows sooner on a slow connection; the full size follows once it is up.
+  discSmall?: string;
+  coverSmall?: string;
   // Back insert, ideally with its spines.
   back?: string;
   // The booklet's back page, seen inside the open lid.
@@ -150,6 +154,8 @@ export async function loadCollection(): Promise<Collection> {
         artist: album.artist || config.name,
         cover: resolve(album.cover),
         disc: resolve(album.disc),
+        discSmall: resolve(album.discSmall),
+        coverSmall: resolve(album.coverSmall),
         back: resolve(album.back),
         bookletBack: resolve(album.bookletBack),
         bookletScans: album.bookletScans?.map((path) => resolve(path)!),

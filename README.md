@@ -43,7 +43,7 @@ Every push to `main` builds and publishes `dist/` to GitHub Pages (`.github/work
 | `src/collection.ts` | The types for `collection.json` and what the page gets from it, the loader (which picks AVIF or WebP), and the hash route helpers. |
 | `src/procedural.ts`, `src/procedural.worker.ts` | The disc print's and tray's procedural maps and LeafThrough's paper grain, generated once in a worker. |
 | `src/style.css`, `index.html` | The page shell and the self-hosted fonts; the HTML preloads the fonts and `collection.json`. |
-| `vite.config.ts` | The Solid plugin and `preloadArtwork`, which writes a preload link for every album's disc, cover, back insert and booklet back into the built page. |
+| `vite.config.ts` | The Solid plugin and `preloadArtwork`, which writes a preload link for every album's disc and cover into the built page (on phones only the first album's small copies). |
 | `public/albums/collection.json` | The collection (see below). |
 | `public/albums/<id>/` | One album's artwork: `cover`, `disc`, `back` and `booklet-back` (`.avif` with a `.webp` twin) and the booklet's pages in `booklet/`. |
 | `public/fonts/` | DM Sans, DM Mono and Instrument Serif as woff2, with the licence. |
@@ -51,13 +51,13 @@ Every push to `main` builds and publishes `dist/` to GitHub Pages (`.github/work
 
 ## The collection
 
-`public/albums/collection.json` holds the collection's `name`, an optional `theme` and `albums`. Each album has `id`, `artist`, `title`, `year` and `kind`; its artwork as paths relative to `public/albums/<id>/` (`cover`, `disc`, `back`, `bookletBack`, `bookletScans`, with `bookletPageCount` and `bookletFit`); `tracks` (title, length and Apple track ID); `appleMusic` with `appleMusicCountry`, `spotify` and an optional `buy` link; `sources`, where each image came from; and `musicbrainz`, the release group, release and image picks the download script uses.
+`public/albums/collection.json` holds the collection's `name`, an optional `theme` and `albums`. Each album has `id`, `artist`, `title`, `year` and `kind`; its artwork as paths relative to `public/albums/<id>/` (`cover`, `disc`, their small copies for phones `coverSmall` and `discSmall`, `back`, `bookletBack`, `bookletScans`, with `bookletPageCount` and `bookletFit`); `tracks` (title, length and Apple track ID); `appleMusic` with `appleMusicCountry`, `spotify` and an optional `buy` link; `sources`, where each image came from; and `musicbrainz`, the release group, release and image picks the download script uses.
 
 Refreshing the data, for every album or the ones named:
 
 ```bash
 bash scripts/download-covers.sh [album id ...]   # cover, disc scan, back insert and booklet back from MusicBrainz and the Cover Art Archive (curl, jq)
-node scripts/optimize-images.mjs [album id ...]  # then AVIF and WebP at the sizes the page draws, paths rewritten (sharp)
+node scripts/optimize-images.mjs [album id ...]  # then AVIF and WebP at the sizes the page draws, plus the small copies for phones, paths rewritten (sharp)
 node scripts/fetch-tracks.mjs [album id ...]     # the CD's tracklist from MusicBrainz and its Apple Music match (Node 18+)
 ```
 
@@ -74,7 +74,7 @@ PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scrip
 
 | Script | What it checks |
 | --- | --- |
-| `check-booklet.mjs` | The booklet's lifecycle: sheet count, no early interior requests, the same page object in flight and in the reader, no automatic first turn, outside clicks, Escape and Close, reopening, the gallery's lighting restored; Surrender on desktop and a portrait phone, Mutter on a landscape phone, Citizen of Glass with reduced motion. |
+| `check-booklet.mjs` | The booklet's lifecycle: sheet count, no early interior requests, the same page object in flight and in the reader, no automatic first turn, outside clicks, Escape and Close, reopening, the gallery's lighting restored; Surrender on desktop and a portrait phone, Mutter on a landscape phone, Citizen of Glass with reduced motion (on desktop: phones play the motion regardless). |
 | `check-booklet-roll.mjs [url] [album]` | The page shaders on the GPU through transform feedback: 201 poses of the roll at three screen sizes, clearance of the lid, holders and tray, a reversible path, a flat landing and the paper's speed profile. |
 | `check-case-transition.mjs` | The case's exit for the booklet against Listen's: the same projection at matching pan values, the shared lens, the 2.4 and 1.9 s durations. |
 | `check-insert-path.mjs` | The disc never goes into the player on its way in or out, at ten screen sizes for three albums, and never jumps between samples. |
@@ -86,9 +86,9 @@ Beyond the checks, review has used ad-hoc scripts kept outside the repo, with `p
 
 - Screenshots and frame-by-frame captures of a motion, diffed pixel by pixel against the committed build served from a `git worktree`; crops around the pointer for the bubble.
 - `requestAnimationFrame` intervals and `longtask` entries per segment of a scripted session, and the time in `compileShader`, `linkProgram` and `texSubImage2D` patched on the WebGL prototypes.
-- Time to the reveal under CDP `Network.emulateNetworkConditions` (3G, 4G, 10 Mbps), the order and timing of every request, Lighthouse against a local server that gzips text as GitHub Pages does (`vite preview` doesn't), and CDP `Profiler` runs of the start at 1× and 4× CPU throttling.
+- Time to the reveal under CDP `Network.emulateNetworkConditions` (3G, 4G, 10 Mbps; the loading decisions go by slow 4G, 1.6 Mbps and 150 ms, with the CPU slowed 4×, on a phone viewport), the order and timing of every request, Lighthouse against a local server that gzips text as GitHub Pages does (`vite preview` doesn't), and CDP `Profiler` runs of the start at 1× and 4× CPU throttling.
 - Load with `waitUntil: 'commit'` when timing the loading screen: the page's `load` event waits for the artwork. Keep source files unchanged during a run; a Vite reload breaks a lifecycle check.
 
 ## More
 
-The `specs/` folder holds the documents for development: [DECISIONS.md](specs/DECISIONS.md) has what is built and the design decisions from review, including what was tried and rejected; [ROADMAP.md](specs/ROADMAP.md) has what is still open; [BOOKLET_ANIMATION.md](specs/BOOKLET_ANIMATION.md) is the implementation reference for the booklet's animation.
+The `specs/` folder holds the documents for development: [DECISIONS.md](specs/DECISIONS.md) has what is built and the design decisions from review, including what was tried and rejected, the known gaps and the ideas not planned; [BOOKLET_ANIMATION.md](specs/BOOKLET_ANIMATION.md) is the implementation reference for the booklet's animation.

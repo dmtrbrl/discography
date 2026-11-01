@@ -82,10 +82,12 @@ const C = {
   hoverTiltStrength: 0.21, dragSensitivity: 0.95, dragVelocitySmoothing: 0.32, dragMaxVelocity: 0.5, friction: 0.89,
   maxSpinAngle: 180, resetDuration: 1.2, dragStartDistance: 5, snapDuration: 0.46,
   // A drag on the front case turns it over to its back when released past halfway, or when faster
-  // than flipFlickVelocity (radians per frame). It stays there until the gallery moves. An open case doesn't turn; it only
+  // than flipFlickVelocity (radians per frame); a touch held still on it for flipHoldTime s turns
+  // it over too, or back (on touch a drag browses the row). It stays there until the gallery
+  // moves. An open case doesn't turn; it only
   // tilts toward the cursor at openHoverTilt of the usual hover tilt. Once a disc has landed, the
   // player leans toward the cursor too, at playerHoverTilt of the open case's tilt.
-  flipFlickVelocity: 0.07, flipDuration: 0.9, openHoverTilt: 0.4, playerHoverTilt: 0.35,
+  flipFlickVelocity: 0.07, flipDuration: 0.9, flipHoldTime: 0.45, openHoverTilt: 0.4, playerHoverTilt: 0.35,
   flowLean: 0.055, flowLeanMax: 0.3, flowBank: 0.32, flowDip: 0.014, flowDipMax: 0.09,
   followTight: 15, followBase: 11, followFalloff: 1.15, followMin: 6.5, snapFreq: 9.5, snapDamping: 12,
   wipePush: 0.012, wipePushMax: 0.5, wipeSpin: 0.009, wipeSpinMax: 0.4, wipeMinSpeed: 9, pushDamping: 4.5, pushReturn: 3.4, pressDepth: 0.55, pressTilt: 1.5,
@@ -93,7 +95,7 @@ const C = {
   touchDragSpan: 1.8, touchFlickVelocity: 0.035,
   wheelNoiseFloor: 0.3, wheelStepThreshold: 6, wheelEventCap: 24, wheelEnvelopeTau: 550, wheelRiseFactor: 1.2, wheelTickGap: 34, wheelTickRatio: 1,
   wheelPauseGap: 130, wheelIdleReset: 150, wheelMinStepTick: 90, wheelMinStepFlick: 190, wheelSustainDelay: 480, wheelSustainRatio: 0.8,
-  renderRadius: 5, loadTimeout: 12000, artResolution: 1024, mapResolution: 1024, maxPixels: 8e6, slowFrame: 0.022, verySlowFrame: 0.04,
+  renderRadius: 5, revealRadius: 1, loadTimeout: 12000, artResolution: 1024, mapResolution: 1024, maxPixels: 8e6, pixelRatioNarrow: 2, pixelRatioWide: 2, slowFrame: 0.022, verySlowFrame: 0.04,
   // CD player, in millimetres: a slim, lidless top-loader in glossy graphite, only a little larger
   // than the disc. A glossy top pane with a matte black edge sits playerFrame inside the body's edge,
   // cut round a metal ring (playerRing wide) that slopes down into the well; the disc drops onto the
@@ -333,6 +335,12 @@ interface JewelCase extends Push {
   bookletSources: PageSource[];
   bookletReady: boolean;
   bookletLoaded: boolean;
+  // Whether the disc's print and the cover are the album's artwork rather than the stand-in, and
+  // whether they are its small first copies, with the full size still to come (sharpenArt).
+  artLoaded: boolean;
+  artSmall: boolean;
+  // Whether the back insert and the booklet's back page have been asked for (loadInsert).
+  insertLoaded: boolean;
   // How the whole page stack bends, including its shadow passes.
   bend: THREE.IUniform<THREE.Vector4>;
   // How far the sheets under the outer one are tucked in, 0 to 1 (see bookletTuck).
@@ -383,6 +391,9 @@ interface Press {
   locked: boolean;
   spinVelocity: number;
   grabbed: number;
+  // The timer for a touch held still on the front case (holdFlip), and whether it turned the case.
+  hold: number;
+  held: boolean;
 }
 
 interface WheelState {
@@ -1159,18 +1170,38 @@ function fillProcedural(shared: SharedResources, maps: ProceduralMaps, renderer:
   shared.grain.getContext('2d')!.putImageData(new ImageData(maps.grain, GRAIN_SIZE, GRAIN_SIZE), 0, 0);
 }
 
+// A square region of an image: its top left corner and its side, in the image's pixels.
+interface Crop { x: number; y: number; size: number }
+
+// The side of the small copy findDiscInScan reads.
+const SCAN_SAMPLE = 256;
+
+// Where the disc is in a scan, found on a small copy made off the main thread where the browser
+// can (createImageBitmap with a size; Chrome and Safari scale on another thread). Scaling each
+// 1200 px scan on a 2D canvas held the main thread for 5 ms per disc at the start.
+async function locateDisc(scan: HTMLImageElement): Promise<Crop> {
+  let sample: ImageBitmap | null = null;
+  try {
+    sample = await createImageBitmap(scan, { resizeWidth: SCAN_SAMPLE, resizeHeight: SCAN_SAMPLE });
+  } catch {}
+  const crop = findDiscInScan(scan, sample ?? scan);
+  sample?.close();
+  return crop;
+}
+
 // Finds the disc in a scan: rows and columns where enough pixels differ from the background,
 // sampled at the corners. Scans come tightly cropped or with a margin, on white or on black, and
-// sometimes cut off at the sides, so the larger extent is taken as the diameter.
-function findDiscInScan(image: Picture) {
+// sometimes cut off at the sides, so the larger extent is taken as the diameter. Reads `sample`,
+// the scan at SCAN_SAMPLE px (or the scan itself, scaled here), and answers in the scan's pixels.
+function findDiscInScan(image: Picture, sample: Picture | ImageBitmap = image): Crop {
   const width = image.naturalWidth || image.width;
   const height = image.naturalHeight || image.height;
   const full = { x: (width - Math.max(width, height)) / 2, y: (height - Math.max(width, height)) / 2, size: Math.max(width, height) };
-  const size = 256;
+  const size = SCAN_SAMPLE;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-  ctx.drawImage(image, 0, 0, size, size);
+  ctx.drawImage(sample, 0, 0, size, size);
   const { data } = ctx.getImageData(0, 0, size, size);
   const corners = [[2, 2], [size - 3, 2], [2, size - 3], [size - 3, size - 3]].map(([x, y]) => (y * size + x) * 4);
   const background = [0, 1, 2].map((channel) => corners.reduce((sum, index) => sum + data[index + channel], 0) / corners.length);
@@ -1205,9 +1236,19 @@ function findDiscInScan(image: Picture) {
   };
 }
 
-// Draws the label into the ring around the clear hub. A disc scan is fitted to the disc and
-// already shows its own mirror band; square cover art is cover-fitted and gets a drawn one.
-function makeArtTexture(image: Picture, anisotropy: number, scan = false) {
+// A 2 × 2 canvas of one colour: the stand-in for artwork that hasn't come.
+function makeColourCanvas(colour: string) {
+  const canvas = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = colour;
+  ctx.fillRect(0, 0, 2, 2);
+  return canvas;
+}
+
+// Draws the label into the ring around the clear hub. A disc scan is fitted to the disc (`crop`,
+// where locateDisc found it) and already shows its own mirror band; square cover art is
+// cover-fitted and gets a drawn one.
+function makeArtTexture(image: Picture, anisotropy: number, crop: Crop | null = null) {
   const size = C.artResolution;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
@@ -1218,12 +1259,11 @@ function makeArtTexture(image: Picture, anisotropy: number, scan = false) {
   ctx.clip('evenodd');
   ctx.fillStyle = C.discFallback;
   ctx.fillRect(0, 0, size, size);
-  if (scan) {
-    const disc = findDiscInScan(image);
+  if (crop) {
     // A small inset removes the scanner background and uneven cut edge. Keep the crop centred on
     // the detected disc, so no white crescent appears as it rotates on the player.
-    const inset = disc.size * C.discScanInset;
-    ctx.drawImage(image, disc.x + inset, disc.y + inset, disc.size - inset * 2, disc.size - inset * 2, 0, 0, size, size);
+    const inset = crop.size * C.discScanInset;
+    ctx.drawImage(image, crop.x + inset, crop.y + inset, crop.size - inset * 2, crop.size - inset * 2, 0, 0, size, size);
   } else {
     const ratio = (image.naturalWidth || image.width) / (image.naturalHeight || image.height);
     const width = ratio > 1 ? size * ratio : size;
@@ -1807,7 +1847,9 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const sheetGap = C.bookletSheetGap;
   const stackLoft = { value: 1 };
   const bookletSources: PageSource[] = Array.from({ length: pageCount }, () => blank);
-  bookletSources[0] = makeFallbackArt(album, seed);
+  // Until the artwork comes, the album's colour stands in for the cover and the disc's print
+  // (setAlbums); the generated art (makeFallbackArt) is drawn only if none comes.
+  bookletSources[0] = makeColourCanvas(album.color || '#3b3a36');
   bookletSources[pageCount - 1] = makeBookletBackCanvas(album);
   const bookletModel = new LeafThroughObject({ renderer, camera }, {
     pages: bookletSources, preload: pageCount, layout: 'spread', pageAspect: 1, loop: false,
@@ -1883,7 +1925,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -1919,6 +1961,11 @@ function roundedRect(width: number, height: number, radius: number, cx = 0, cy =
 }
 
 const roundedShape = (width: number, height: number, radius: number, cx = 0, cy = 0) => roundedRect(width, height, radius, cx, cy) as THREE.Shape;
+
+// Whether to play without motion: the system's reduced-motion setting, except on phones (screens
+// narrowWidth px wide or less), which play the motion regardless. The page is the motion; on a
+// phone, where the setting is often on for other reasons, it would leave only still pictures.
+export const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches && window.innerWidth > C.narrowWidth;
 
 export type PlayerButton = 'previous' | 'play' | 'pause' | 'next';
 export const PLAYER_BUTTONS: PlayerButton[] = ['previous', 'play', 'pause', 'next'];
@@ -2139,14 +2186,24 @@ function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
 
   // Under it, its shadow on the surface it stands on (a blurred canvas, the one texture; it is light,
   // not shape): a dark, tight band where the base meets the surface, inside a wide soft falloff.
+  // Blurred as the canvas's own shadow of the shape, drawn off the canvas with the shadow shifted
+  // back onto it: the 2D context's blur filter, used before, is missing in Safari, where the
+  // shape drew as a hard-edged dark border.
   const shadowSize = C.playerSize * 1.8;
-  const { canvas: shadowCanvas, ctx: shadowCtx } = mmCanvas(shadowSize, shadowSize, 3);
+  const shadowScale = 3;
+  const { canvas: shadowCanvas, ctx: shadowCtx } = mmCanvas(shadowSize, shadowSize, shadowScale);
   const footprint = (grow: number, blur: number, alpha: number) => {
-    shadowCtx.filter = `blur(${blur * 3}px)`;
+    const away = shadowSize * 2;
+    // The shadow's blur is twice the Gaussian's deviation and, like its offset, in the canvas's
+    // pixels, outside the millimetre transform.
+    shadowCtx.shadowColor = '#000';
+    shadowCtx.shadowBlur = blur * shadowScale * 2;
+    shadowCtx.shadowOffsetX = -away * shadowScale;
+    shadowCtx.shadowOffsetY = 0;
     shadowCtx.globalAlpha = alpha;
     shadowCtx.fillStyle = '#000';
     shadowCtx.beginPath();
-    shadowCtx.roundRect(-C.playerSize / 2 - grow, -C.playerSize / 2 - grow, C.playerSize + grow * 2, C.playerSize + grow * 2, C.playerCorner + grow);
+    shadowCtx.roundRect(away - C.playerSize / 2 - grow, -C.playerSize / 2 - grow, C.playerSize + grow * 2, C.playerSize + grow * 2, C.playerCorner + grow);
     shadowCtx.fill();
   };
   footprint(C.playerSize * 0.06, C.playerSize * 0.09, 0.55);
@@ -2462,7 +2519,9 @@ export class GalleryScene {
   private introTween: Tween | null = null;
   leave = 0;
   private onShown: (() => void) | null = null;
-  private player: Player;
+  // The player, once built (buildPlayer): on a Listen, or in idle time after the intro.
+  private playerBuilt: Player | null = null;
+  private playerScale = 1;
   private playerRest: THREE.Vector3;
   // How far an open case's lid swings, in degrees (lidOpenAngle, or lidOpenAngleNarrow on phones).
   private lidAngle: number = C.lidOpenAngle;
@@ -2540,6 +2599,11 @@ export class GalleryScene {
   // Interior pages that arrived while the booklet was still flying, to go in once it has landed
   // (see loadBooklet).
   private pendingPages: (() => void) | null = null;
+  // Work waiting for a frame, one job per frame (inFrame): texture uploads and the cases' insides,
+  // so a burst of arrivals never holds one frame long. Each runs in a task of its own right after
+  // the frame (jobTimer), so neither the frame nor the job runs long on a slow phone.
+  private frameJobs: { run: () => void; done: () => void }[] = [];
+  private jobTimer = 0;
   // The booklet's page size in the booklet view (scene units), and whether it shows one page at a
   // time (narrow screens), set by resize.
   private bookletPage = 1;
@@ -2592,7 +2656,7 @@ export class GalleryScene {
     this.forceFrames = 0;
     this.quality = 0;
     this.frameStats = { awake: 0, total: 0, count: 0, area: 0, dpr: 0 };
-    this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.reducedMotion = prefersReducedMotion();
     this.canHover = window.matchMedia('(hover: hover)').matches;
 
     // Gallery motion state: position is a fractional case index.
@@ -2623,8 +2687,11 @@ export class GalleryScene {
     this.resetWheel();
 
     this.raycaster = new THREE.Raycaster();
-    // High-DPI screens barely need MSAA, and it is costly at that resolution.
-    this.renderer = new THREE.WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 2, alpha: true, powerPreference: 'high-performance' });
+    // MSAA on screens of one pixel ratio, where edges step, and on touch devices: their tile-based
+    // GPUs resolve it cheaply, and their pixel ratio is capped (applyPixelRatio), so without it the
+    // cases' edges stepped on phones. Desktop high-DPI screens barely need it, and pay for it.
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    this.renderer = new THREE.WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 2 || coarse, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -2655,18 +2722,16 @@ export class GalleryScene {
     this.toCamera = new THREE.Vector3(0, 0, 1).applyQuaternion(unturn);
     // Index of the case that is open or opening, or -1.
     this.opened = -1;
-    // Hidden until every case has its artwork, so nothing pops in.
+    // Hidden until the reveal (prepare, reveal).
     this.gallery.visible = false;
     this.scene.add(this.gallery);
     this.addLights();
     this.shared = makeSharedResources(this.renderer);
     this.renderer.initTexture(this.shared.textures.scratches);
     this.renderer.initTexture(this.shared.textures.caseWear);
-    // The player stays hidden until a disc goes in. Its pose is fixed; resize places, turns and sizes it.
-    this.player = makePlayer(this.shared.anisotropy, this.shared.textures.trayNormal);
-    this.player.group.visible = false;
+    // The player is built once the row is up (buildPlayer) and stays hidden until a disc goes in.
+    // Its pose is fixed; resize places, turns and sizes it.
     this.playerRest = new THREE.Vector3();
-    this.scene.add(this.player.group);
 
     this.frame = this.frame.bind(this);
     this.onPointerDown = this.onPointerDown.bind(this);
@@ -2676,11 +2741,14 @@ export class GalleryScene {
     this.onPointerMove = this.onPointerMove.bind(this);
     this.onPointerLeave = this.onPointerLeave.bind(this);
     this.onClick = this.onClick.bind(this);
+    this.onContextMenu = this.onContextMenu.bind(this);
     this.onWheel = this.onWheel.bind(this);
     element.addEventListener('pointerdown', this.onPointerDown);
     element.addEventListener('pointermove', this.onPointerMove);
     element.addEventListener('pointerleave', this.onPointerLeave);
     element.addEventListener('click', this.onClick);
+    // A long touch on the canvas opens no menu: held on the front case, it turns the case (holdFlip).
+    element.addEventListener('contextmenu', this.onContextMenu);
     element.addEventListener('wheel', this.onWheel, { passive: false });
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(element);
@@ -2696,25 +2764,35 @@ export class GalleryScene {
       this.setAlbums(albums);
       return this.loaded;
     });
-    // Reveal once every case has its artwork, the page fonts are in and the strip light has its
-    // tables. The timeout reveals anyway (with placeholders) so a hung request never blocks the page.
-    const timeout = new Promise<void>((resolve) => {
-      this.loadTimer = window.setTimeout(resolve, C.loadTimeout);
+    // Reveal once the cases round the front have their artwork (setAlbums, revealRadius), the page
+    // fonts are in and the strip light has its tables. The timeout reveals anyway (with generated
+    // art) so a hung request never blocks the page.
+    const timeout = new Promise<boolean>((resolve) => {
+      this.loadTimer = window.setTimeout(() => resolve(true), C.loadTimeout);
     });
-    Promise.race([Promise.all([artwork, document.fonts?.ready, ltcTables]), timeout]).then(() => this.prepare());
+    Promise.race([Promise.all([artwork, document.fonts?.ready, ltcTables]).then(() => false), timeout]).then((timedOut) => this.prepare(timedOut));
   }
 
-  private prepare() {
+  private prepare(timedOut = false) {
     if (this.prepared || this.destroyed) return;
     clearTimeout(this.loadTimer);
     this.prepared = true;
+    // Revealed by the timeout, a case still waiting for its artwork shows the generated art
+    // instead of its colour; the artwork replaces it if it comes.
+    if (timedOut) this.cases.forEach((item, index) => {
+      if (item.artLoaded) return;
+      const art = makeFallbackArt(this.albums[index], seedFrom(this.albums[index].id ?? index));
+      void this.upload(this.setArt(item.disc, art));
+      this.setPrint(item, 'cover', art);
+      this.syncBooklet(item);
+    });
     // Compile every shader now rather than when a case first scrolls into view or opens. Compiling
     // skips hidden objects, so the gallery is shown just for the call. compileAsync compiles at
     // once and resolves when the programs have linked: with KHR_parallel_shader_compile the
     // linking no longer holds the main thread, and the first frame doesn't wait for it.
-    this.gallery.visible = this.player.group.visible = true;
+    this.gallery.visible = true;
     const compiled = this.renderer.compileAsync(this.scene, this.camera);
-    this.gallery.visible = this.player.group.visible = false;
+    this.gallery.visible = false;
     // The screen's fonts come from the page, which may not have loaded them when it was first drawn.
     Promise.all([document.fonts?.load('500 10px "DM Mono"'), document.fonts?.load('500 10px "DM Sans"')]).then(() => {
       if (!this.destroyed) this.drawScreen();
@@ -2784,7 +2862,7 @@ export class GalleryScene {
     if (this.reading >= 0) this.returnBooklet();
     this.listen = this.spinRate = this.leave = this.read = 0;
     this.gallery.position.y = 0;
-    this.player.group.visible = false;
+    if (this.playerBuilt) this.playerBuilt.group.visible = false;
     // Cases ease toward where they should be; unplaced, they go straight there, so the old view
     // doesn't shrink back into the new intro.
     this.cases.forEach((item) => {
@@ -2871,7 +2949,8 @@ export class GalleryScene {
     this.listen = this.spinRate = 0;
     this.listenTween = null;
     this.gallery.position.y = 0;
-    this.player.group.visible = false;
+    if (this.playerBuilt) this.playerBuilt.group.visible = false;
+    this.dropFrameJobs();
     this.cases.forEach((item) => {
       item.disposed = true;
       item.disc.materials.forEach((material) => material.dispose());
@@ -2896,8 +2975,12 @@ export class GalleryScene {
     let loaded = 0;
     this.onProgress?.(0, albums.length);
     const pending: Promise<void>[] = [];
+    // Phones get the small copies of the discs and covers first, so the row shows sooner on a slow
+    // connection; the full size replaces them once the row is up (sharpenArt).
+    const narrow = this.element.clientWidth <= C.narrowWidth;
     this.cases = albums.map((album, index) => {
-      const item = makeCase(this.shared, album, seedFrom(album.id ?? index), this.renderer, this.camera, () => this.request());
+      const seed = seedFrom(album.id ?? index);
+      const item = makeCase(this.shared, album, seed, this.renderer, this.camera, () => this.request());
       item.bookletModel.addEventListener('pagechange', () => {
         if (this.magazine === item.bookletModel) this.reportPage();
       });
@@ -2915,66 +2998,110 @@ export class GalleryScene {
         material.envMap = this.environment.texture;
         material.envMapIntensity = C.environmentIntensity;
       }
-      // Until the artwork arrives (and in its place should it fail), the booklet's cover from
-      // makeCase stands in for the disc's print and the case's. Not uploaded: the artwork follows
-      // within moments, and this is drawn only if the load times out.
+      // Until the artwork arrives, the booklet's cover from makeCase, the album's colour, stands
+      // in for the disc's print and the case's. Not uploaded: the artwork follows within moments,
+      // and this is drawn only if the load times out (prepare).
       const placeholder = item.bookletSources[0] as HTMLCanvasElement;
-      this.setArt(item.disc, placeholder, false, false);
+      this.setArt(item.disc, placeholder);
       this.setPrint(item, 'cover', placeholder);
       // The disc prefers a scan of the printed disc, then the cover. The reveal waits for these
-      // two, which show on the row; the back insert and the booklet's back page follow on their
-      // own, since they show only once a case is turned over or opened (on a slow connection the
-      // two halves of the artwork would otherwise double the wait). Both are generated when there
-      // is no scan.
-      pending.push(Promise.all([this.loadImage(album.disc), this.loadImage(album.cover)]).then(([scan, cover]) => {
+      // two, which show on the row; the back insert and the booklet's back page come once the row
+      // is up and the intro done (afterIntro), since they show only once a case is turned over or
+      // opened: loaded alongside, they took bandwidth from the row on a slow connection, and the
+      // browser counted them against its first big paint. Both are generated when there is no scan.
+      const small = narrow && Boolean(album.discSmall || album.coverSmall);
+      const first = small ? [album.discSmall ?? album.disc, album.coverSmall ?? album.cover] : [album.disc, album.cover];
+      // The front case and its neighbours, which the reveal waits for, ahead of the rest.
+      const priority = Math.abs(index - this.position) <= C.revealRadius ? 'high' : 'auto';
+      pending.push(Promise.all([this.loadImage(first[0], priority), this.loadImage(first[1], priority)]).then(async ([scan, cover]) => {
         if (item.disposed) return;
-        if (scan || cover) this.setArt(item.disc, (scan || cover)!, Boolean(scan));
-        if (cover) this.setPrint(item, 'cover', makeSquareCanvas(cover));
-        this.syncBooklet(item);
+        const fallback = scan && cover ? null : makeFallbackArt(album, seed);
+        if (!(await this.applyArt(item, scan, cover, fallback))) return;
+        item.artLoaded = true;
+        item.artSmall = small;
         this.onProgress?.((loaded += 1), albums.length);
-        void Promise.all([this.loadImage(album.back), this.loadImage(album.bookletBack)]).then(([back, bookletBack]) => {
-          if (item.disposed) return;
-          this.setPrint(item, 'insert', makeInsertCanvas(album, back));
-          this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack, album.bookletBackCrop) : makeBookletBackCanvas(album));
-          this.syncBooklet(item);
-        });
+        // A link to this case open shows its inside at the reveal, so that comes with the row.
+        if (this.openOnReveal && index === this.position) this.loadInsert(item, album);
       }));
       this.gallery.add(item.group);
       return item;
     });
-    this.loaded = Promise.all(pending);
+    // The reveal waits for the front case's artwork and its neighbours' within revealRadius (the
+    // whole row at Infinity); the rest arrives as the intro plays, one upload per frame.
+    this.loaded = Promise.all(pending.filter((_, index) => Math.abs(index - this.position) <= C.revealRadius));
     this.request(3);
   }
 
   // Resolves with the image, decoded, or null when there is no URL or it fails to load. Decoded
   // here, off the main thread, rather than when it is first drawn, which would decode it on the
   // main thread then (an AVIF of this size takes it 20 ms or more).
-  private loadImage(url: string | undefined) {
+  private loadImage(url: string | undefined, priority: 'high' | 'auto' = 'auto') {
     return new Promise<HTMLImageElement | null>((resolve) => {
       if (!url) return resolve(null);
       const image = new Image();
       image.decoding = 'async';
+      image.fetchPriority = priority;
       image.onload = () => image.decode().then(() => resolve(image), () => resolve(image));
       image.onerror = () => resolve(null);
       image.src = url;
     });
   }
 
-  // upload: send the texture to the GPU now; a first upload mid-scroll stalls the frame.
-  private setArt(disc: Disc, image: Picture, scan = false, upload = true) {
-    const art = makeArtTexture(image, this.shared.anisotropy, scan);
+  // Puts a disc scan and a cover on a case, or the generated art where one is missing: the disc's
+  // print (the disc found in the scan off the main thread) uploaded in a frame of its own, then
+  // the cover, which the booklet takes as its outer page. False if the case went meanwhile.
+  private async applyArt(item: JewelCase, scan: HTMLImageElement | null, cover: HTMLImageElement | null, fallback: HTMLCanvasElement | null) {
+    const crop = scan ? await locateDisc(scan) : null;
+    if (item.disposed) return false;
+    await this.upload(this.setArt(item.disc, scan || cover || fallback!, crop));
+    if (item.disposed) return false;
+    this.setPrint(item, 'cover', cover ? makeSquareCanvas(cover) : fallback!);
+    this.syncBooklet(item);
+    return true;
+  }
+
+  // Phones got the row's artwork small first (setAlbums); once the row is up and the intro done
+  // (afterIntro), the full-size files come in, ahead of the inserts, and replace it one upload
+  // per frame. Resolves once they are all in (at once where none were small).
+  private sharpenArt() {
+    return Promise.all(this.cases.map(async (item, index) => {
+      if (!item.artSmall) return;
+      const album = this.albums[index];
+      const [scan, cover] = await Promise.all([this.loadImage(album.disc, 'high'), this.loadImage(album.cover, 'high')]);
+      if (item.disposed || !item.artSmall || !(scan || cover)) return;
+      if (await this.applyArt(item, scan, cover, null)) item.artSmall = false;
+    }));
+  }
+
+  // Loads a case's back insert and the booklet's back page, seen once it is turned over or opened,
+  // and puts them in as they arrive. Both are generated when there is no scan.
+  private loadInsert(item: JewelCase, album: Album) {
+    if (item.insertLoaded) return;
+    item.insertLoaded = true;
+    void Promise.all([this.loadImage(album.back), this.loadImage(album.bookletBack)]).then(([back, bookletBack]) => this.inFrame(() => {
+      if (item.disposed) return;
+      this.setPrint(item, 'insert', makeInsertCanvas(album, back));
+      this.setPrint(item, 'bookletBack', bookletBack ? makeSquareCanvas(bookletBack, album.bookletBackCrop) : makeBookletBackCanvas(album));
+      this.syncBooklet(item);
+    }));
+  }
+
+  // Returns the texture, not yet on the GPU: the caller queues that (upload) when the disc will
+  // be drawn soon.
+  private setArt(disc: Disc, image: Picture, crop: Crop | null = null) {
+    const art = makeArtTexture(image, this.shared.anisotropy, crop);
     disc.art?.dispose();
     disc.art = art;
     disc.frontMaterial.map = art;
-    if (upload) this.renderer.initTexture(art);
     disc.frontMaterial.needsUpdate = true;
     this.request();
+    return art;
   }
 
   // Sets one of a case's printed parts: the cover, the back insert or the booklet's back page. The
   // cover and the back page are drawn as the booklet's outer pages: it gets the same textures (one
   // copy of each in memory) once syncBooklet is called, and uploads them itself; only the insert's
-  // is uploaded here (now, since a first upload mid-scroll stalls the frame).
+  // is uploaded from here, through the frame loop's queue (upload).
   private setPrint(item: JewelCase, part: PrintPart, canvas: HTMLCanvasElement) {
     const material = item.prints[part];
     const texture = new THREE.CanvasTexture(canvas);
@@ -2983,7 +3110,7 @@ export class GalleryScene {
     material.map?.dispose();
     material.map = texture;
     material.color.set('#ffffff');
-    if (part === 'insert') this.renderer.initTexture(texture);
+    if (part === 'insert') void this.upload(texture);
     material.needsUpdate = true;
     if (part === 'cover' || part === 'bookletBack') item.bookletSources[part === 'cover' ? 0 : item.bookletSources.length - 1] = texture;
     this.request();
@@ -3003,12 +3130,14 @@ export class GalleryScene {
     if (this.readOnReveal && this.openOnReveal) this.openBooklet(true);
     if (this.reducedMotion) {
       this.intro.active = this.intro.others = 1;
+      this.afterIntro();
       return;
     }
     // The neighbours' tween ends first (at 0.95 of the duration), so this one marks the intro's end.
     this.introTween = this.tween(this.intro, { active: 1 }, C.introDuration, ease.glide, () => {
       this.introTween = null;
       this.updateCursor();
+      this.afterIntro();
     });
     this.tween(this.intro, { others: 1 }, C.introDuration * 0.85, ease.linear, null, C.introDuration * 0.1);
   }
@@ -3137,6 +3266,7 @@ export class GalleryScene {
     const item = this.cases[this.opened];
     if (!this.ready || !item || this.inPlayer || this.reading >= 0 || (this.listening >= 0 && this.listening !== this.opened)) return;
     if (!atOnce && !this.fullyOpen(item)) return;
+    this.buildPlayer();
     this.inPlayer = true;
     if (this.listening < 0) {
       this.listening = this.opened;
@@ -3181,8 +3311,69 @@ export class GalleryScene {
 
   // The screen stays dark until the disc has landed, and goes dark as it leaves.
   private drawScreen() {
-    drawPlayerScreen(this.player, this.seated ? this.screenState : { track: null, seconds: 0, playing: false }, performance.now() / 1000);
+    if (!this.playerBuilt) return;
+    drawPlayerScreen(this.playerBuilt, this.seated ? this.screenState : { track: null, seconds: 0, playing: false }, performance.now() / 1000);
     this.request();
+  }
+
+  // The player, built if it isn't yet. Its extruded body, buttons and screen are a slice of the
+  // start the row doesn't need, so it is made in idle time after the intro (playIntro), or at
+  // once for a Listen before that. Its shaders compile from here, in parallel, rather than in the
+  // first frame it shows.
+  private buildPlayer() {
+    if (this.playerBuilt) return this.playerBuilt;
+    const player = (this.playerBuilt = makePlayer(this.shared.anisotropy, this.shared.textures.trayNormal));
+    player.group.scale.setScalar(this.playerScale);
+    this.scene.add(player.group);
+    this.drawScreen();
+    player.group.visible = true;
+    void this.renderer.compileAsync(player.group, this.camera, this.scene).catch(() => {});
+    player.group.visible = false;
+    return player;
+  }
+
+  private get player() {
+    return this.buildPlayer();
+  }
+
+  // Once the row is up and still: the full-size artwork for phones, then the cases' insides, and
+  // the player in idle time. None of it during the intro, which it would hitch, nor with the
+  // reveal, whose paint it would delay on a slow connection.
+  private afterIntro() {
+    void this.sharpenArt().then(() => {
+      if (this.destroyed) return;
+      this.cases.forEach((item, index) => this.loadInsert(item, this.albums[index]));
+    });
+    this.buildPlayerWhenIdle();
+  }
+
+  private buildPlayerWhenIdle() {
+    if (this.playerBuilt) return;
+    const build = () => { if (!this.destroyed) this.buildPlayer(); };
+    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(build, { timeout: 2000 });
+    else window.setTimeout(build, 300);
+  }
+
+  // Runs `job` in a coming frame, one job per frame, and resolves once it has run (or, should the
+  // collection go first, without running it). Ten arrivals handled as they came held a phone's
+  // main thread for a long moment.
+  private inFrame(job: () => void) {
+    return new Promise<void>((done) => {
+      this.frameJobs.push({ run: job, done });
+      this.request();
+    });
+  }
+
+  // Sends a texture to the GPU in a coming frame; otherwise it is uploaded in the first frame that
+  // draws it, which stalls that frame.
+  private upload(texture: THREE.Texture) {
+    return this.inFrame(() => this.renderer.initTexture(texture));
+  }
+
+  private dropFrameJobs() {
+    const jobs = this.frameJobs;
+    this.frameJobs = [];
+    jobs.forEach((job) => job.done());
   }
 
   private animateListen(to: number, atOnce = false) {
@@ -3571,6 +3762,17 @@ export class GalleryScene {
 
   // Eases a case to rest at a turn of `rest` (0 is the front, ±π the back), then wraps the angle
   // into one turn so later flips start from there.
+  // A touch held still on the front case for flipHoldTime turns it over, or back: on touch a
+  // horizontal drag browses the row, so the mouse's drag to turn the case isn't there.
+  private holdFlip() {
+    const press = this.press;
+    if (!press || this.dragging || press.grabbed < 0 || this.opened >= 0) return;
+    const item = this.cases[press.grabbed];
+    if (!item) return;
+    press.held = true;
+    this.settleSpin(press.grabbed, item.spinRest + Math.PI, C.flipDuration);
+  }
+
   private settleSpin(index: number, rest: number, duration: number = C.resetDuration) {
     const item = this.cases[index];
     if (!item) return;
@@ -3705,7 +3907,10 @@ export class GalleryScene {
       locked, spinVelocity: 0,
       // Only the case in front can be grabbed and turned.
       grabbed: !locked && hit >= 0 && Math.abs(hit - this.position) < 0.6 ? hit : -1,
+      hold: 0, held: false,
     };
+    // A touch held still on the front case turns it over (holdFlip).
+    if (this.press.touch && this.press.grabbed >= 0) this.press.hold = window.setTimeout(() => this.holdFlip(), C.flipHoldTime * 1000);
     this.hovered = hit;
     window.addEventListener('pointermove', this.onPointerDrag, { passive: false });
     window.addEventListener('pointerup', this.onPointerUp);
@@ -3748,6 +3953,7 @@ export class GalleryScene {
       const dx = point.x - press.startX;
       const dy = point.y - press.startY;
       if (Math.hypot(dx, dy) < C.dragStartDistance) return;
+      clearTimeout(press.hold);
       // Horizontal touch drags browse instead of turning the front case.
       if (press.touch && Math.abs(dx) >= Math.abs(dy)) press.grabbed = -1;
       this.startDrag(event);
@@ -3790,6 +3996,7 @@ export class GalleryScene {
   private endPress(event: PointerEvent, cancelled: boolean) {
     const press = this.press;
     if (!press || event.pointerId !== press.id) return;
+    clearTimeout(press.hold);
     const wasDragging = this.dragging;
     const spinning = this.spinning;
     this.press = null;
@@ -3805,6 +4012,11 @@ export class GalleryScene {
       if (this.element.hasPointerCapture(press.id)) this.element.releasePointerCapture(press.id);
     } catch {}
     this.request();
+    // The release after a hold that turned the case is no tap.
+    if (press.held && !wasDragging) {
+      this.suppressClickUntil = performance.now() + 140;
+      return;
+    }
     if (!wasDragging) return;
     this.suppressClickUntil = performance.now() + 140;
     if (press.locked) {
@@ -3838,6 +4050,10 @@ export class GalleryScene {
     }
     // Mouse releases keep their momentum; the render loop applies friction and then snaps.
     if (this.reducedMotion) this.goTo(Math.round(this.position));
+  }
+
+  private onContextMenu(event: Event) {
+    event.preventDefault();
   }
 
   private onClick(event: MouseEvent) {
@@ -3968,7 +4184,8 @@ export class GalleryScene {
     const halfWidth = halfHeight * aspect;
     this.playerRest.set(0, halfHeight * (short ? C.playerRaiseShort : C.playerRaise), 0);
     this.setLens(this.lens, this.lensRise);
-    this.player.group.scale.setScalar(MM * C.playerScale * clamp(halfWidth / 1.4, 0.4, 1) * (short ? C.playerScaleShort : 1));
+    this.playerScale = MM * C.playerScale * clamp(halfWidth / 1.4, 0.4, 1) * (short ? C.playerScaleShort : 1);
+    this.playerBuilt?.group.scale.setScalar(this.playerScale);
     // The booklet's page, as large as its open spread fits, or on phones its single page.
     this.bookletSingle = narrow;
     this.bookletPage = Math.min(narrow ? halfWidth * 2 * C.bookletFitNarrow : halfWidth * C.bookletFitWidth, halfHeight * 2 * C.bookletFitHeight);
@@ -3994,7 +4211,9 @@ export class GalleryScene {
   private applyPixelRatio() {
     const width = Math.max(1, this.element.clientWidth);
     const height = Math.max(1, this.element.clientHeight);
-    let ratio = Math.min(window.devicePixelRatio || 1, width <= 767 ? 1.5 : 2);
+    // Capped: a phone's 3× would be nine times a 1× screen's pixels; MSAA smooths the edges there
+    // (the renderer's antialias) rather than resolution. Was 1.5 on screens 767 px and narrower.
+    let ratio = Math.min(window.devicePixelRatio || 1, width <= 767 ? C.pixelRatioNarrow : C.pixelRatioWide);
     if (width * height * ratio * ratio > C.maxPixels) ratio = Math.sqrt(C.maxPixels / (width * height));
     this.renderer.setPixelRatio(ratio * QUALITY[this.quality]);
     this.renderer.setSize(width, height);
@@ -4100,9 +4319,20 @@ export class GalleryScene {
       if (item.bookletModel.tick(now)) this.forceFrames = Math.max(this.forceFrames, 2);
     }
     this.updateBooklet(dt);
+    if (this.frameJobs.length && !this.jobTimer) {
+      this.jobTimer = window.setTimeout(() => {
+        this.jobTimer = 0;
+        const job = this.frameJobs.shift();
+        if (job && !this.destroyed) {
+          job.run();
+          job.done();
+        }
+        this.request();
+      });
+    }
     this.renderer.render(this.scene, this.camera);
     if (this.forceFrames > 0) this.forceFrames -= 1;
-    const busy = this.press || this.inertia !== 0 || this.settle !== 0 || this.flow !== 0 || this.tweens.size || residual > 0.001 || this.forceFrames > 0 || this.spinRate > 0;
+    const busy = this.press || this.inertia !== 0 || this.settle !== 0 || this.flow !== 0 || this.tweens.size || residual > 0.001 || this.forceFrames > 0 || this.spinRate > 0 || this.frameJobs.length > 0;
     if (busy) this.raf = requestAnimationFrame(this.frame);
   }
 
@@ -4121,7 +4351,8 @@ export class GalleryScene {
     this.gallery.position.z = 0;
     if (this.ready) this.gallery.visible = away < 0.999;
     this.setLens(away, pan);
-    const player = this.player.group;
+    if (!this.playerBuilt) return;
+    const player = this.playerBuilt.group;
     player.visible = pan > 0.001;
     player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan - ease.power3In(this.leave) * C.leaveDrop, this.playerRest.z);
     // With the disc landed, the player leans toward the cursor like the open case, only less; it
@@ -4702,11 +4933,13 @@ export class GalleryScene {
     clearTimeout(this.loadTimer);
     cancelAnimationFrame(this.raf);
     clearTimeout(this.wheel.timer);
+    clearTimeout(this.jobTimer);
     this.resizeObserver.disconnect();
     this.element.removeEventListener('pointerdown', this.onPointerDown);
     this.element.removeEventListener('pointermove', this.onPointerMove);
     this.element.removeEventListener('pointerleave', this.onPointerLeave);
     this.element.removeEventListener('click', this.onClick);
+    this.element.removeEventListener('contextmenu', this.onContextMenu);
     this.element.removeEventListener('wheel', this.onWheel);
     // removeEventListener's options type has no passive; the cast keeps the call as it was.
     window.removeEventListener('pointermove', this.onPointerDrag, { passive: false } as AddEventListenerOptions);
@@ -4715,7 +4948,7 @@ export class GalleryScene {
     // Emptying the collection is no loading progress to report.
     this.onProgress = undefined;
     this.setAlbums([]);
-    this.player.resources.forEach((resource) => resource.dispose());
+    this.playerBuilt?.resources.forEach((resource) => resource.dispose());
     const { textures, geometries, materials } = this.shared;
     [...Object.values(textures), ...Object.values(geometries), ...Object.values(materials)].forEach((resource) => resource.dispose());
     this.bookletFloor.geometry.dispose();

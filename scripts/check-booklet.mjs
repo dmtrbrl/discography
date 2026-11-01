@@ -14,7 +14,9 @@ try {
     [1440, 900, 'surrender', 'no-preference'],
     [390, 844, 'surrender', 'no-preference'],
     [844, 390, 'mutter', 'no-preference'],
-    [390, 844, 'citizen-of-glass', 'reduce'],
+    // Reduced motion counts on desktop screens; phones play the motion regardless (scene.ts,
+    // prefersReducedMotion).
+    [1440, 900, 'citizen-of-glass', 'reduce'],
   ]) {
     const page = await browser.newPage({ viewport: { width, height }, reducedMotion });
     const errors = [], interiorRequests = [];

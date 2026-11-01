@@ -6,7 +6,10 @@
 // script saves the archive's JPEGs, which are two to five times larger than needed. Paths in
 // collection.json (relative to each album's folder, public/albums/<id>/) are rewritten to the .avif
 // files, and a JPEG inside that folder is removed once converted; a source elsewhere is left alone.
-// Already converted albums are skipped. Needs Node 18+ and the sharp dev dependency (npm install).
+// Already converted albums are skipped. The disc and the cover also get a small copy each
+// (<name>-small.avif, with a .webp twin), recorded as discSmall and coverSmall: phones load those
+// first, so the row shows sooner on a slow connection, and the full size once it is up (scene.ts,
+// setAlbums). Needs Node 18+ and the sharp dev dependency (npm install).
 import sharp from 'sharp';
 import { readFile, writeFile, unlink, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,6 +32,12 @@ const KINDS = {
   bookletScans: { size: 2048, avif: 52, webp: 78 },
 };
 const SOURCES = /\.(jpe?g|png)$/i;
+// The small copies: the cover at 640 px, which a phone's front case draws at about 700 device
+// pixels; the disc at 512 px, since on the row it shows only round the booklet, shaded.
+const SMALL = {
+  disc: { size: 512, avif: 58, webp: 84, key: 'discSmall' },
+  cover: { size: 640, avif: 62, webp: 86, key: 'coverSmall' },
+};
 
 const size = async (file) => (await stat(file).catch(() => null))?.size ?? 0;
 const totals = {};
@@ -64,13 +73,44 @@ async function convert(albumDir, relative, kind) {
   return relativeAvif;
 }
 
-for (const album of config.albums) {
+// Makes the small copy of a converted image, unless both files are there; returns its path.
+async function shrink(albumDir, relative, kind) {
+  const settings = SMALL[kind];
+  const source = path.resolve(albumDir, relative);
+  const base = source.replace(/\.[^.]+$/, '-small');
+  const relativeSmall = relative.replace(/\.[^.]+$/, '-small.avif');
+  if ((await size(`${base}.avif`)) && (await size(`${base}.webp`))) return relativeSmall;
+  if (!(await size(source))) {
+    console.warn(`  ! ${relative}: missing, no small copy`);
+    return undefined;
+  }
+  const image = sharp(source).resize({ width: settings.size, height: settings.size, fit: 'inside', withoutEnlargement: true });
+  await image.clone().avif({ quality: settings.avif, effort: 4, chromaSubsampling: '4:4:4' }).toFile(`${base}.avif`);
+  await image.clone().webp({ quality: settings.webp, effort: 6, smartSubsample: true }).toFile(`${base}.webp`);
+  console.log(`  ${relativeSmall} ${((await size(`${base}.avif`)) / 1024).toFixed(0)} KB`);
+  return relativeSmall;
+}
+
+// Puts `key` right after `after` in the album's entry, so collection.json reads in order.
+function placeAfter(album, after, key, value) {
+  const entries = Object.entries(album).filter(([name]) => name !== key);
+  const at = entries.findIndex(([name]) => name === after);
+  if (value !== undefined) entries.splice(at + 1, 0, [key, value]);
+  return Object.fromEntries(entries);
+}
+
+for (let i = 0; i < config.albums.length; i++) {
+  let album = config.albums[i];
   if (only.length && !only.includes(album.id)) continue;
   console.log(album.id);
   const albumDir = path.join(dir, album.id);
   for (const kind of ['cover', 'disc', 'back', 'bookletBack']) {
     if (album[kind]) album[kind] = await convert(albumDir, album[kind], kind);
   }
+  for (const kind of ['disc', 'cover']) {
+    if (album[kind]) album = placeAfter(album, kind, SMALL[kind].key, await shrink(albumDir, album[kind], kind));
+  }
+  config.albums[i] = album;
   if (album.bookletScans) album.bookletScans = await Promise.all(album.bookletScans.map((scan) => convert(albumDir, scan, 'bookletScans')));
 }
 await writeFile(jsonPath, `${JSON.stringify(config, null, 2)}\n`);

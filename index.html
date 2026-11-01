@@ -2,7 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: on iPhones the page runs under Safari's bars, which then take its colour
+         (style.css keeps the controls clear of the screen's safe areas). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- The type and the album list, fetched at once rather than after the script has run. The build
          adds a preload for each album's startup artwork here too (vite.config.ts). -->
