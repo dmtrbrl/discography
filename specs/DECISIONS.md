@@ -154,7 +154,11 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   the same task drew the landed booklet white for one frame (seen on desktop and phones, fixed
   1 November 2026). On desktop the pages' textures go to the GPU one per frame during the flight,
   so the landing has nothing left to upload; on touch devices they upload at the landing, while
-  the paper is still, since an upload there could cost a frame of the flight.
+  the paper is still, since an upload there could cost a frame of the flight. Once in, the loaded
+  pages are the booklet's sources, so a cover or back page that arrives later replaces only its
+  own page: reset to the blank inside pages, a phone opened straight into the booklet
+  (`#/<id>/booklet`) showed blank paper inside, since its full-size cover comes after the small
+  one (1 November 2026).
 - On phones the landed booklet switches to the single-page layout, which builds new sheets. When
   the scans arrive after the landing, as in Safari, that happens in the library's ready event,
   inside the frame's tick, so the new sheets are ticked at once: drawn before their first tick
@@ -175,6 +179,16 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   moves (0.74 to 1 played on a still booklet). Lit as LeafThrough lights its demo: sun 2, hemisphere
   1.5 (spread) or 1.7 (single), single-page shadow 0.4, soft shadow edges. Rejected: the key light
   as a second caster; glossier paper.
+- The soft shadow edges are three's PCF filtering done in the shader (`softBasicShadows`): five
+  taps, each a bilinear blend of four direct depth comparisons. three's own PCF reads the map
+  through the GPU's depth comparison, which iOS Safari got wrong, putting every lit pixel of the
+  paper in shadow: the booklet flew in shaded and lightened in one frame at the landing, as a
+  phone's reader eased the shadow to 0.4. Measured in the iOS Simulator (iOS 26.5) and in a bare
+  three.js scene there; desktop frames match the old ones (1 November 2026).
+- The paper's lit side is told by the direction to the camera, not by the sign of its normal's
+  view z as LeafThrough 0.1.7 does (patched in makeCase): off the middle of the view, as the
+  booklet lifts from a phone's lid near the screen's edge, the curl's slanted part was lit as its
+  other side, a light band with a stepped border along the bend (1 November 2026).
 - Dev only: Shift+D opens a slow-motion panel (1×, 0.5×, 0.25×, 0.1×, pause). A scrub slider and a
   motion dashboard with persisted overrides were removed; tuning goes through `C`.
 

@@ -74,7 +74,7 @@ PLAYWRIGHT_CORE=../leafthrough/node_modules/playwright-core/index.mjs node scrip
 
 | Script | What it checks |
 | --- | --- |
-| `check-booklet.mjs` | The booklet's lifecycle: sheet count, no early interior requests, the same page object in flight and in the reader, no automatic first turn, outside clicks, Escape and Close, reopening, the gallery's lighting restored; Surrender on desktop and a portrait phone, Mutter on a landscape phone, Citizen of Glass with reduced motion (on desktop: phones play the motion regardless). |
+| `check-booklet.mjs` | The booklet's lifecycle: sheet count, no early interior requests, the same page object in flight and in the reader, no automatic first turn, outside clicks, Escape and Close, reopening, the gallery's lighting restored; Surrender on desktop and a portrait phone, Mutter on a landscape phone, Citizen of Glass with reduced motion (on desktop: phones play the motion regardless); Mutter opened straight into the booklet on a phone, keeping its inside pages once the full-size cover arrives. |
 | `check-booklet-roll.mjs [url] [album]` | The page shaders on the GPU through transform feedback: 201 poses of the roll at three screen sizes, clearance of the lid, holders and tray, a reversible path, a flat landing and the paper's speed profile. |
 | `check-case-transition.mjs` | The case's exit for the booklet against Listen's: the same projection at matching pan values, the shared lens, the 2.4 and 1.9 s durations. |
 | `check-insert-path.mjs` | The disc never goes into the player on its way in or out, at ten screen sizes for three albums, and never jumps between samples. |

@@ -476,6 +476,9 @@ const TURN_SCRATCH = { group: new THREE.Quaternion(), turn: new THREE.Quaternion
 
 // Reused by updateBooklet every frame.
 const TUCK_SCRATCH = { point: new THREE.Vector3(), matrix: new THREE.Matrix4() };
+
+// The line in LeafThrough's paper shader (0.1.7) that picks the lit side of a sheet (see makeCase).
+const PAPER_FACING = 'float faceDirection = normal.z >= 0.0 ? 1.0 : -1.0;';
 const BOOKLET_SCRATCH = {
   paper: new THREE.Vector3(),
   restPosition: new THREE.Vector3(), restQuaternion: new THREE.Quaternion(), restScale: new THREE.Vector3(),
@@ -728,6 +731,64 @@ function makeTrayGeometry() {
     turnUp(new THREE.CylinderGeometry(2.6, 2.6, 1, 24)).translate(C.discOffsetX, 0, top + 1.3),
     ...teeth,
   ]);
+}
+
+// three.js's soft (PCF) shadows read the depth map through the GPU's depth comparison
+// (sampler2DShadow), which iOS Safari gets wrong: every lookup came back in shadow, so the
+// booklet's paper was shaded all over in flight and lightened in one frame as a phone's reader
+// eased the shadow to bookletSingleShadow. This does the same lookup in the shader, as three's
+// basic shadows (which read the depth itself) with PCF's five Vogel-disc taps, each compared at its
+// four nearest texels and blended bilinearly, as the comparison does. False if three's chunk has
+// changed shape, leaving PCF as it is.
+function softBasicShadows() {
+  const chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
+  if (chunk.includes('shadowBilinearLit')) return true;
+  // The basic one is the last (the variance one, also on a sampler2D, comes before it).
+  const from = chunk.lastIndexOf('float getShadow( sampler2D shadowMap');
+  if (from < 0) return false;
+  let to = chunk.indexOf('{', from), depth = 0;
+  for (; to < chunk.length; to++) {
+    if (chunk[to] === '{') depth++;
+    else if (chunk[to] === '}' && --depth === 0) break;
+  }
+  if (depth !== 0) return false;
+  THREE.ShaderChunk.shadowmap_pars_fragment = `${chunk.slice(0, from)}
+float interleavedGradientNoise( vec2 position ) {
+  return fract( 52.9829189 * fract( dot( position, vec2( 0.06711056, 0.00583715 ) ) ) );
+}
+vec2 vogelDiskSample( int sampleIndex, int samplesCount, float phi ) {
+  const float goldenAngle = 2.399963229728653;
+  float r = sqrt( ( float( sampleIndex ) + 0.5 ) / float( samplesCount ) );
+  float theta = float( sampleIndex ) * goldenAngle + phi;
+  return vec2( cos( theta ), sin( theta ) ) * r;
+}
+float shadowTexelLit( sampler2D shadowMap, ivec2 texel, ivec2 last, float depth ) {
+  return step( depth, texelFetch( shadowMap, clamp( texel, ivec2( 0 ), last ), 0 ).r );
+}
+float shadowBilinearLit( sampler2D shadowMap, vec2 shadowMapSize, vec2 uv, float depth ) {
+  vec2 p = uv * shadowMapSize - 0.5;
+  ivec2 texel = ivec2( floor( p ) ), last = ivec2( shadowMapSize ) - 1;
+  vec2 f = fract( p );
+  return mix(
+    mix( shadowTexelLit( shadowMap, texel, last, depth ), shadowTexelLit( shadowMap, texel + ivec2( 1, 0 ), last, depth ), f.x ),
+    mix( shadowTexelLit( shadowMap, texel + ivec2( 0, 1 ), last, depth ), shadowTexelLit( shadowMap, texel + ivec2( 1, 1 ), last, depth ), f.x ),
+    f.y );
+}
+float getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowIntensity, float shadowBias, float shadowRadius, vec4 shadowCoord ) {
+  float shadow = 1.0;
+  shadowCoord.xyz /= shadowCoord.w;
+  shadowCoord.z += shadowBias;
+  bool inFrustum = shadowCoord.x >= 0.0 && shadowCoord.x <= 1.0 && shadowCoord.y >= 0.0 && shadowCoord.y <= 1.0;
+  if ( inFrustum && shadowCoord.z <= 1.0 ) {
+    float radius = shadowRadius / shadowMapSize.x;
+    float phi = interleavedGradientNoise( gl_FragCoord.xy ) * PI2;
+    shadow = 0.0;
+    for ( int i = 0; i < 5; i ++ ) shadow += shadowBilinearLit( shadowMap, shadowMapSize, shadowCoord.xy + vogelDiskSample( i, 5, phi ) * radius, shadowCoord.z );
+    shadow *= 0.2;
+  }
+  return mix( 1.0, shadow, shadowIntensity );
+}${chunk.slice(to + 1)}`;
+  return true;
 }
 
 // GLSL for the end of a physical material's fragment shader that swaps the direct lights'
@@ -1883,12 +1944,20 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
     // under it, written as the pages move) is the same uniform object in its colour and shadow
     // programs: caught as they compile, so each draw can widen it by stackLoft. A value other
     // than the one written last is the library's own, the base to widen.
+    // LeafThrough lights the side of the paper whose normal points along the view's z, which is
+    // the side toward the camera only near the middle of the view. Off to one side, as the
+    // booklet lifts from a phone's lid near the screen's edge, the curl's slanted part was lit as
+    // its other side: a light band with a stepped border along the bend. The side is told by the
+    // way to the camera instead.
     const material = node.material as THREE.Material;
     const compile = material.onBeforeCompile;
+    const cacheKey = material.customProgramCacheKey;
     material.onBeforeCompile = (shader, renderer) => {
       compile.call(material, shader, renderer);
+      shader.fragmentShader = shader.fragmentShader.replace(PAPER_FACING, 'float faceDirection = dot(normal, vViewPosition) >= 0.0 ? 1.0 : -1.0;');
       node.userData.stackGap = shader.uniforms.uStackGap;
     };
+    material.customProgramCacheKey = () => `${cacheKey.call(material)}|view-facing`;
     const loft = { base: 0, lofted: NaN };
     node.onBeforeRender = (renderer, _scene, camera) => {
       const gap = (node.userData.stackGap ?? (renderer.properties.get(material) as { uniforms?: { uStackGap?: THREE.IUniform<number> } }).uniforms?.uStackGap) as THREE.IUniform<number> | undefined;
@@ -2730,7 +2799,7 @@ export class GalleryScene {
     // shadow map, so it is drawn once in the first frame: before it exists, the sampler has no depth
     // texture to read and every draw is a WebGL error.
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = softBasicShadows() ? THREE.BasicShadowMap : THREE.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = true;
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -3554,7 +3623,6 @@ export class GalleryScene {
   // when needed to put the back cover on the back. No interior images are fetched before opening.
   private loadBooklet(index: number) {
     const item = this.cases[index];
-    const album = this.albums[index];
     if (item.bookletLoaded) return;
     const request = ++this.bookletRequest;
     (this.bookletPages?.(index) ?? Promise.resolve([])).catch(() => []).then(async (inside) => {
@@ -3583,10 +3651,10 @@ export class GalleryScene {
       item.bookletTextures.forEach((texture) => texture.dispose());
       item.bookletTextures = made.flatMap(({ texture }) => (texture ? [texture] : []));
       const insidePages: PageSource[] = made.map(({ page, texture }) => (texture ? (isPageDescriptor(page) ? { ...page, src: texture } : texture) : page));
-      // The covers are the case's own print textures (setPrint).
-      const cover = item.prints.cover.map;
-      const back = item.prints.bookletBack.map ?? makeBookletBackCanvas(album);
-      const pages: PageSource[] = [...(cover ? [cover] : []), ...insidePages];
+      // The covers are the case's own print textures (setPrint), or its stand-ins until they come.
+      const cover = item.prints.cover.map ?? item.bookletSources[0];
+      const back = item.prints.bookletBack.map ?? item.bookletSources[item.bookletSources.length - 1];
+      const pages: PageSource[] = [cover, ...insidePages];
       // A transparent page is unprinted paper.
       if (pages.length % 2 === 0) pages.push(Object.assign(document.createElement('canvas'), { width: 2, height: 2 }));
       pages.push(back);
@@ -3596,6 +3664,11 @@ export class GalleryScene {
         if (request !== this.bookletRequest || this.destroyed || this.reading !== index) return;
         item.bookletLoaded = true;
         item.bookletReady = false;
+        // From now on these are the booklet's pages: a cover or back page arriving later
+        // (setPrint, syncBooklet) replaces its own page among them. Reset to the blank inside
+        // pages instead, a phone opened straight into the booklet lost its scans to the full-size
+        // cover, which comes after the small one.
+        item.bookletSources = pages;
         item.bookletModel.update({ pages, preload: pages.length });
         this.request();
       };

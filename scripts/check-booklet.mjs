@@ -80,6 +80,20 @@ try {
     console.log(`${width} × ${height} ${album} (${reducedMotion}): passes; ${initial.sheets} sheets already in the case, no early interior requests`);
     await page.close();
   }
+  // A phone opened straight into the booklet: the full-size cover comes after the scans and
+  // replaces only the cover page (it once put the blank inside pages back).
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await page.goto(`${url}#/mutter/booklet`);
+  await page.waitForFunction(() => window.scene?.bookletShown && !window.scene.viewBusy(), null, { timeout: 30000 });
+  await page.waitForFunction(() => !window.scene.cases[window.scene.reading].artSmall, null, { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const inside = await page.evaluate(() => {
+    const scene = window.scene, item = scene.cases[scene.reading];
+    return scene.magazine.view.engine.sheets.filter((sheet) => item.bookletTextures.includes(sheet.uniforms.uFront.value)).length;
+  });
+  assert.equal(inside, 14, 'Opened straight into the booklet, Mutter keeps its fourteen inside pages');
+  console.log('390 × 844 mutter (opened at the booklet): passes; the inside pages stay after the full-size cover');
+  await page.close();
 } finally {
   await browser.close();
 }
