@@ -304,7 +304,7 @@ interface Push {
   pushRotX: number; pushRotY: number; pushRotVX: number; pushRotVY: number;
 }
 
-interface Disc extends Push {
+interface Disc {
   group: THREE.Group;
   spin: THREE.Group;
   pick: THREE.Mesh;
@@ -316,11 +316,6 @@ interface Disc extends Push {
   frontMaterial: THREE.MeshPhysicalMaterial;
   art: THREE.CanvasTexture | null;
   disposed: boolean;
-  hover: number;
-  spinX: number;
-  spinY: number;
-  resetTween: Tween | null;
-  placed: boolean;
 }
 
 type PrintPart = 'cover' | 'bookletBack' | 'insert';
@@ -1773,11 +1768,7 @@ function makeDisc(shared: SharedResources, seed: number): Disc {
   // The flat, invisible pick disc stays outside the spin group so hit tests ignore spin and flip.
   const pick = new THREE.Mesh(geometries.pick, materials.pick);
   group.add(pick);
-  return {
-    group, spin, pick, shade, blur, materials: [frontMaterial, backMaterial, hubMaterial], frontMaterial, art: null, disposed: false,
-    hover: 0, spinX: 0, spinY: 0, resetTween: null, placed: false,
-    pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
-  };
+  return { group, spin, pick, shade, blur, materials: [frontMaterial, backMaterial, hubMaterial], frontMaterial, art: null, disposed: false };
 }
 
 // The page object's place inside the booklet's bounds: a page (120 mm) to its unit, the cover's
@@ -3820,10 +3811,11 @@ export class GalleryScene {
       this.inertia = 0;
       return;
     }
-    if (spinning >= 0) {
+    // The grabbed case, if one was (spinning is -1 otherwise) and it is still in the row.
+    const item: JewelCase | undefined = this.cases[spinning];
+    if (item) {
       // Turned past halfway, or flicked, the case turns over; otherwise it eases back to where it
       // rested. A pause before letting go counts as no flick.
-      const item = this.cases[spinning];
       const turned = item.spinY - item.spinRest;
       const flick = performance.now() - press.lastTime < 80 && Math.abs(press.spinVelocity) > C.flipFlickVelocity;
       if (Math.abs(turned) > Math.PI / 2) this.settleSpin(spinning, item.spinRest + Math.sign(turned) * Math.PI, C.flipDuration);
@@ -4720,6 +4712,8 @@ export class GalleryScene {
     window.removeEventListener('pointermove', this.onPointerDrag, { passive: false } as AddEventListenerOptions);
     window.removeEventListener('pointerup', this.onPointerUp);
     window.removeEventListener('pointercancel', this.onPointerCancel);
+    // Emptying the collection is no loading progress to report.
+    this.onProgress = undefined;
     this.setAlbums([]);
     this.player.resources.forEach((resource) => resource.dispose());
     const { textures, geometries, materials } = this.shared;

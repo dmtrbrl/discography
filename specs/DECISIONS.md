@@ -31,7 +31,7 @@ update the section it belongs to rather than appending a dated entry.
   per view, jumps for distant changes and steps for adjacent ones; an about page.
 - **Loading**: AVIF artwork at the drawn sizes with WebP twins, self-hosted type, preloads after the
   script, procedural textures from a worker, a reveal that waits for the row's discs and covers
-  only. Lighthouse 12: 63 mobile, 98 desktop.
+  only. Lighthouse 12.8 (1 November 2026): 68 mobile, 98 desktop.
 - **The data**: `public/albums/collection.json` and `public/albums/<id>/`. The ten albums are
   final, each with a verified stapled booklet, the printed disc and the back insert of a real
   edition, recorded in `sources`.
@@ -107,8 +107,9 @@ strobing.
 ### The booklet
 
 The implementation, the tuning table and the full list of rejected approaches are in
-[BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md) (section 13 for the rejections). The decisions in
-short:
+[BOOKLET_ANIMATION.md](BOOKLET_ANIMATION.md) (section 13 for the rejections). The motion was
+signed off as final on 1 November 2026: the way out, the landing, the lighting crossfade, the
+paper's show-through and the phone's single layout stay as they are. The decisions in short:
 
 - One physical page stack from the start: each case holds a `LeafThroughObject` with the real page
   count, the cover and back page it already shows, and blank inside pages; the inside scans load
@@ -184,7 +185,9 @@ short:
   bubble group so the dot shows the whole row. On phones a line under the row names the track.
   The bottom row keeps the caption (inactive, it only names the album) with Apple and Spotify on
   the left (Apple first: the previews are theirs) and Buy the CD on the right, shown with the
-  transport row. "Apple", not "Apple Music": next to Spotify the service is clear and the pair
+  transport row. Buy the CD is an Amazon search for the artist, title and CD; hand-picked shop
+  links were considered and not wanted (an album's `buy` in collection.json would override the
+  search). "Apple", not "Apple Music": next to Spotify the service is clear and the pair
   stays as wide as Buy the CD on phones.
   Booklet and Listen come back only once an ejected disc is back in its case.
 
@@ -263,7 +266,11 @@ short:
   takes them as they are, without a second upload); shaders compile with `compileAsync`; images
   decode off the main thread.
   Longest task before the reveal: 79 ms (was 1,064 ms). Booklet scans that arrive during the flight
-  wait for the landing (`pendingPages`).
+  wait for the landing (`pendingPages`); that and the grain from the worker stay after the
+  measurement on LeafThrough 0.1.7 (Lighthouse 12.8, 1 November 2026, three runs each: 68 mobile,
+  98 desktop; the mobile score is held by the LCP, the album title at 6.0 s on the emulated slow
+  4G, and by 0.4 s of blocking time at its 4× CPU slowdown): dropping them could only bring back
+  the hitch in the flight, not move the score.
 - Frame budget: adaptive resolution (the pixel ratio steps down when frames run long), an 8 MP
   canvas cap, no MSAA on high-DPI screens, no `transmission` anywhere (two renders a frame and a
   blurred copy of the art), textures uploaded at load, the render loop idle when nothing moves.

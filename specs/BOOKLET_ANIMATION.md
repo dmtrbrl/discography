@@ -2,7 +2,7 @@
 
 Implementation reference for the booklet extraction, reading and return animation, as of
 31 October 2026. This document describes the implemented behavior and the decisions made during
-its review; the points still open for sign-off are listed in [ROADMAP.md](ROADMAP.md) under Open.
+its review, signed off as final on 1 November 2026.
 
 The project's state and the decisions to keep are in [DECISIONS.md](DECISIONS.md). The implementation
 lives primarily in [src/scene.ts](../src/scene.ts); page loading and interface controls are in
@@ -130,7 +130,7 @@ At the default strength of one, velocity and acceleration are zero at both endpo
 The same function drives material feed and the normalized carry interval. The case uses
 the separate cubic `power3InOut` curve shared with Listen.
 
-## 5. Out by hand, then round one cylinder (30 October 2026, in review)
+## 5. Out by hand, then round one cylinder (30 October 2026)
 
 The user's description of taking a booklet out of a real case: lift its edge (the hinge strip
 beside it stops it sliding out flat), pull it out on that lift, then turn it smoothly over a big
