@@ -351,12 +351,40 @@ function createPreviews(options: {
   const [failed, setFailed] = createSignal(false);
   const tracks = () => options.album().tracks ?? [];
   let request = 0;
+  // The next track's preview, fetched while the current one plays and kept as an object URL, so a
+  // track change doesn't wait for the network (on iPhones the disc's spin paused while it did).
+  // Apple's preview files allow the cross-origin fetch. `held` is the object URL now playing,
+  // revoked only once the audio has moved on from it (Safari needs it while it plays).
+  let ahead: { index: number; src: string } | null = null;
+  let held: string | null = null;
+  const dropAhead = () => {
+    if (ahead) URL.revokeObjectURL(ahead.src);
+    ahead = null;
+  };
+  async function fetchAhead(index: number) {
+    const album = options.album();
+    const track = tracks()[index];
+    if (index < 0 || !track?.apple || !album.appleMusic || ahead?.index === index) return;
+    const ticket = request;
+    const urls = await loadPreviews(album.appleMusic, album.appleMusicCountry).catch(() => null);
+    const url = urls?.get(track.apple);
+    if (!url || ticket !== request) return;
+    try {
+      const blob = await (await fetch(url)).blob();
+      if (ticket !== request) return;
+      dropAhead();
+      ahead = { index, src: URL.createObjectURL(blob) };
+    } catch {}
+  }
 
   function stop() {
     request++;
     audio.pause();
     audio.removeAttribute('src');
     audio.load();
+    dropAhead();
+    if (held) URL.revokeObjectURL(held);
+    held = null;
     setCurrent(-1);
     setState('stopped');
     setSeconds(0);
@@ -393,7 +421,11 @@ function createPreviews(options: {
       return;
     }
     setFailed(false);
-    audio.src = url;
+    // The preview fetched ahead, if it is this track's; the one played before it can go now.
+    if (held) URL.revokeObjectURL(held);
+    held = ahead?.index === index ? ahead.src : null;
+    if (held) ahead = null;
+    audio.src = held ?? url;
     if (!autoplay) return;
     audio.play().catch(() => {
       if (ticket === request) stop();
@@ -438,6 +470,7 @@ function createPreviews(options: {
   audio.addEventListener('playing', () => {
     setState('playing');
     options.onPlaying(true);
+    void fetchAhead(nextTrack(current()));
   });
   audio.addEventListener('pause', () => {
     // A track change pauses the old track before loading the new one: with the music about to go
@@ -465,6 +498,8 @@ function createPreviews(options: {
     request++;
     audio.pause();
     audio.removeAttribute('src');
+    dropAhead();
+    if (held) URL.revokeObjectURL(held);
   });
 
   return {

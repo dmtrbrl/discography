@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LeafThroughObject } from 'leafthrough';
-import type { LightingOptions, PageSource, PaperDeform } from 'leafthrough';
+import type { LightingOptions, PageDescriptor, PageSource, PaperDeform } from 'leafthrough';
+
+// A page given as a descriptor (the image with what is on it) rather than the image itself.
+const isPageDescriptor = (page: PageSource): page is PageDescriptor => typeof page === 'object' && page !== null && 'src' in page;
 import type { Album } from './collection';
 import { GRAIN_SIZE, generateProcedural, valueNoise } from './procedural';
 import type { ProceduralMaps, ProceduralParams } from './procedural';
@@ -95,7 +98,7 @@ const C = {
   touchDragSpan: 1.8, touchFlickVelocity: 0.035,
   wheelNoiseFloor: 0.3, wheelStepThreshold: 6, wheelEventCap: 24, wheelEnvelopeTau: 550, wheelRiseFactor: 1.2, wheelTickGap: 34, wheelTickRatio: 1,
   wheelPauseGap: 130, wheelIdleReset: 150, wheelMinStepTick: 90, wheelMinStepFlick: 190, wheelSustainDelay: 480, wheelSustainRatio: 0.8,
-  renderRadius: 5, revealRadius: 1, loadTimeout: 12000, artResolution: 1024, mapResolution: 1024, maxPixels: 8e6, pixelRatioNarrow: 2, pixelRatioWide: 2, slowFrame: 0.022, verySlowFrame: 0.04,
+  renderRadius: 5, revealRadius: 1, loadTimeout: 12000, artResolution: 1024, mapResolution: 1024, maxPixels: 8e6, pixelRatioNarrow: 1.5, pixelRatioWide: 2, slowFrame: 0.022, verySlowFrame: 0.04,
   // CD player, in millimetres: a slim, lidless top-loader in glossy graphite, only a little larger
   // than the disc. A glossy top pane with a matte black edge sits playerFrame inside the body's edge,
   // cut round a metal ring (playerRing wide) that slopes down into the well; the disc drops onto the
@@ -333,6 +336,8 @@ interface JewelCase extends Push {
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
   bookletModel: LeafThroughObject;
   bookletSources: PageSource[];
+  // The inside pages' textures, made and uploaded by the gallery (loadBooklet), freed with the case.
+  bookletTextures: THREE.Texture[];
   bookletReady: boolean;
   bookletLoaded: boolean;
   // Whether the disc's print and the cover are the album's artwork rather than the stand-in, and
@@ -1925,7 +1930,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTextures: [], bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -2522,6 +2527,8 @@ export class GalleryScene {
   // The player, once built (buildPlayer): on a Listen, or in idle time after the intro.
   private playerBuilt: Player | null = null;
   private playerScale = 1;
+  // A touch device (a coarse pointer): phones and tablets.
+  private touch = false;
   private playerRest: THREE.Vector3;
   // How far an open case's lid swings, in degrees (lidOpenAngle, or lidOpenAngleNarrow on phones).
   private lidAngle: number = C.lidOpenAngle;
@@ -2690,7 +2697,7 @@ export class GalleryScene {
     // MSAA on screens of one pixel ratio, where edges step, and on touch devices: their tile-based
     // GPUs resolve it cheaply, and their pixel ratio is capped (applyPixelRatio), so without it the
     // cases' edges stepped on phones. Desktop high-DPI screens barely need it, and pay for it.
-    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const coarse = (this.touch = window.matchMedia('(pointer: coarse)').matches);
     this.renderer = new THREE.WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 2 || coarse, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -2961,6 +2968,7 @@ export class GalleryScene {
         material.dispose();
       });
       item.bookletModel.dispose();
+      item.bookletTextures.forEach((texture) => texture.dispose());
       this.gallery.remove(item.group);
     });
     this.albums = albums;
@@ -3326,6 +3334,9 @@ export class GalleryScene {
     player.group.scale.setScalar(this.playerScale);
     this.scene.add(player.group);
     this.drawScreen();
+    // Its textures (the screen, the turntable's grain, the shadow) go to the GPU now too, not in
+    // the first frame of the disc's way in.
+    for (const resource of player.resources) if (resource instanceof THREE.Texture) this.renderer.initTexture(resource);
     player.group.visible = true;
     void this.renderer.compileAsync(player.group, this.camera, this.scene).catch(() => {});
     player.group.visible = false;
@@ -3491,7 +3502,9 @@ export class GalleryScene {
       else {
         const pending = this.pendingPages;
         this.pendingPages = null;
-        pending?.();
+        // In a task of its own, after this frame (loadBooklet); showPages follows the booklet's
+        // ready event.
+        if (pending) void this.inFrame(pending);
         this.showPages();
       }
       this.updateCursor();
@@ -3513,12 +3526,36 @@ export class GalleryScene {
     const album = this.albums[index];
     if (item.bookletLoaded) return;
     const request = ++this.bookletRequest;
-    (this.bookletPages?.(index) ?? Promise.resolve([])).catch(() => []).then((inside) => {
+    (this.bookletPages?.(index) ?? Promise.resolve([])).catch(() => []).then(async (inside) => {
       if (request !== this.bookletRequest || this.destroyed || this.reading !== index) return;
+      // The inside pages as textures, kept on the case to free with it; LeafThrough takes a
+      // texture as it is. On desktop they go to the GPU one per frame during the flight (upload),
+      // so nothing is left to upload at the landing; on a touch device an upload can cost a frame
+      // of the flight, so there they go at the landing, within apply, while the paper is still.
+      const gone = () => request !== this.bookletRequest || this.destroyed || this.reading !== index;
+      const made = inside.map((page) => {
+        const source = isPageDescriptor(page) ? page.src : page;
+        if (source instanceof THREE.Texture || typeof source === 'string') return { page, texture: null };
+        const texture = new THREE.CanvasTexture(source);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = this.shared.anisotropy;
+        return { page, texture };
+      });
+      for (const { texture } of made) {
+        if (!texture || this.touch) continue;
+        await this.upload(texture);
+        if (gone()) {
+          made.forEach((entry) => entry.texture?.dispose());
+          return;
+        }
+      }
+      item.bookletTextures.forEach((texture) => texture.dispose());
+      item.bookletTextures = made.flatMap(({ texture }) => (texture ? [texture] : []));
+      const insidePages: PageSource[] = made.map(({ page, texture }) => (texture ? (isPageDescriptor(page) ? { ...page, src: texture } : texture) : page));
       // The covers are the case's own print textures (setPrint).
       const cover = item.prints.cover.map;
       const back = item.prints.bookletBack.map ?? makeBookletBackCanvas(album);
-      const pages: PageSource[] = [...(cover ? [cover] : []), ...inside];
+      const pages: PageSource[] = [...(cover ? [cover] : []), ...insidePages];
       // A transparent page is unprinted paper.
       if (pages.length % 2 === 0) pages.push(Object.assign(document.createElement('canvas'), { width: 2, height: 2 }));
       pages.push(back);
@@ -3531,10 +3568,11 @@ export class GalleryScene {
         item.bookletModel.update({ pages, preload: pages.length });
         this.request();
       };
-      // LeafThrough uploads the dozen pages at once, which holds the main thread for about three
-      // frames: a hitch in the booklet's flight when the scans arrive during it. Then they wait
-      // for the landing (animateRead); nothing reads them before that.
-      if (this.read >= 1) apply();
+      // Applied in a task of its own (inFrame), never inside a frame: the sheets come new with
+      // the rebuild and take their textures a microtask later, so a render in the same task drew
+      // them white for one frame at the landing. During the flight they wait for the landing
+      // (animateRead); nothing reads them before that.
+      if (this.read >= 1) void this.inFrame(apply);
       else this.pendingPages = apply;
     });
   }
@@ -4211,8 +4249,8 @@ export class GalleryScene {
   private applyPixelRatio() {
     const width = Math.max(1, this.element.clientWidth);
     const height = Math.max(1, this.element.clientHeight);
-    // Capped: a phone's 3× would be nine times a 1× screen's pixels; MSAA smooths the edges there
-    // (the renderer's antialias) rather than resolution. Was 1.5 on screens 767 px and narrower.
+    // Capped: a phone's 3× would be nine times a 1× screen's pixels, and its heat. MSAA smooths the
+    // edges there (the renderer's antialias), not resolution: 2 on a phone ran hot and showed little.
     let ratio = Math.min(window.devicePixelRatio || 1, width <= 767 ? C.pixelRatioNarrow : C.pixelRatioWide);
     if (width * height * ratio * ratio > C.maxPixels) ratio = Math.sqrt(C.maxPixels / (width * height));
     this.renderer.setPixelRatio(ratio * QUALITY[this.quality]);

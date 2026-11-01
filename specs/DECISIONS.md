@@ -108,8 +108,9 @@ strobing.
   A touch held still on the front case for `flipHoldTime` (0.45 s) turns it over, or back, since
   on touch a horizontal drag browses the row (1 November 2026); a long touch opens no selection or
   menu (nothing on the page is selectable but the about page's text). Touch devices render with
-  MSAA and their pixel ratio capped at 2 (`pixelRatioNarrow`; 1.5 without MSAA stepped the cases'
-  edges): their tile-based GPUs resolve it cheaply, and the adaptive resolution still steps down.
+  MSAA, which their tile-based GPUs resolve cheaply, at a pixel ratio capped at 1.5
+  (`pixelRatioNarrow`): without MSAA the cases' edges stepped, and 2 ran a phone hot for little
+  gain; the adaptive resolution still steps down.
 
 ### The booklet
 
@@ -140,6 +141,12 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   onto the cover, and Next stays enabled there. A glitch in that turn (an inside page showing
   under the back cover, then the cover rising through it) was the library's; LeafThrough 0.1.7
   settles the read pages in closed order, cover first, and the gallery uses it since 31 October.
+- The inside pages go in at the landing in a task of their own, never inside a frame: the sheets
+  come new with LeafThrough's rebuild and take their textures a microtask later, so a render in
+  the same task drew the landed booklet white for one frame (seen on desktop and phones, fixed
+  1 November 2026). On desktop the pages' textures go to the GPU one per frame during the flight,
+  so the landing has nothing left to upload; on touch devices they upload at the landing, while
+  the paper is still, since an upload there could cost a frame of the flight.
 - The pages shown are announced only by the hidden live region. The count in the caption and a
   label under the landed booklet were both reverted at the user's request.
 - Paper: a gentle resting curve everywhere (`bookletWrinkles` 0.055, `bookletBulge` 0.22); flat
@@ -187,7 +194,8 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   0.25 s. A click on the landed disc ejects. The player leans toward the cursor at 0.35 of the open
   case's tilt (0.5 felt too strong). A track change keeps the disc spinning: the pause of the old
   preview before the new one loads no longer stops it (the disc coasted down and up at every next
-  or previous).
+  or previous), and the next track's preview is fetched while one plays and kept as an object URL,
+  so a change never waits for the network (Apple's preview files allow the cross-origin fetch).
 - The contact shadow under the player is a canvas blurred as the canvas's own shadow of the shape,
   drawn off the canvas with the shadow shifted back on: the 2D context's blur filter, used before,
   is missing in Safari, where the shadow drew as a hard-edged dark border (1 November 2026).
