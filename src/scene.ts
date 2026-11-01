@@ -108,9 +108,10 @@ const C = {
   playerSize: 146, playerHeight: 18, playerCorner: 7, playerBevel: 1, playerFrame: 1.4, playerRing: 2.2, wellRadius: 62, wellDepth: 10, wellZ: 0, playerDiscDrop: 4,
   playerEnvLift: 1.4, playerAmbient: 0.9, playerColor: '#3a3c41', playerRough: 0.38, playerTop: '#2c2e32', playerTopBack: '#5a5d64', playerTopSheen: 0.12,
   playerChrome: '#e2e4e8', playerTrim: '#141517', playerWell: '#18191c', playerHoles: '#101113',
-  // The ring round the well and the jack's collar: matte black rubber, darker than the body
-  // (polished dark metal until 1 November 2026: it glared on a phone).
-  playerMetal: '#1c1d20', playerRubberRough: 0.9, playerRubberEnv: 0.45,
+  // The ring round the well and the jack's collar: polished dark metal, darker than the body,
+  // dulled (playerRingRough, its clearcoat playerRingCoat, playerRingEnv of the room's light): at
+  // roughness 0.18 with a full clearcoat it glared on a phone, and matte rubber looked worse.
+  playerMetal: '#1c1d20', playerRingRough: 0.32, playerRingCoat: 0.5, playerRingEnv: 0.6,
   // Wear on the body and top: fine scratches and wipe marks that catch the light (playerWear), the
   // wear map repeating every playerWearScale millimetres.
   playerWear: 2.5, playerWearScale: 90, playerTurntableGrain: 14, playerTurntableBump: 1.5, playerTurntableSpeckle: 0.22, playerTurntableTone: 1.15,
@@ -2130,9 +2131,9 @@ function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
   // The pane's edge: matte black, the fine line round the top.
   const trim = keep(new THREE.MeshStandardMaterial({ color: C.playerTrim, roughness: 0.8, metalness: 0, envMapIntensity: C.playerEnvLift }));
   group.add(new THREE.Mesh(keep(makePlayerTopGeometry()), [top, trim]));
-  // The ring round the well, and the jack's collar: matte black rubber, a soft broad sheen and
-  // little of the room in it (thin polished dark metal until 1 November 2026: it glared on a phone).
-  const darkMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerMetal, roughness: C.playerRubberRough, metalness: 0, envMapIntensity: C.playerEnvLift * C.playerRubberEnv, side: THREE.DoubleSide }));
+  // The ring round the well, and the jack's collar: thin polished dark metal, dulled so it
+  // doesn't glare.
+  const darkMetal = keep(new THREE.MeshPhysicalMaterial({ color: C.playerMetal, roughness: C.playerRingRough, metalness: 1, clearcoat: C.playerRingCoat, clearcoatRoughness: 0.25, envMapIntensity: C.playerEnvLift * C.playerRingEnv, side: THREE.DoubleSide }));
   group.add(new THREE.Mesh(keep(makeWellRingGeometry()), darkMetal));
 
   // The well, as on most top-loaders: a matte black floor with one opening toward the back, where
@@ -2315,7 +2316,7 @@ function makePlayer(anisotropy: number, grain: THREE.Texture): Player {
   }
   side.add(grille);
 
-  // The jack: a matte dark collar standing 0.4 mm proud round the dark 3.5 mm socket.
+  // The jack: a dulled polished dark collar standing 0.4 mm proud round the dark 3.5 mm socket.
   const collar = new THREE.Mesh(keep(new THREE.LatheGeometry(
     ([[3.1, 0], [3, 0.25], [2.7, 0.4], [2.15, 0.4], [1.9, 0.2], [1.75, 0]] as Point[]).map(([x, y]) => new THREE.Vector2(x, y)), 48).rotateX(Math.PI / 2)), darkMetal);
   const socket = new THREE.Mesh(keep(new THREE.CircleGeometry(1.75, 32)), holes);

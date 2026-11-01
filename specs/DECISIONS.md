@@ -171,9 +171,10 @@ paper's show-through and the phone's single layout stay as they are. The decisio
 ### The player
 
 - A lidless top-loader with an open round well, slim (18 mm), a little larger than the disc, in
-  glossy graphite with a matte black edge round the top and a ring of matte black rubber round the
-  well, like the jack's collar (polished dark metal until 1 November 2026: it glared on a phone),
-  worn like the cases. Modelled, not painted: no textures but the screen and the
+  glossy graphite with a matte black edge round the top and a thin ring of polished dark metal
+  round the well, like the jack's collar, dulled (roughness 0.32, half a clearcoat, 60% of the
+  room's light: at 0.18 with a full clearcoat it glared on a phone, and matte rubber, tried on
+  1 November 2026, looked worse), worn like the cases. Modelled, not painted: no textures but the screen and the
   contact shadow, no logo or text. The front has a dot-matrix-style screen (DM Sans and DM Mono
   seen through a fine dot grid; a 5 × 7 pixel font read badly) and four buttons; the left side a
   headphone jack and speaker holes. A title too long for the screen rests 1.5 s, scrolls past once
