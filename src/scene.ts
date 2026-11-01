@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { LeafThroughObject } from 'leafthrough';
+import { LeafThroughObject, withSoftBasicShadows } from 'leafthrough';
 import type { LightingOptions, PageDescriptor, PageSource, PaperDeform } from 'leafthrough';
 
 // A page given as a descriptor (the image with what is on it) rather than the image itself.
@@ -341,8 +341,6 @@ interface JewelCase extends Push {
   prints: Record<PrintPart, THREE.MeshStandardMaterial>;
   bookletModel: LeafThroughObject;
   bookletSources: PageSource[];
-  // The pages last given to the booklet (syncBooklet), to rebuild it only when they change.
-  bookletPages: PageSource[];
   // The inside pages' textures, made and uploaded by the gallery (loadBooklet), freed with the case.
   bookletTextures: THREE.Texture[];
   bookletReady: boolean;
@@ -476,11 +474,14 @@ const PLAYER_SCRATCH = {
 // Reused by layout for the disc's turned reflections (see envTurn).
 const TURN_SCRATCH = { group: new THREE.Quaternion(), turn: new THREE.Quaternion(), axis: new THREE.Vector3(0, 1, 0) };
 
+// The longest step a frame takes, in seconds, and the most the motion catches up after the page
+// was hidden (renderFrame).
+const MAX_STEP = 0.05;
+const CATCH_UP = 10;
+
 // Reused by updateBooklet every frame.
 const TUCK_SCRATCH = { point: new THREE.Vector3(), matrix: new THREE.Matrix4() };
 
-// The line in LeafThrough's paper shader (0.1.7) that picks the lit side of a sheet (see makeCase).
-const PAPER_FACING = 'float faceDirection = normal.z >= 0.0 ? 1.0 : -1.0;';
 const BOOKLET_SCRATCH = {
   paper: new THREE.Vector3(),
   restPosition: new THREE.Vector3(), restQuaternion: new THREE.Quaternion(), restScale: new THREE.Vector3(),
@@ -738,59 +739,24 @@ function makeTrayGeometry() {
 // three.js's soft (PCF) shadows read the depth map through the GPU's depth comparison
 // (sampler2DShadow), which iOS Safari gets wrong: every lookup came back in shadow, so the
 // booklet's paper was shaded all over in flight and lightened in one frame as a phone's reader
-// eased the shadow to bookletSingleShadow. This does the same lookup in the shader, as three's
-// basic shadows (which read the depth itself) with PCF's five Vogel-disc taps, each compared at its
-// four nearest texels and blended bilinearly, as the comparison does. False if three's chunk has
-// changed shape, leaving PCF as it is.
-function softBasicShadows() {
-  const chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
-  if (chunk.includes('shadowBilinearLit')) return true;
-  // The basic one is the last (the variance one, also on a sampler2D, comes before it).
-  const from = chunk.lastIndexOf('float getShadow( sampler2D shadowMap');
-  if (from < 0) return false;
-  let to = chunk.indexOf('{', from), depth = 0;
-  for (; to < chunk.length; to++) {
-    if (chunk[to] === '{') depth++;
-    else if (chunk[to] === '}' && --depth === 0) break;
-  }
-  if (depth !== 0) return false;
-  THREE.ShaderChunk.shadowmap_pars_fragment = `${chunk.slice(0, from)}
-float interleavedGradientNoise( vec2 position ) {
-  return fract( 52.9829189 * fract( dot( position, vec2( 0.06711056, 0.00583715 ) ) ) );
-}
-vec2 vogelDiskSample( int sampleIndex, int samplesCount, float phi ) {
-  const float goldenAngle = 2.399963229728653;
-  float r = sqrt( ( float( sampleIndex ) + 0.5 ) / float( samplesCount ) );
-  float theta = float( sampleIndex ) * goldenAngle + phi;
-  return vec2( cos( theta ), sin( theta ) ) * r;
-}
-float shadowTexelLit( sampler2D shadowMap, ivec2 texel, ivec2 last, float depth ) {
-  return step( depth, texelFetch( shadowMap, clamp( texel, ivec2( 0 ), last ), 0 ).r );
-}
-float shadowBilinearLit( sampler2D shadowMap, vec2 shadowMapSize, vec2 uv, float depth ) {
-  vec2 p = uv * shadowMapSize - 0.5;
-  ivec2 texel = ivec2( floor( p ) ), last = ivec2( shadowMapSize ) - 1;
-  vec2 f = fract( p );
-  return mix(
-    mix( shadowTexelLit( shadowMap, texel, last, depth ), shadowTexelLit( shadowMap, texel + ivec2( 1, 0 ), last, depth ), f.x ),
-    mix( shadowTexelLit( shadowMap, texel + ivec2( 0, 1 ), last, depth ), shadowTexelLit( shadowMap, texel + ivec2( 1, 1 ), last, depth ), f.x ),
-    f.y );
-}
-float getShadow( sampler2D shadowMap, vec2 shadowMapSize, float shadowIntensity, float shadowBias, float shadowRadius, vec4 shadowCoord ) {
-  float shadow = 1.0;
-  shadowCoord.xyz /= shadowCoord.w;
-  shadowCoord.z += shadowBias;
-  bool inFrustum = shadowCoord.x >= 0.0 && shadowCoord.x <= 1.0 && shadowCoord.y >= 0.0 && shadowCoord.y <= 1.0;
-  if ( inFrustum && shadowCoord.z <= 1.0 ) {
-    float radius = shadowRadius / shadowMapSize.x;
-    float phi = interleavedGradientNoise( gl_FragCoord.xy ) * PI2;
-    shadow = 0.0;
-    for ( int i = 0; i < 5; i ++ ) shadow += shadowBilinearLit( shadowMap, shadowMapSize, shadowCoord.xy + vogelDiskSample( i, 5, phi ) * radius, shadowCoord.z );
-    shadow *= 0.2;
-  }
-  return mix( 1.0, shadow, shadowIntensity );
-}${chunk.slice(to + 1)}`;
-  return true;
+// eased the shadow to bookletSingleShadow. The renderer uses three's basic shadows, which read the
+// depth themselves, and each material that takes the booklet's shadow does PCF's soft lookup in its
+// own shader with LeafThrough's withSoftBasicShadows, as the booklet's paper does. False if that
+// can't soften this three.js's basic shadows, leaving PCF.
+const SHADOW_INCLUDE = '#include <shadowmap_pars_fragment>';
+const softBasicShadows = withSoftBasicShadows(SHADOW_INCLUDE) !== SHADOW_INCLUDE;
+
+// Gives a material that takes the booklet's shadow the soft lookup above. Chains onto any
+// onBeforeCompile the material already has.
+function withSoftShadows<T extends THREE.Material>(material: T): T {
+  const compile = material.onBeforeCompile;
+  const key = material.customProgramCacheKey;
+  material.customProgramCacheKey = () => `${key.call(material)}-soft-shadows`;
+  material.onBeforeCompile = (shader, renderer) => {
+    compile.call(material, shader, renderer);
+    shader.fragmentShader = withSoftBasicShadows(shader.fragmentShader);
+  };
+  return material;
 }
 
 // GLSL for the end of a physical material's fragment shader that swaps the direct lights'
@@ -1187,10 +1153,10 @@ function makeSharedResources(renderer: THREE.WebGLRenderer) {
   };
   const materials = {
     // Satin black polystyrene with a fine stipple.
-    tray: new THREE.MeshPhysicalMaterial({
+    tray: withSoftShadows(new THREE.MeshPhysicalMaterial({
       color: C.trayColor, roughness: 1, roughnessMap: textures.trayRough, normalMap: textures.trayNormal, normalScale: new THREE.Vector2(1, 1), metalness: 0, envMapIntensity: 1.8,
       clearcoat: 0.15, clearcoatRoughness: 0.35,
-    }),
+    })),
     pick: new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide, depthWrite: false }),
   };
   // The paper grain every booklet shares (makeCase); LeafThrough wraps it in a texture of its own.
@@ -1863,13 +1829,13 @@ function makeDisc(shared: SharedResources, seed: number): Disc {
   const group = new THREE.Group();
   const spin = new THREE.Group();
   group.add(spin);
-  const frontMaterial = withSpinBlur(withShade(withSoftReflection(new THREE.MeshPhysicalMaterial({
+  const frontMaterial = withSoftShadows(withSpinBlur(withShade(withSoftReflection(new THREE.MeshPhysicalMaterial({
     roughness: C.frontRough, metalness: C.frontMetal, roughnessMap: shared.textures.frontRough,
     clearcoat: C.frontClearcoat, clearcoatRoughness: 0.18 * (1 - C.texGloss),
     normalMap: shared.textures.frontNormal, normalScale: new THREE.Vector2(0.3, 0.3), envMapIntensity: 0.85,
-  }), 'cd-front', C.discSheen), shade), blur);
+  }), 'cd-front', C.discSheen), shade), blur));
   const front = new THREE.Mesh(geometries.front, frontMaterial);
-  const backMaterial = withShade(makeBackMaterial(shared, seed), shade);
+  const backMaterial = withSoftShadows(withShade(makeBackMaterial(shared, seed), shade));
   // The hub is a closed ring, so only its faces toward the viewer are drawn: drawn from both sides in
   // one pass, its top and bottom, a hair apart, blended in triangle order into a radial pattern that
   // read as scratches and turned with the disc.
@@ -1919,7 +1885,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const print = (side: THREE.Side) => new THREE.MeshStandardMaterial({ color: album.color || '#3b3a36', roughness: C.printRough, side });
   const bend = { value: new THREE.Vector4() };
   const bookletTuck = { value: 1 }, sheetTuck = { value: 0 }, bookletFlatten = { value: 0 };
-  const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: print(THREE.DoubleSide) };
+  const prints = { cover: print(THREE.FrontSide), bookletBack: print(THREE.FrontSide), insert: withSoftShadows(print(THREE.DoubleSide)) };
   const blank = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
   const pageCount = Math.max(4, album.bookletPageCount ?? ((album.bookletScans?.length ?? 1) + 1) * 2);
   const sheetGap = C.bookletSheetGap;
@@ -1946,20 +1912,12 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
     // under it, written as the pages move) is the same uniform object in its colour and shadow
     // programs: caught as they compile, so each draw can widen it by stackLoft. A value other
     // than the one written last is the library's own, the base to widen.
-    // LeafThrough lights the side of the paper whose normal points along the view's z, which is
-    // the side toward the camera only near the middle of the view. Off to one side, as the
-    // booklet lifts from a phone's lid near the screen's edge, the curl's slanted part was lit as
-    // its other side: a light band with a stepped border along the bend. The side is told by the
-    // way to the camera instead.
     const material = node.material as THREE.Material;
     const compile = material.onBeforeCompile;
-    const cacheKey = material.customProgramCacheKey;
     material.onBeforeCompile = (shader, renderer) => {
       compile.call(material, shader, renderer);
-      shader.fragmentShader = shader.fragmentShader.replace(PAPER_FACING, 'float faceDirection = dot(normal, vViewPosition) >= 0.0 ? 1.0 : -1.0;');
       node.userData.stackGap = shader.uniforms.uStackGap;
     };
-    material.customProgramCacheKey = () => `${cacheKey.call(material)}|view-facing`;
     const loft = { base: 0, lofted: NaN };
     node.onBeforeRender = (renderer, _scene, camera) => {
       const gap = (node.userData.stackGap ?? (renderer.properties.get(material) as { uniforms?: { uStackGap?: THREE.IUniform<number> } }).uniforms?.uStackGap) as THREE.IUniform<number> | undefined;
@@ -2011,7 +1969,7 @@ function makeCase(shared: SharedResources, album: Album, seed: number, renderer:
   const pick = new THREE.Mesh(geometries.casePick, materials.pick);
   group.add(pick);
   return {
-    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletPages: [...bookletSources], bookletTextures: [], bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
+    group, spin, body, lid, booklet, bookletModel, bookletSources, bookletTextures: [], bookletTuck, bookletFlatten, sheetGap, stackLoft, bookletReady: false, bookletLoaded: false, artLoaded: false, artSmall: false, insertLoaded: false, pick, disc, prints, bend, plastic, disposed: false,
     open: 0, openTween: null, hover: 0, spinX: 0, spinY: 0, spinRest: 0, resetTween: null, placed: false, envTurn: 0, discRest, bookletRest,
     pushX: 0, pushY: 0, pushZ: 0, pushVX: 0, pushVY: 0, pushVZ: 0, pushRotX: 0, pushRotY: 0, pushRotVX: 0, pushRotVY: 0,
   };
@@ -2553,6 +2511,8 @@ export class GalleryScene {
   private raf: number;
   private renderingFrame = false;
   private lastTime: number;
+  // Set when the page is hidden: the next frame first catches the motion up (renderFrame).
+  private wasHidden = false;
   private forceFrames: number;
   private quality: number;
   private qualityRecoveryTimer = 0;
@@ -2801,7 +2761,7 @@ export class GalleryScene {
     // shadow map, so it is drawn once in the first frame: before it exists, the sampler has no depth
     // texture to read and every draw is a WebGL error.
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = softBasicShadows() ? THREE.BasicShadowMap : THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = softBasicShadows ? THREE.BasicShadowMap : THREE.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = true;
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -2844,6 +2804,8 @@ export class GalleryScene {
     this.onClick = this.onClick.bind(this);
     this.onContextMenu = this.onContextMenu.bind(this);
     this.onWheel = this.onWheel.bind(this);
+    this.onVisibility = this.onVisibility.bind(this);
+    document.addEventListener('visibilitychange', this.onVisibility);
     element.addEventListener('pointerdown', this.onPointerDown);
     element.addEventListener('pointermove', this.onPointerMove);
     element.addEventListener('pointerleave', this.onPointerLeave);
@@ -3021,7 +2983,7 @@ export class GalleryScene {
     sun.shadow.mapSize.set(C.bookletShadowMap, C.bookletShadowMap);
     [sun.shadow.bias, sun.shadow.normalBias] = C.shadowBias;
     sun.shadow.radius = C.shadowSoft;
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ opacity: 0 }));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), withSoftShadows(new THREE.ShadowMaterial({ opacity: 0 })));
     floor.position.z = -C.bookletFloorGap / C.bookletSize;
     floor.receiveShadow = true;
     floor.visible = false;
@@ -3090,13 +3052,7 @@ export class GalleryScene {
       item.bookletModel.addEventListener('pagechange', () => {
         if (this.magazine === item.bookletModel) this.reportPage();
       });
-      item.bookletModel.addEventListener('ready', () => {
-        item.bookletReady = true;
-        if (this.magazine !== item.bookletModel) return;
-        this.renderer.compile(item.bookletModel, this.camera, this.scene);
-        this.magazineReady = true;
-        if (this.read >= 1) this.showPages();
-      });
+      item.bookletModel.addEventListener('ready', () => this.bookletPagesIn(item));
       item.pick.userData.index = index;
       // The disc's own reference to the environment, so its reflections can turn with its half of
       // the case (layout), at the strength the scene gives the others.
@@ -3110,9 +3066,6 @@ export class GalleryScene {
       const placeholder = item.bookletSources[0] as HTMLCanvasElement;
       this.setArt(item.disc, placeholder);
       this.setPrint(item, 'cover', placeholder);
-      // The booklet's back page gets its texture now too, with the generated back in it, so the scan
-      // goes into it in place and the booklet isn't rebuilt as the case is opened (setPrint).
-      this.setPrint(item, 'bookletBack', item.bookletSources[item.bookletSources.length - 1] as HTMLCanvasElement);
       // The disc prefers a scan of the printed disc, then the cover. The reveal waits for these
       // two, which show on the row; the back insert and the booklet's back page come once the row
       // is up and the intro done (afterIntro), since they show only once a case is turned over or
@@ -3210,20 +3163,9 @@ export class GalleryScene {
   // Sets one of a case's printed parts: the cover, the back insert or the booklet's back page. The
   // cover and the back page are drawn as the booklet's outer pages: it gets the same textures (one
   // copy of each in memory) once syncBooklet is called, and uploads them itself; only the insert's
-  // is uploaded from here, through the frame loop's queue (upload). Once a page has its texture,
-  // later artwork goes into that same texture, so the booklet keeps its pages: given a new one,
-  // LeafThrough rebuilt every sheet and fed the textures back nearest first, so the back page in
-  // an open case went blank for about 150 ms as its scan came in.
+  // is uploaded from here, through the frame loop's queue (upload).
   private setPrint(item: JewelCase, part: PrintPart, canvas: HTMLCanvasElement) {
     const material = item.prints[part];
-    if (material.map && part !== 'insert') {
-      material.map.image = canvas;
-      // Freed and sent again whole, as the new picture's size can differ.
-      material.map.dispose();
-      material.map.needsUpdate = true;
-      this.request();
-      return;
-    }
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = this.shared.anisotropy;
@@ -3236,14 +3178,10 @@ export class GalleryScene {
     this.request();
   }
 
-  // Gives the booklet its current outer pages: one rebuild for both, and none when they are the
-  // pages it has (artwork that went into a texture it already holds, setPrint).
+  // Gives the booklet its current outer pages. The count stays the same, so LeafThrough swaps the
+  // two in place, in this task (they are textures), and the booklet stays ready.
   private syncBooklet(item: JewelCase) {
-    const { bookletSources: pages, bookletPages: given } = item;
-    if (pages.length === given.length && pages.every((page, index) => page === given[index])) return;
-    item.bookletReady = false;
-    item.bookletPages = [...pages];
-    item.bookletModel.update({ pages });
+    item.bookletModel.update({ pages: item.bookletSources });
   }
 
   private playIntro() {
@@ -3622,8 +3560,8 @@ export class GalleryScene {
       else {
         const pending = this.pendingPages;
         this.pendingPages = null;
-        // In a task of its own, after this frame (loadBooklet); showPages follows the booklet's
-        // ready event.
+        // In a task of its own, after this frame (loadBooklet), which shows the pages once they
+        // are in (bookletPagesIn).
         if (pending) void this.inFrame(pending);
         this.showPages();
       }
@@ -3683,23 +3621,34 @@ export class GalleryScene {
       const apply = () => {
         if (request !== this.bookletRequest || this.destroyed || this.reading !== index) return;
         item.bookletLoaded = true;
-        item.bookletReady = false;
+        // With the count it was made with, LeafThrough swaps the pages in place, in this task (they
+        // are textures), and the booklet stays ready. A scan left out changes the count: that
+        // rebuilds it, and it is ready again with its ready event.
+        if (pages.length !== item.bookletModel.pageCount) item.bookletReady = false;
         // From now on these are the booklet's pages: a cover or back page arriving later
         // (setPrint, syncBooklet) replaces its own page among them. Reset to the blank inside
         // pages instead, a phone opened straight into the booklet lost its scans to the full-size
         // cover, which comes after the small one.
         item.bookletSources = pages;
-        item.bookletPages = [...pages];
         item.bookletModel.update({ pages, preload: pages.length });
+        if (item.bookletReady) this.bookletPagesIn(item);
         this.request();
       };
-      // Applied in a task of its own (inFrame), never inside a frame: the sheets come new with
-      // the rebuild and take their textures a microtask later, so a render in the same task drew
-      // them white for one frame at the landing. During the flight they wait for the landing
-      // (animateRead); nothing reads them before that.
+      // Applied in a task of its own (inFrame), between frames rather than inside one. During the
+      // flight they wait for the landing (animateRead); nothing reads them before that.
       if (this.read >= 1) void this.inFrame(apply);
       else this.pendingPages = apply;
     });
+  }
+
+  // A booklet's pages are in: at its ready event, or as its loaded pages went in place (loadBooklet).
+  // The one being read is shown once it has landed.
+  private bookletPagesIn(item: JewelCase) {
+    item.bookletReady = true;
+    if (this.magazine !== item.bookletModel) return;
+    this.renderer.compile(item.bookletModel, this.camera, this.scene);
+    this.magazineReady = true;
+    if (this.read >= 1) this.showPages();
   }
 
   // The booklet has landed and its pages are in: release the same page object from its flight
@@ -3711,13 +3660,7 @@ export class GalleryScene {
     this.bookletShown = true;
     this.bookletShift = this.bookletTarget = 0.5;
     this.scene.add(magazine);
-    if (this.bookletSingle) {
-      // The new layout's sheets are laid out on their first tick. Called from the ready event, this
-      // runs inside the frame's tick, so without one here they were drawn unstacked for a frame and
-      // a page from inside showed over the cover (Safari, whose scans land after the booklet does).
-      magazine.update(bookletLayout('single'));
-      magazine.tick(this.lastTime);
-    }
+    if (this.bookletSingle) magazine.update(bookletLayout('single'));
     this.fadeFloorShadow(1, C.bookletShadowIn);
     item.booklet.visible = false;
     magazine.visible = true;
@@ -4415,6 +4358,10 @@ export class GalleryScene {
     this.raf = requestAnimationFrame(this.frame);
   }
 
+  private onVisibility() {
+    if (document.hidden) this.wasHidden = true;
+  }
+
   private frame(now: number) {
     this.raf = 0;
     this.renderingFrame = true;
@@ -4429,10 +4376,22 @@ export class GalleryScene {
   // scheduled while anything moves.
   private renderFrame(now: number) {
     const interval = Math.max(0, now - this.lastTime) / 1000;
-    const dt = Math.min(0.05, interval) * this.timeScale;
+    const dt = Math.min(MAX_STEP, interval) * this.timeScale;
     this.trackFrameTime(interval);
-    const frames = Math.min(3, dt * 60);
     this.lastTime = now;
+    // A hidden page isn't drawn, and the motion stops with it: back on the page, a flip, a flight
+    // or the disc braking as the music paused went on from where it was, finishing as late as the
+    // time away. So the motion first catches up with that time, in undrawn steps of the longest
+    // frame, up to longer than any of it takes. A frame that is only slow still steps at most
+    // MAX_STEP, so a stall slows the motion rather than making it jump.
+    if (this.wasHidden && !document.hidden) {
+      this.wasHidden = false;
+      for (let away = Math.min(CATCH_UP, interval - MAX_STEP) * this.timeScale; away > 0; away -= MAX_STEP) {
+        const step = Math.min(MAX_STEP, away);
+        this.updateTweens(step);
+        this.advance(step, now);
+      }
+    }
     this.updateTweens(dt);
 
     if (this.pointerMoved || (this.pointerInside && !this.press)) {
@@ -4456,6 +4415,39 @@ export class GalleryScene {
       }
     }
 
+    const residual = this.advance(dt, now);
+    if (this.frameJobs.length && !this.jobTimer) {
+      this.jobTimer = window.setTimeout(() => {
+        this.jobTimer = 0;
+        const job = this.frameJobs.shift();
+        if (job && !this.destroyed) {
+          job.run();
+          job.done();
+        }
+        this.request();
+      });
+    }
+    this.renderer.render(this.scene, this.camera);
+    if (this.forceFrames > 0) this.forceFrames -= 1;
+    const busy = this.press || this.inertia !== 0 || this.settle !== 0 || this.flow !== 0 || this.tweens.size || residual > 0.001 || this.forceFrames > 0 || this.spinRate > 0 || this.frameJobs.length > 0;
+    if (busy) this.raf = requestAnimationFrame(this.frame);
+    else if (this.quality > 0 && !this.qualityRecoveryTimer) {
+      // Once the animation is idle, return to a sharp image. The adaptive renderer only lowered
+      // resolution before, so a phone stayed blurry after a heavy stretch of disc playback.
+      this.qualityRecoveryTimer = window.setTimeout(() => {
+        this.qualityRecoveryTimer = 0;
+        if (this.destroyed || this.raf || this.quality === 0) return;
+        this.quality = 0;
+        this.frameStats.total = this.frameStats.count = 0;
+        this.applyPixelRatio();
+      }, 250);
+    }
+  }
+
+  // The motion over `dt` seconds: the row's scroll, the cases, the player and the booklet. Returns
+  // how far the cases still are from where they are headed (layout).
+  private advance(dt: number, now: number) {
+    const frames = Math.min(3, dt * 60);
     if (this.cases.length && !this.dragging) {
       if (Math.abs(this.inertia) > 1e-5) {
         this.position += this.inertia * frames;
@@ -4502,32 +4494,7 @@ export class GalleryScene {
       if (item.bookletModel.tick(now)) this.forceFrames = Math.max(this.forceFrames, 2);
     }
     this.updateBooklet(dt);
-    if (this.frameJobs.length && !this.jobTimer) {
-      this.jobTimer = window.setTimeout(() => {
-        this.jobTimer = 0;
-        const job = this.frameJobs.shift();
-        if (job && !this.destroyed) {
-          job.run();
-          job.done();
-        }
-        this.request();
-      });
-    }
-    this.renderer.render(this.scene, this.camera);
-    if (this.forceFrames > 0) this.forceFrames -= 1;
-    const busy = this.press || this.inertia !== 0 || this.settle !== 0 || this.flow !== 0 || this.tweens.size || residual > 0.001 || this.forceFrames > 0 || this.spinRate > 0 || this.frameJobs.length > 0;
-    if (busy) this.raf = requestAnimationFrame(this.frame);
-    else if (this.quality > 0 && !this.qualityRecoveryTimer) {
-      // Once the animation is idle, return to a sharp image. The adaptive renderer only lowered
-      // resolution before, so a phone stayed blurry after a heavy stretch of disc playback.
-      this.qualityRecoveryTimer = window.setTimeout(() => {
-        this.qualityRecoveryTimer = 0;
-        if (this.destroyed || this.raf || this.quality === 0) return;
-        this.quality = 0;
-        this.frameStats.total = this.frameStats.count = 0;
-        this.applyPixelRatio();
-      }, 250);
-    }
+    return residual;
   }
 
   // Whether the objects have left the screen below it: every corner of their world bounding box
@@ -5194,6 +5161,7 @@ export class GalleryScene {
     this.element.removeEventListener('click', this.onClick);
     this.element.removeEventListener('contextmenu', this.onContextMenu);
     this.element.removeEventListener('wheel', this.onWheel);
+    document.removeEventListener('visibilitychange', this.onVisibility);
     // removeEventListener's options type has no passive; the cast keeps the call as it was.
     window.removeEventListener('pointermove', this.onPointerDrag, { passive: false } as AddEventListenerOptions);
     window.removeEventListener('pointerup', this.onPointerUp);

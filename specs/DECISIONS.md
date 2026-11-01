@@ -149,25 +149,27 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   onto the cover, and Next stays enabled there. A glitch in that turn (an inside page showing
   under the back cover, then the cover rising through it) was the library's; LeafThrough 0.1.7
   settles the read pages in closed order, cover first, and the gallery uses it since 31 October.
-- The inside pages go in at the landing in a task of their own, never inside a frame: the sheets
-  come new with LeafThrough's rebuild and take their textures a microtask later, so a render in
-  the same task drew the landed booklet white for one frame (seen on desktop and phones, fixed
-  1 November 2026). On desktop the pages' textures go to the GPU one per frame during the flight,
+- The inside pages go in at the landing in a task of their own, never inside a frame. Every
+  booklet's count is known up front, so LeafThrough (0.1.8) swaps them onto the sheets in place, in
+  that task, and stays ready without a new ready event: the reader takes over from there
+  (`bookletPagesIn`), and waits for the event only when a scan left out changes the count and so
+  rebuilds the booklet. With 0.1.7 the sheets came new with a rebuild and took their textures a
+  microtask later, and a render in the same task drew the landed booklet white for one frame. On
+  desktop the pages' textures go to the GPU one per frame during the flight,
   so the landing has nothing left to upload; on touch devices they upload at the landing, while
   the paper is still, since an upload there could cost a frame of the flight. Once in, the loaded
   pages are the booklet's sources, so a cover or back page that arrives later replaces only its
   own page: reset to the blank inside pages, a phone opened straight into the booklet
   (`#/<id>/booklet`) showed blank paper inside, since its full-size cover comes after the small
   one (1 November 2026).
-- The cover and the booklet's back page each keep one texture from the start, and later artwork
-  (the full-size cover, the back page's scan) goes into it in place, so the booklet isn't rebuilt
-  (`setPrint`, `syncBooklet`): given a new texture, LeafThrough rebuilt every sheet and fed the
-  textures back nearest page first, and the back page in a case opened from a link went blank for
-  about 150 ms a second after the load (1 November 2026).
-- On phones the landed booklet switches to the single-page layout, which builds new sheets. When
-  the scans arrive after the landing, as in Safari, that happens in the library's ready event,
-  inside the frame's tick, so the new sheets are ticked at once: drawn before their first tick
-  they lay unstacked and a page from inside showed over the cover for a frame (1 November 2026).
+- A new cover or back-page texture (the full-size cover, the back page's scan) goes onto its page
+  in the same task, without a rebuild (`setPrint`, `syncBooklet`; LeafThrough 0.1.8). 0.1.7
+  rebuilt every sheet and fed the textures back nearest page first, and the back page in a case
+  opened from a link went blank for about 150 ms a second after the load.
+- On phones the landed booklet switches to the single-page layout, which builds new sheets;
+  LeafThrough 0.1.8 lays them out as it builds them. 0.1.7 laid them out on their first tick, and
+  switched from its ready event, inside the frame's tick, they were drawn unstacked for a frame,
+  with a page from inside over the cover.
 - The pages shown are announced only by the hidden live region. The count in the caption and a
   label under the landed booklet were both reverted at the user's request.
 - Paper: a gentle resting curve everywhere (`bookletWrinkles` 0.055, `bookletBulge` 0.22); flat
@@ -184,16 +186,17 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   moves (0.74 to 1 played on a still booklet). Lit as LeafThrough lights its demo: sun 2, hemisphere
   1.5 (spread) or 1.7 (single), single-page shadow 0.4, soft shadow edges. Rejected: the key light
   as a second caster; glossier paper.
-- The soft shadow edges are three's PCF filtering done in the shader (`softBasicShadows`): five
-  taps, each a bilinear blend of four direct depth comparisons. three's own PCF reads the map
-  through the GPU's depth comparison, which iOS Safari got wrong, putting every lit pixel of the
-  paper in shadow: the booklet flew in shaded and lightened in one frame at the landing, as a
-  phone's reader eased the shadow to 0.4. Measured in the iOS Simulator (iOS 26.5) and in a bare
-  three.js scene there; desktop frames match the old ones (1 November 2026).
-- The paper's lit side is told by the direction to the camera, not by the sign of its normal's
-  view z as LeafThrough 0.1.7 does (patched in makeCase): off the middle of the view, as the
-  booklet lifts from a phone's lid near the screen's edge, the curl's slanted part was lit as its
-  other side, a light band with a stepped border along the bend (1 November 2026).
+- The soft shadow edges are three's PCF filtering done in the shader: the renderer uses basic
+  shadows, and LeafThrough's `withSoftBasicShadows` (0.1.8) gives the paper and every material it
+  shadows (disc, tray, insert, floor; `withSoftShadows`) PCF's five taps, each a bilinear blend of
+  four direct depth comparisons. three's own PCF reads the map through the GPU's depth comparison,
+  which iOS Safari got wrong, putting every lit pixel of the paper in shadow: the booklet flew in
+  shaded and lightened in one frame at the landing, as a phone's reader eased the shadow to 0.4.
+  Measured in the iOS Simulator (iOS 26.5) and in a bare three.js scene there.
+- LeafThrough 0.1.8 lights the side of the paper the camera sees. 0.1.7 went by the sign of the
+  normal's view z: off the middle of the view, as the booklet lifts from a phone's lid near the
+  screen's edge, the curl's slanted part was lit as its other side, a light band with a stepped
+  border along the bend.
 - Dev only: Shift+D opens a slow-motion panel (1×, 0.5×, 0.25×, 0.1×, pause). A scrub slider and a
   motion dashboard with persisted overrides were removed; tuning goes through `C`.
 
@@ -365,7 +368,7 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   goes through a queue, one job per frame in a task of its own (`inFrame`), since ten arrivals
   handled as they came held a phone's main thread for a long moment; the booklet shares the case's
   cover and back-page textures (handed over as `Texture`s with their colour space set; LeafThrough
-  0.1.7 takes them as they are, without a second upload); shaders compile with `compileAsync`;
+  takes them as they are, without a second upload); shaders compile with `compileAsync`;
   images decode off the main thread. Booklet scans that arrive during the flight wait for the
   landing (`pendingPages`); that and the grain from the worker stay.
   Measured on 1 November 2026 (Lighthouse 12.8, five runs each, median): 76 mobile and 98 desktop,
@@ -383,6 +386,12 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   A frame requested from inside a frame (a resolution step, a screen redraw) extends that frame's
   run rather than scheduling a second one: it did, and every step down added a parallel loop, so
   a long session got slower and slower (found 1 November 2026 on a phone, seen on desktop too).
+  A frame steps the motion at most 50 ms, so a stall slows it rather than making it jump. A
+  hidden page isn't drawn, though, and the motion stopped with it: back on the tab, a flip, the
+  booklet's flight or the disc braking as the music paused went on from where it was, finishing
+  seconds late. The first frame back catches the motion up with the time away (at most 10 s) in
+  undrawn 50 ms steps: a flip half done before 4 s away settled in 17 ms instead of 1.8 s, the
+  booklet's reader took over in 86 ms instead of 2.2 s, at one frame of 15 to 30 ms on desktop.
   Every view ran at 60 fps at 1440 × 900 (2×) and 390 × 844 (3×) in the last audit.
 
 ### The data
