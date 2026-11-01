@@ -1545,6 +1545,11 @@ function viewPan(t: number) {
   return ease.power3InOut(clamp((t - C.viewPanFrom) / (C.viewPanUntil - C.viewPanFrom), 0, 1));
 }
 
+// How far along the carry the disc is at `t` of the insert: 0 in the tray, 1 over the spindle.
+function insertCarry(t: number) {
+  return ease.power3InOut(clamp((t - 0.35) / 0.45, 0, 1));
+}
+
 // The point of the way at which `fed` of the roll's whole length has been fed through.
 function bookletFedAt(lidAngle: number, side: number, fed: number) {
   const total = bookletFrontArc(lidAngle, side) + C.bookletSize * MM;
@@ -4526,7 +4531,7 @@ export class GalleryScene {
     trayPosition.addScaledVector(axis, ease.power3Out(clamp(t / 0.3, 0, 1)) * C.insertLift);
     player.updateWorldMatrix(true, false);
     matrix.multiplyMatrices(player.matrixWorld, this.player.seat).decompose(seatPosition, seatQuaternion, seatScale);
-    const carry = ease.power3InOut(clamp((t - 0.35) / 0.45, 0, 1));
+    const carry = insertCarry(t);
     const drop = ease.power3InOut(clamp((t - 0.78) / 0.22, 0, 1));
     axis.set(0, 1, 0).applyQuaternion(player.quaternion);
     seatPosition.addScaledVector(axis, C.insertHover * (1 - drop));
@@ -4991,8 +4996,10 @@ export class GalleryScene {
       item.lid.rotation.y = -swing * lidAngle;
       // Opened like a book (phones), the disc's half turns away from the bright part of the
       // environment and the disc went dull next to the booklet. Its reflections turn back by the
-      // same amount, so it reads as it does lying flat. Not for a disc out in the player.
-      const envTurn = index === this.listening ? 0 : rise;
+      // same amount, so it reads as it does lying flat. Not for a disc out in the player: the turn
+      // goes as the carry takes the disc from the tray to the spindle (and comes back with it on
+      // the eject). Switched off at the click, it went darker in the tray before it had moved.
+      const envTurn = rise * (index === this.listening ? 1 - insertCarry(this.listen) : 1);
       if (envTurn !== item.envTurn) {
         item.envTurn = envTurn;
         const { group, turn, axis } = TURN_SCRATCH;

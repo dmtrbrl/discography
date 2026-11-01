@@ -101,7 +101,13 @@ strobing.
   gallery moves. Layout: `caseScale` 0.78, `hGap` 2.8, gallery tilt −22° (−30° skewed the squares).
 - Phones (650 px and narrower): the case opens into a V (`lidOpenAngleNarrow` 110°; 100° darkened
   the disc, 120° was compared), the spine in the middle, scaled to the width less 32 px a side
-  (`openFit`); the disc half keeps its reflections turned with it (`envTurn`) so it reads silver.
+  (`openFit`); the disc half keeps its reflections turned with it (`envTurn`) so it reads silver,
+  and the turn goes with the carry when the disc leaves for the player and comes back with it on
+  the eject: switched off at the click, the disc went darker in the tray before it had moved
+  (1 November 2026). Pinning the print's band and reflections to the disc in every pose, so the
+  label was lit the same in the phone's V, in flight and in the player, was tried the same day and
+  rejected: a reflection that never changes with the angle reads wrong, and the desktop's open case
+  stays as it is.
   Row gap `hGapNarrow` 0.9 (0.8 too tight, 1.0 pushed the neighbours off). Landscape phones:
   `openFitShortMargin` 100 px, so the case's booklet grows to the reader's size rather than
   shrinking; the picture is raised to even the gaps (`rowRaiseShort`, `openRaiseShort`).
