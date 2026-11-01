@@ -2474,9 +2474,11 @@ export class GalleryScene {
   private cases: JewelCase[];
   private tweens: Set<Tween>;
   private raf: number;
+  private renderingFrame = false;
   private lastTime: number;
   private forceFrames: number;
   private quality: number;
+  private qualityRecoveryTimer = 0;
   private frameStats: FrameStats;
   private reducedMotion: boolean;
   private canHover: boolean;
@@ -2536,6 +2538,11 @@ export class GalleryScene {
   private touch = false;
   // The frames' real interval, smoothed (trackFrameTime): the disc's blur covers at least that.
   private frameInterval = 1 / 60;
+  private screenScrollAt = 0;
+  private screenScrollTimer = 0;
+  private readonly scratchBox = new THREE.Box3();
+  private readonly scratchBox2 = new THREE.Box3();
+  private readonly scratchPoint = new THREE.Vector3();
   private playerRest: THREE.Vector3;
   // How far an open case's lid swings, in degrees (lidOpenAngle, or lidOpenAngleNarrow on phones).
   private lidAngle: number = C.lidOpenAngle;
@@ -3308,6 +3315,8 @@ export class GalleryScene {
   // Stops the disc and puts it back in its case.
   eject() {
     if (!this.inPlayer) return;
+    clearTimeout(this.screenScrollTimer);
+    this.screenScrollTimer = 0;
     this.inPlayer = this.seated = false;
     this.playing = false;
     this.overButton = null;
@@ -3321,14 +3330,14 @@ export class GalleryScene {
   setPlaying(playing: boolean) {
     this.playing = playing && this.seated;
     this.screenState.playing = this.playing;
-    this.drawScreen();
+    if (this.seated) this.drawScreen();
   }
 
   // What the player's screen shows: the track number (from 1) and elapsed seconds, or null for
   // the album and its number of tracks.
   setDisplay(track: number | null, seconds = 0) {
     Object.assign(this.screenState, { track, seconds });
-    this.drawScreen();
+    if (this.seated) this.drawScreen();
   }
 
   // The screen stays dark until the disc has landed, and goes dark as it leaves.
@@ -4292,7 +4301,9 @@ export class GalleryScene {
 
   private request(frames = 2) {
     this.forceFrames = Math.max(this.forceFrames, frames);
-    if (this.raf || this.destroyed) return;
+    // A resize or screen update can request a frame from inside frame() itself. It has already
+    // cleared raf at that point; scheduling here and again at the end creates parallel loops.
+    if (this.raf || this.renderingFrame || this.destroyed) return;
     this.lastTime = performance.now();
     this.frameStats.awake = 0;
     this.raf = requestAnimationFrame(this.frame);
@@ -4300,6 +4311,17 @@ export class GalleryScene {
 
   private frame(now: number) {
     this.raf = 0;
+    this.renderingFrame = true;
+    try {
+      this.renderFrame(now);
+    } finally {
+      this.renderingFrame = false;
+    }
+  }
+
+  // One frame: the motion advanced by the time since the last, the scene drawn, the next frame
+  // scheduled while anything moves.
+  private renderFrame(now: number) {
     const interval = Math.max(0, now - this.lastTime) / 1000;
     const dt = Math.min(0.05, interval) * this.timeScale;
     this.trackFrameTime(interval);
@@ -4389,6 +4411,35 @@ export class GalleryScene {
     if (this.forceFrames > 0) this.forceFrames -= 1;
     const busy = this.press || this.inertia !== 0 || this.settle !== 0 || this.flow !== 0 || this.tweens.size || residual > 0.001 || this.forceFrames > 0 || this.spinRate > 0 || this.frameJobs.length > 0;
     if (busy) this.raf = requestAnimationFrame(this.frame);
+    else if (this.quality > 0 && !this.qualityRecoveryTimer) {
+      // Once the animation is idle, return to a sharp image. The adaptive renderer only lowered
+      // resolution before, so a phone stayed blurry after a heavy stretch of disc playback.
+      this.qualityRecoveryTimer = window.setTimeout(() => {
+        this.qualityRecoveryTimer = 0;
+        if (this.destroyed || this.raf || this.quality === 0) return;
+        this.quality = 0;
+        this.frameStats.total = this.frameStats.count = 0;
+        this.applyPixelRatio();
+      }, 250);
+    }
+  }
+
+  // Whether the objects have left the screen below it: every corner of their world bounding box
+  // projects under the viewport's bottom edge, with a little to spare.
+  private offscreen(...objects: THREE.Object3D[]) {
+    const box = this.scratchBox.makeEmpty();
+    for (const object of objects) {
+      object.updateWorldMatrix(true, true);
+      box.union(this.scratchBox2.setFromObject(object));
+    }
+    if (box.isEmpty()) return false;
+    this.camera.updateMatrixWorld();
+    const point = this.scratchPoint;
+    for (let corner = 0; corner < 8; corner++) {
+      point.set(corner & 1 ? box.max.x : box.min.x, corner & 2 ? box.max.y : box.min.y, corner & 4 ? box.max.z : box.min.z).project(this.camera);
+      if (point.y > -1.05) return false;
+    }
+    return true;
   }
 
   // The player view (see C.insert*): as `listen` goes from 0 to 1 the disc lifts out of the tray,
@@ -4404,11 +4455,19 @@ export class GalleryScene {
     this.gallery.position.x = 0;
     this.gallery.position.y = away * C.insertPan;
     this.gallery.position.z = 0;
-    if (this.ready) this.gallery.visible = away < 0.999;
     this.setLens(away, pan);
+    // While the row pans out and the player rises in, each is drawn only while some of it is
+    // still on screen (offscreen): drawing both detailed scenes through the whole handoff cost a
+    // phone 40 ms a frame. Judged from the open case's and the player's projected extents, so
+    // no viewport shows a case vanishing or a player popping in.
+    const handoff = this.listen > 0 && pan > 0.001 && pan < 0.999;
+    if (this.ready) {
+      const index = this.listening >= 0 ? this.listening : this.opened;
+      const front = index >= 0 ? this.cases[index] : undefined;
+      this.gallery.visible = away < 0.999 && !(handoff && front && this.offscreen(front.body, front.lid));
+    }
     if (!this.playerBuilt) return;
     const player = this.playerBuilt.group;
-    player.visible = pan > 0.001;
     player.position.set(this.playerRest.x, this.playerRest.y - (1 - pan) * C.insertPan - ease.power3In(this.leave) * C.leaveDrop, this.playerRest.z);
     // With the disc landed, the player leans toward the cursor like the open case, only less; it
     // eases back as the disc leaves or the pointer goes.
@@ -4418,6 +4477,7 @@ export class GalleryScene {
     else this.forceFrames = Math.max(this.forceFrames, 2);
     const tilt = this.playerLean * C.hoverTiltStrength * C.openHoverTilt * C.playerHoverTilt;
     player.rotation.set(tilt * this.pointer.y, THREE.MathUtils.degToRad(C.playerYaw) + tilt * this.pointer.x, 0);
+    player.visible = pan > 0.001 && !(handoff && this.offscreen(player));
 
     const full = (C.spinRpm / 60) * Math.PI * 2;
     const target = this.playing && !this.reducedMotion ? full : 0;
@@ -4442,8 +4502,19 @@ export class GalleryScene {
     item.disc.spin.rotation.z -= this.spinRate * dt;
     this.player.spindle.rotation.y -= this.spinRate * dt;
     if (this.player.screen.scrolls && this.seated) {
-      drawPlayerScreen(this.player, this.screenState, performance.now() / 1000);
-      this.forceFrames = Math.max(this.forceFrames, 2);
+      // The scrolling title is a canvas texture upload. Limit it to 30 Hz, and when the disc
+      // is still let that timer wake the renderer instead of drawing the whole scene every frame.
+      const now = performance.now();
+      if (now - this.screenScrollAt >= 33) {
+        drawPlayerScreen(this.player, this.screenState, now / 1000);
+        this.screenScrollAt = now;
+      }
+      if (this.spinRate === 0 && !this.tweens.size) {
+        if (!this.screenScrollTimer) this.screenScrollTimer = window.setTimeout(() => {
+          this.screenScrollTimer = 0;
+          if (!this.destroyed && this.seated) this.request(1);
+        }, 33);
+      } else this.forceFrames = Math.max(this.forceFrames, 2);
     }
     item.disc.blur.value = this.spinRate * Math.max(C.spinBlur, this.frameInterval);
 
@@ -4996,6 +5067,8 @@ export class GalleryScene {
 
   destroy() {
     this.destroyed = true;
+    clearTimeout(this.screenScrollTimer);
+    clearTimeout(this.qualityRecoveryTimer);
     clearTimeout(this.loadTimer);
     cancelAnimationFrame(this.raf);
     clearTimeout(this.wheel.timer);

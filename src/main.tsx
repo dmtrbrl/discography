@@ -13,24 +13,61 @@ const repository = 'https://github.com/dmtrbrl/discography';
 
 // Diagnostics on the screen, with `?diag=1` before the hash: what the preview player and the
 // frame loop do, for looking at a phone. Nothing is made without the flag.
-const DIAG = new URLSearchParams(window.location.search).has('diag');
+const DIAG_PARAMS = new URLSearchParams(window.location.search);
+const DIAG = DIAG_PARAMS.has('diag');
+// With &log=<url> every line is also posted to that address, so a phone's log can be read on a
+// computer on the same network; the last press in a burst is followed by a trace of the frame
+// intervals and the spin since half a second before it.
+const DIAG_LOG = DIAG ? DIAG_PARAMS.get('log') : null;
 const diag = (() => {
-  if (!DIAG) return { log: (_line: string) => {}, live: (_line: string) => {} };
+  if (!DIAG) return { log: (_line: string) => {}, live: (_line: string) => {}, trace: (_label: string) => {}, spinOf: () => 0 };
   const box = document.createElement('pre');
-  box.style.cssText = 'position:fixed;left:0;top:env(safe-area-inset-top,0px);z-index:99;margin:0;padding:6px 8px;max-width:100vw;font:11px/1.3 ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.72);white-space:pre-wrap;pointer-events:none';
+  // Small, so it covers none of the controls: the live line and the last four lines, each cut
+  // short; the whole log goes over the network (DIAG_LOG) and to window.__diag.lines.
+  box.style.cssText = 'position:fixed;left:0;top:env(safe-area-inset-top,0px);z-index:99;margin:0;padding:4px 6px;max-width:100vw;max-height:16vh;overflow:hidden;font:9px/1.25 ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.6);white-space:pre;pointer-events:none';
   document.body.appendChild(box);
   const lines: string[] = [];
   let live = '';
   const t0 = performance.now();
-  const draw = () => { box.textContent = `${live}\n${lines.slice(-16).join('\n')}`; };
-  const log = (line: string) => { lines.push(`${((performance.now() - t0) / 1000).toFixed(2)} ${line}`); draw(); };
-  // A gap between animation frames over 80 ms is a stall of the frame loop.
+  const draw = () => { box.textContent = `${live}\n${lines.slice(-4).map((line) => line.split('\n')[0].slice(0, 70)).join('\n')}`; };
+  const send = (text: string) => { if (DIAG_LOG) fetch(DIAG_LOG, { method: 'POST', mode: 'cors', keepalive: true, body: text }).catch(() => {}); };
+  const log = (line: string) => { const stamped = `${((performance.now() - t0) / 1000).toFixed(2)} ${line}`; lines.push(stamped); draw(); send(stamped); };
+  // A gap between animation frames over 80 ms is a stall of the frame loop. The last 600 frames'
+  // intervals and spin rates are kept for the traces.
+  const result = { log, live: (line: string) => { live = line; draw(); }, trace: (_label: string) => {}, spinOf: () => 0 };
+  const frames: { t: number; dt: number; spin: number }[] = [];
   let last = performance.now();
-  const tick = (now: number) => { if (now - last > 80) log(`frame gap ${Math.round(now - last)} ms`); last = now; requestAnimationFrame(tick); };
+  let gapCount = 0;
+  let gapMax = 0;
+  let lastGapReport = last;
+  const tick = (now: number) => {
+    if (now - last > 80) { gapCount++; gapMax = Math.max(gapMax, now - last); }
+    // Reporting every slow frame creates network and DOM work on the same thread we measure.
+    if (gapCount && now - lastGapReport >= 3000) {
+      log(`${gapCount} frame gaps >80 ms, max ${Math.round(gapMax)} ms in 3 s`);
+      gapCount = gapMax = 0;
+      lastGapReport = now;
+    }
+    frames.push({ t: now, dt: now - last, spin: result.spinOf() });
+    if (frames.length > 600) frames.shift();
+    last = now;
+    requestAnimationFrame(tick);
+  };
   requestAnimationFrame(tick);
+  // Runs of equal values written once with a count: 17×30 means thirty frames of 17 ms.
+  const runs = (values: string[]) => { const out: string[] = []; let count = 0; values.forEach((value, n) => { count += 1; if (value !== values[n + 1]) { out.push(count > 1 ? `${value}×${count}` : value); count = 0; } }); return out.join(' '); };
+  let traceTimer = 0;
+  result.trace = (label: string) => {
+    window.clearTimeout(traceTimer);
+    const at = performance.now();
+    traceTimer = window.setTimeout(() => {
+      const span = frames.filter((frame) => frame.t >= at - 500);
+      log(`trace ${label}: ${span.length} frames from -0.5 s to +2.5 s\n  dt ms: ${runs(span.map((frame) => String(Math.round(frame.dt))))}\n  spin: ${runs(span.map((frame) => frame.spin.toFixed(1)))}`);
+    }, 2500);
+  };
   document.addEventListener('visibilitychange', () => log(`visibility ${document.visibilityState}`));
   (window as unknown as { __diag: { lines: string[] } }).__diag = { lines };
-  return { log, live: (line: string) => { live = line; draw(); } };
+  return result;
 })();
 const website = 'https://dmytrobarylo.com';
 const leafthrough = 'https://github.com/dmtrbrl/leafthrough';
@@ -361,43 +398,41 @@ interface Previews {
 // them) play, pause and skip; the next track follows when one ends. Tracks Apple has no preview for
 // are skipped. Playing and pausing spin and stop the disc (onPlaying); the display follows the
 // track and time (onDisplay). Leaving the player stops the music.
-// A moment of silence (eight samples of 8-bit PCM), for unlocking an audio element on iPhones.
-const SILENCE = 'data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQgAAACAgICAgICAgA==';
-
 function createPreviews(options: {
   album: () => Album; shown: () => boolean;
   onPlaying: (playing: boolean) => void; onDisplay: (track: number | null, seconds: number) => void;
 }): Previews {
-  // Two audio elements, used in turn: while one plays, the other is primed with the next track's
-  // preview (fetched ahead and kept as an object URL; Apple's files allow the fetch), so a change
-  // only starts an element that already holds its file. Changing the one element's source stalled
-  // Safari on iPhones while it tore its native player down and set it up again, and the disc's
-  // spin paused with it. On the first press, a user gesture, the idle element plays a moment of
-  // silence: iPhones let an element load and play on its own only after a gesture has played it.
-  const players = [new Audio(), new Audio()];
-  for (const player of players) player.preload = 'auto';
-  if (DIAG) players.forEach((player, n) => ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'pause', 'waiting', 'stalled', 'suspend', 'ended', 'error', 'emptied', 'abort'].forEach((type) => player.addEventListener(type, () => diag.log(`${n ? 'B' : 'A'} ${type} t=${player.currentTime.toFixed(1)} rs=${player.readyState} ${player.src.slice(0, 5)}`))));
-  let audio = players[0];
-  const other = () => (audio === players[0] ? players[1] : players[0]);
-  const objectUrls = new Map<HTMLAudioElement, string>();
-  const release = (player: HTMLAudioElement) => {
-    const url = objectUrls.get(player);
-    if (url) URL.revokeObjectURL(url);
-    objectUrls.delete(player);
-  };
-  const clear = (player: HTMLAudioElement) => {
-    player.pause();
-    player.removeAttribute('src');
-    player.load();
-    release(player);
-  };
-  let unlocked = false;
+  // Web Audio: a preview is fetched and decoded asynchronously into a buffer, and starts as
+  // a buffer source; the next track's is decoded ahead while one plays, so a
+  // change starts at once, within the press. Audio elements were tried first, two in turn, one
+  // primed with the next track: on iPhones (an iPhone 15 Pro, iOS 27) starting the primed element
+  // blocked the page for 0.8 s when the old one had been paused first, a few milliseconds the
+  // other way round, and setting an element up for the following track cost 0.1 to 0.2 s each
+  // time; the disc's spin froze with both. The context is made and resumed on a press, a user
+  // gesture, as browsers require; once it runs, the next track can follow on its own.
+  let context: AudioContext | null = null;
+  let resumePending: Promise<void> | null = null;
   const unlock = () => {
-    if (unlocked) return;
-    unlocked = true;
-    const idle = other();
-    idle.src = SILENCE;
-    idle.play().then(() => idle.pause(), () => {});
+    if (!context) {
+      // Web Audio defaults to an ambient iOS session, which Silent Mode mutes. These previews
+      // are user-started music, so use the playback session when the browser exposes it.
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) {
+        try { session.type = 'playback'; }
+        catch (error) { diag.log(`audio session: ${(error as Error)?.name ?? error}`); }
+      }
+      context = new AudioContext();
+      const made = context;
+      // Suspended by the system (a call on a phone, the page hidden), the music is paused, as
+      // it is when the tab is left (onVisibility).
+      made.addEventListener('statechange', () => { diag.log(`audio context ${made.state}`); if (made.state !== 'running') pause(); });
+    }
+    if (context.state !== 'running' && !resumePending) {
+      resumePending = context.resume().catch((error: unknown) => {
+        diag.log(`audio context resume failed: ${(error as Error)?.name ?? error}`);
+      }).finally(() => { resumePending = null; });
+    }
+    return context;
   };
   const [current, setCurrent] = createSignal(-1);
   const [state, setState] = createSignal<PreviewState>('stopped');
@@ -405,107 +440,219 @@ function createPreviews(options: {
   const [failed, setFailed] = createSignal(false);
   const tracks = () => options.album().tracks ?? [];
   let request = 0;
-  // The idle element primed with a track, ready to start.
-  let ahead: { index: number; player: HTMLAudioElement } | null = null;
-  async function fetchAhead(index: number) {
+  let lastSelectionAt = -Infinity;
+  let announcedPlaying = false;
+  const announcePlaying = (playing: boolean) => {
+    if (announcedPlaying === playing) return;
+    announcedPlaying = playing;
+    options.onPlaying(playing);
+  };
+  // Keep decoded previews for the selected track and its playable neighbours. On navigation,
+  // cancel in-flight work for every other track (including the old prefetch), and discard late
+  // decodes rather than processing every track the user passed through.
+  const buffers = new Map<number, AudioBuffer>();
+  const decoding = new Map<number, { promise: Promise<AudioBuffer | null>; abort: AbortController }>();
+  let prefetchTimer = 0;
+  const trim = (index: number) => {
+    const keep = new Set([index, previousTrack(index), nextTrack(index)]);
+    for (const key of buffers.keys()) if (!keep.has(key)) buffers.delete(key);
+    for (const [key, task] of decoding) if (key !== index) {
+      task.abort.abort();
+      decoding.delete(key);
+    }
+  };
+  const cancelDecoding = () => {
+    window.clearTimeout(prefetchTimer);
+    for (const task of decoding.values()) task.abort.abort();
+    decoding.clear();
+  };
+  function decode(index: number): Promise<AudioBuffer | null> {
+    const ready = buffers.get(index);
+    if (ready) return Promise.resolve(ready);
+    const pending = decoding.get(index);
+    if (pending) return pending.promise;
     const album = options.album();
-    const track = tracks()[index];
-    if (index < 0 || !track?.apple || !album.appleMusic || ahead?.index === index) return;
-    const ticket = request;
-    const urls = await loadPreviews(album.appleMusic, album.appleMusicCountry).catch(() => null);
-    const url = urls?.get(track.apple);
-    if (!url || ticket !== request) return;
-    try {
-      const blob = await (await fetch(url)).blob();
-      if (ticket !== request) return;
-      const idle = other();
-      clear(idle);
-      const src = URL.createObjectURL(blob);
-      objectUrls.set(idle, src);
-      idle.src = src;
-      idle.load();
-      ahead = { index, player: idle };
-    } catch {}
+    const apple = tracks()[index]?.apple;
+    const collection = album.appleMusic;
+    if (!apple || !collection) return Promise.resolve(null);
+    const abort = new AbortController();
+    const task = { abort, promise: Promise.resolve<AudioBuffer | null>(null) };
+    task.promise = (async () => {
+      const urls = await loadPreviews(collection, album.appleMusicCountry).catch(() => null);
+      if (abort.signal.aborted) return null;
+      const url = urls?.get(apple);
+      if (!url) return null;
+      const at = performance.now();
+      const response = await fetch(url, { signal: abort.signal });
+      if (!response.ok) return null;
+      const data = await response.arrayBuffer();
+      if (abort.signal.aborted) return null;
+      // Give the press frame a chance to paint before allocating the decoded buffer.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (abort.signal.aborted) return null;
+      const buffer = await (context ?? unlock()).decodeAudioData(data);
+      if (abort.signal.aborted || decoding.get(index) !== task) return null;
+      buffers.set(index, buffer);
+      diag.log(`decoded ${index} in ${(performance.now() - at).toFixed(0)} ms`);
+      return buffer;
+    })().catch(() => null).finally(() => {
+      if (decoding.get(index) === task) decoding.delete(index);
+    });
+    decoding.set(index, task);
+    return task.promise;
   }
-  // The element a track change has moved on from lets its file go a moment later, so the
-  // teardown doesn't share a frame with the start.
-  const retire = (player: HTMLAudioElement) => {
-    window.setTimeout(() => {
-      if (player !== audio && ahead?.player !== player) clear(player);
-    }, 600);
+  const prefetch = (index: number, selected: number, expected: PreviewState) => {
+    window.clearTimeout(prefetchTimer);
+    if (index < 0) return;
+    prefetchTimer = window.setTimeout(() => {
+      if (current() === selected && state() === expected) void decode(index);
+    }, 200);
+  };
+
+  // The source playing now, when it started on the context's clock and from where in the track;
+  // paused, `offset` is where it stopped.
+  let source: AudioBufferSourceNode | null = null;
+  let startedAt = 0;
+  let offset = 0;
+  let clock = 0;
+  const position = () => (source && context ? offset + context.currentTime - startedAt : offset);
+  const stopSource = () => {
+    window.clearInterval(clock);
+    if (!source) return;
+    const node = source;
+    source = null;
+    node.onended = null;
+    node.stop();
+    node.disconnect();
+  };
+  // The display follows the track's seconds.
+  const tick = () => {
+    const now = Math.floor(position());
+    if (now === seconds()) return;
+    setSeconds(now);
+    options.onDisplay(current() + 1, now);
+  };
+  const start = (index: number, buffer: AudioBuffer, from: number) => {
+    stopSource();
+    const ctx = context!;
+    const node = ctx.createBufferSource();
+    node.buffer = buffer;
+    node.connect(ctx.destination);
+    node.onended = () => {
+      if (node !== source) return;
+      source = null;
+      window.clearInterval(clock);
+      const next = nextTrack(index);
+      if (next >= 0) void play(next, true, false);
+      else stop();
+    };
+    node.start(0, from);
+    source = node;
+    startedAt = ctx.currentTime;
+    offset = from;
+    setState('playing');
+    announcePlaying(true);
+    clock = window.setInterval(tick, 250);
+    tick();
+    diag.log(`started ${index} at ${from.toFixed(1)} s`);
+    trim(index);
+    prefetch(nextTrack(index), index, 'playing');
+  };
+  const pause = () => {
+    if (state() !== 'playing' && state() !== 'loading') return;
+    offset = position();
+    stopSource();
+    setState('paused');
+    announcePlaying(false);
   };
 
   function stop() {
     request++;
-    ahead = null;
-    players.forEach(clear);
+    lastSelectionAt = -Infinity;
+    stopSource();
+    cancelDecoding();
+    buffers.clear();
+    offset = 0;
     setCurrent(-1);
     setState('stopped');
     setSeconds(0);
-    options.onPlaying(false);
+    announcePlaying(false);
     options.onDisplay(null, 0);
   }
 
   // Plays track `index`, or with autoplay false only cues it: the track is chosen and shown, paused
-  // at its start, as a CD player skips while paused. The previous track's audio is dropped at once,
-  // so Play pressed while the new one loads can't resume the old one. A track primed on the idle
-  // element starts at once, within the press.
-  async function play(index: number, autoplay = true) {
+  // at its start, as a CD player skips while paused. On the current track, Play pauses it or goes
+  // on from where it paused. A track decoded ahead starts at once, within the press; otherwise it
+  // is fetched and decoded first (loading). `pressed` is false when a track follows on its own.
+  async function play(index: number, autoplay = true, pressed = true) {
     const album = options.album();
     const track = tracks()[index];
     if (!track?.apple || !album.appleMusic) return;
-    diag.log(`play(${index}) autoplay=${autoplay} primed=${ahead?.index === index} state=${state()}`);
-    if (autoplay && index === current() && state() !== 'stopped' && audio.getAttribute('src')) {
-      if (audio.paused) audio.play().catch(() => {});
-      else audio.pause();
+    diag.log(`play(${index}) autoplay=${autoplay} ready=${buffers.has(index)} state=${state()}`);
+    const same = index === current() && state() !== 'stopped';
+    if (autoplay && same && state() === 'playing') return pause();
+    if (autoplay && same && state() === 'loading') return;
+    const now = performance.now();
+    const rapidSelection = pressed && !same && now - lastSelectionAt < 500;
+    if (pressed && !same) lastSelectionAt = now;
+    const ticket = ++request;
+    stopSource();
+    window.clearTimeout(prefetchTimer);
+    if (!same) {
+      offset = 0;
+      setCurrent(index);
+      setSeconds(0);
+      options.onDisplay(index + 1, 0);
+    }
+    trim(index);
+    setState(autoplay ? 'loading' : 'paused');
+    if (!autoplay) {
+      announcePlaying(false);
+      prefetch(index, index, 'paused');
       return;
     }
-    const ticket = ++request;
-    const primed = ahead?.index === index ? ahead.player : null;
-    ahead = null;
-    const previous = audio;
-    previous.pause();
-    if (primed) {
-      audio = primed;
-      retire(previous);
-    } else {
-      previous.removeAttribute('src');
-      previous.load();
-      release(previous);
+    if (rapidSelection && !buffers.has(index)) {
+      // A decoder already handed data to Safari cannot be cancelled. During a burst of skips,
+      // wait for the selection to settle before fetching and decoding another uncached preview.
+      // The ticket keeps only the last selection; cached tracks still switch immediately.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 320));
+      if (ticket !== request || state() !== 'loading') return;
     }
-    setCurrent(index);
-    setState(autoplay ? 'loading' : 'paused');
-    setSeconds(0);
-    options.onDisplay(index + 1, 0);
-    if (!primed) {
-      const urls = await loadPreviews(album.appleMusic, album.appleMusicCountry).catch(() => null);
-      if (ticket !== request) return;
-      const url = urls?.get(track.apple);
-      if (!url) {
-        setFailed(true);
-        stop();
-        return;
-      }
-      audio.src = url;
+    const buffer = await decode(index);
+    if (ticket !== request) return;
+    if (!buffer) {
+      setFailed(true);
+      stop();
+      return;
     }
     setFailed(false);
-    if (!autoplay) return;
-    audio.play().catch((error: unknown) => {
-      diag.log(`play() rejected: ${(error as Error)?.name ?? error}`);
-      // Refused or aborted while still wanted: stopped (a pause meanwhile, say for a hidden tab,
-      // has already settled the state).
-      if (ticket === request && state() === 'loading') stop();
-    });
+    // Paused meanwhile (the tab hidden, say): it stays cued.
+    if (state() !== 'loading') return;
+    const ctx = unlock();
+    const running = () => ctx.state === 'running';
+    if (!running()) {
+      await resumePending;
+      if (ticket !== request || state() !== 'loading') return;
+      if (!running()) {
+        pause();
+        return;
+      }
+    }
+    start(index, buffer, offset);
   }
+  // Back to the start of the current track, going on if it was playing.
+  const restart = () => {
+    const index = current();
+    const buffer = buffers.get(index);
+    offset = 0;
+    if (state() === 'playing' && buffer) start(index, buffer, 0);
+    setSeconds(0);
+    options.onDisplay(index + 1, 0);
+  };
 
   // Leaving the tab (or the app, on a phone) pauses the music, and the disc brakes with it; it
   // stays paused until Play, as a CD player would.
-  const onVisibility = () => {
-    if (!document.hidden || (state() !== 'playing' && state() !== 'loading')) return;
-    audio.pause();
-    setState('paused');
-    options.onPlaying(false);
-  };
+  const onVisibility = () => { if (document.hidden) pause(); };
   document.addEventListener('visibilitychange', onVisibility);
 
   // The next track with a preview after `index`, or -1.
@@ -519,62 +666,27 @@ function createPreviews(options: {
   // previous only cue one, paused at its start. Stopped counts as sitting at the first track.
   function button(kind: PlayerButton) {
     diag.log(`button ${kind} state=${state()}`);
+    diag.trace(kind);
     unlock();
     const stopped = state() === 'stopped';
     const index = stopped ? -1 : current();
     const autoplay = state() === 'playing' || state() === 'loading';
     if (kind === 'play') {
-      if (index < 0) play(nextTrack(-1));
-      else if (state() === 'paused') {
-        // A track cued while paused may still be loading its preview: then start it afresh.
-        if (audio.getAttribute('src')) audio.play().catch(() => {});
-        else play(index);
-      }
+      if (index < 0) void play(nextTrack(-1));
+      else if (state() === 'paused') void play(index);
     } else if (kind === 'pause') {
-      if (state() === 'playing') audio.pause();
+      pause();
     } else if (kind === 'next') {
       const next = nextTrack(stopped ? nextTrack(-1) : index);
-      if (next >= 0) play(next, autoplay);
+      if (next >= 0) void play(next, autoplay);
     } else if (stopped) {
       const first = nextTrack(-1);
-      if (first >= 0) play(first, false);
+      if (first >= 0) void play(first, false);
     } else {
       const previous = previousTrack(index);
-      if (audio.currentTime > 3 || previous < 0) audio.currentTime = 0;
-      else play(previous, autoplay);
+      if (position() > 3 || previous < 0) restart();
+      else void play(previous, autoplay);
     }
-  }
-
-  // Only the playing element's events count; the idle one's (its moment of silence, its priming)
-  // are its own.
-  const active = (event: Event) => event.currentTarget === audio;
-  for (const player of players) {
-    player.addEventListener('playing', (event) => {
-      if (!active(event)) return;
-      setState('playing');
-      options.onPlaying(true);
-      void fetchAhead(nextTrack(current()));
-    });
-    player.addEventListener('pause', (event) => {
-      // A track change pauses the old track before the new one starts: with the music about to
-      // go on (loading), the disc keeps spinning rather than coasting down and up again.
-      if (!active(event) || audio.ended || state() === 'stopped' || state() === 'loading' || !audio.src) return;
-      setState('paused');
-      options.onPlaying(false);
-    });
-    player.addEventListener('ended', (event) => {
-      if (!active(event)) return;
-      const next = nextTrack(current());
-      if (next >= 0) play(next);
-      else stop();
-    });
-    player.addEventListener('timeupdate', (event) => {
-      if (!active(event)) return;
-      const now = Math.floor(audio.currentTime);
-      if (!audio.duration || now === seconds()) return;
-      setSeconds(now);
-      options.onDisplay(current() + 1, now);
-    });
   }
 
   createEffect(on(options.shown, (shown) => {
@@ -583,15 +695,24 @@ function createPreviews(options: {
   onCleanup(() => {
     document.removeEventListener('visibilitychange', onVisibility);
     request++;
-    ahead = null;
-    players.forEach(clear);
+    stopSource();
+    cancelDecoding();
+    void context?.close();
   });
+  // For the checks (scripts/check-album.mjs).
+  if (import.meta.env.DEV) (window as unknown as { __previews: unknown }).__previews = {
+    state, position, current,
+    cached: () => [...buffers.keys()], pending: () => [...decoding.keys()],
+  };
 
   return {
     current: () => (state() === 'stopped' ? -1 : current()),
     failed,
     playable: () => Boolean(options.album().appleMusic) && nextTrack(-1) >= 0,
-    toggle: () => (current() >= 0 && state() !== 'stopped' ? play(current()) : play(nextTrack(-1))),
+    toggle: () => {
+      unlock();
+      return current() >= 0 && state() !== 'stopped' ? play(current()) : play(nextTrack(-1));
+    },
     button,
   };
 }
@@ -1086,11 +1207,12 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
   }
 
   onMount(() => {
-    if (DIAG && new URLSearchParams(window.location.search).has('auto')) {
-      let step = 0;
-      document.addEventListener('click', () => { step += 1; diag.log(`auto tap ${step}: ${step === 1 ? 'play' : 'next'}`); scene?.pressButton(step === 1 ? 'play' : 'next'); }, true);
-    }
-    if (DIAG) window.setInterval(() => diag.live(`spin ${((scene as unknown as { spinRate?: number })?.spinRate ?? 0).toFixed(1)} rad/s  playing ${String((scene as unknown as { playing?: boolean })?.playing)}`), 100);
+    diag.spinOf = () => (scene as unknown as { spinRate?: number })?.spinRate ?? 0;
+    if (DIAG) window.setInterval(() => {
+      const spin = +((scene as unknown as { spinRate?: number })?.spinRate ?? 0).toFixed(1);
+      (window as unknown as { __diag: { spin: number } }).__diag.spin = spin;
+      diag.live(`spin ${spin} rad/s  playing ${String((scene as unknown as { playing?: boolean })?.playing)}`);
+    }, 100);
     // Built after the loading screen's first paint: a frame's callbacks run before that paint, so
     // the timer after one. Building the scene (the cases, their booklets, the procedural textures)
     // holds the main thread for a moment that would otherwise come before anything shows.

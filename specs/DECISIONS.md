@@ -192,6 +192,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   meanwhile. The disc never enters the player: 108 points of it are kept 3 mm above the top (a 45°
   slope off the edges, the well's floor over the well), and `insertLift` is 0.6 (36 mm) so the
   tilted case passes behind the disc on its way up and down (at 0.45 the tray drew over it).
+  While the row pans out and the player rises in, each is drawn only while some of it is still on
+  screen, judged from the open case's and the player's projected extents (`offscreen`): drawing
+  both through the whole handoff cost a phone 40 ms a frame.
 - Nothing works until the disc has landed (`seated`): the screen stays dark, the buttons and Space
   do nothing, the transport row is hidden. Leaving the tab (or the app, on a phone) pauses the
   music and brakes the disc; it stays paused until Play. Only Play starts the music, as on a CD player: stopped,
@@ -201,12 +204,25 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   under 60 fps shows a spinning disc, not a strobing one. A click on the landed disc ejects. The player leans toward the cursor at 0.35 of the open
   case's tilt (0.5 felt too strong). A track change keeps the disc spinning: the pause of the old
   preview before the new one loads no longer stops it (the disc coasted down and up at every next
-  or previous). Two audio elements take turns: the next track's preview is fetched while one
-  plays (Apple's files allow the cross-origin fetch) and primed on the idle element as an object
-  URL, so a change only starts an element that already holds its file; changing the one element's
-  source stalled Safari on iPhones while it set its native player up again. The first press plays
-  a moment of silence on the idle element, since iPhones let an element play on its own only
-  after a gesture has played it.
+  or previous). The previews play through Web Audio: each is fetched (Apple's files allow the
+  cross-origin fetch) and decoded into a buffer off the main thread, the next track's ahead once
+  one has played for 200 ms, and a change starts a buffer source, which takes no time. Only the
+  current track's buffer and its neighbours' are kept (about ten megabytes each); moving on aborts
+  the fetches for other tracks, and an uncached track chosen within 500 ms of another waits 320 ms
+  for the presses to settle before its fetch, since a decode handed to Safari can't be cancelled.
+  The context is made and resumed on a press, as browsers require, with the audio session set to
+  playback where the browser has it (`navigator.audioSession`): with the default session an
+  iPhone in Silent Mode played nothing while the disc spun. Once the context runs the next track
+  follows on its own, and a context the system suspends (a call, the page hidden) pauses the
+  music. Audio elements were tried first, one and then two taking turns with the next track primed
+  on the idle one, and measured on an iPhone 15 Pro (iOS 27) with the page's diagnostics
+  (`?diag=1`): with the old element paused first, starting the primed one blocked the page for
+  0.8 s at every next or previous, so no frame was drawn and the disc froze mid-spin (the spin rate
+  never changed; pause and the brake were never affected); started first it took a few
+  milliseconds, but setting the idle element up for the following track still held the page for
+  0.1 to 0.2 s each time, a visible hitch at full speed. Neither showed in the iOS Simulator or in
+  Chrome. The scrolling title redraws its canvas texture at most 30 times a second, and with the
+  disc still a timer wakes the renderer for it rather than the scene running every frame.
 - The contact shadow under the player is a canvas blurred as the canvas's own shadow of the shape,
   drawn off the canvas with the shadow shifted back on: the 2D context's blur filter, used before,
   is missing in Safari, where the shadow drew as a hard-edged dark border (1 November 2026).
@@ -325,9 +341,14 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   element without moving the estimate, and was reverted. Loading changes go by the real throttled
   time to the reveal (README, Checks), with Lighthouse beside it; its run-to-run noise is about
   five points.
-- Frame budget: adaptive resolution (the pixel ratio steps down when frames run long), an 8 MP
+- Frame budget: adaptive resolution (the pixel ratio steps down when frames run long, and back
+  to full once nothing moves for 250 ms: it only ever stepped down before, so a phone stayed
+  blurry after a long stretch of playback), an 8 MP
   canvas cap, MSAA only on screens of one pixel ratio and on touch devices (see The cases), no `transmission` anywhere (two renders a frame and a
   blurred copy of the art), textures uploaded at load, the render loop idle when nothing moves.
+  A frame requested from inside a frame (a resolution step, a screen redraw) extends that frame's
+  run rather than scheduling a second one: it did, and every step down added a parallel loop, so
+  a long session got slower and slower (found 1 November 2026 on a phone, seen on desktop too).
   Every view ran at 60 fps at 1440 × 900 (2×) and 390 × 844 (3×) in the last audit.
 
 ### The data

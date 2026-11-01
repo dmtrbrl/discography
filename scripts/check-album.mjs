@@ -17,7 +17,7 @@ const url = /^https?:/.test(args[0] ?? '') ? args.shift() : 'http://127.0.0.1:51
 const collection = JSON.parse(await readFile(new URL('../public/albums/collection.json', import.meta.url), 'utf8'));
 const albums = args.length ? args.map((id) => collection.albums.find((album) => album.id === id) ?? assert.fail(`No album ${id}`)) : collection.albums;
 
-const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ channel: 'chrome', args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--mute-audio'] });
 try {
   for (const album of albums) {
     const spreads = album.bookletScans?.length ?? 0;
@@ -34,11 +34,6 @@ try {
       page.on('request', (r) => { if (r.url().includes('itunes.apple.com/lookup')) lookupRequests.push(r.url()); });
       page.on('response', (r) => { if (r.url().includes('/albums/') && r.status() !== 200) failedArtwork.push(r.url()); });
       await page.addInitScript((id) => {
-        // Muted playback still decodes and advances the actual media, without making test noise.
-        window.__audio = [];
-        window.Audio = class extends Audio {
-          constructor(...args) { super(...args); this.muted = true; window.__audio.push(this); }
-        };
         // Every draw of a booklet scan into a page canvas, to check the panel it takes.
         window.__panelDraws = [];
         const draw = CanvasRenderingContext2D.prototype.drawImage;
@@ -89,11 +84,11 @@ try {
       const played = [];
       for (const [i, n] of playable.entries()) {
         await page.waitForFunction((track) => {
-          // The element playing now: the page keeps two, one primed with the next track.
-          const audio = window.__audio.find((a) => !a.paused && !a.ended && a.currentTime > 0.1) ?? window.__audio.at(-1), state = window.scene.screenState;
-          return state.track === track && state.playing && audio.currentTime > 0.1 && !audio.paused && !audio.error;
+          // The page plays the previews through Web Audio and exposes their state in dev (main.tsx).
+          const previews = window.__previews, state = window.scene.screenState;
+          return state.track === track && state.playing && previews.state() === "playing" && previews.position() > 0.1;
         }, n, { timeout: 30000 });
-        played.push(await page.evaluate(() => ({ track: window.scene.screenState.track, title: window.scene.screenState.album.tracks[window.scene.screenState.track - 1].title, time: (window.__audio.find((a) => !a.paused && !a.ended && a.currentTime > 0.1) ?? window.__audio.at(-1)).currentTime })));
+        played.push(await page.evaluate(() => ({ track: window.scene.screenState.track, title: window.scene.screenState.album.tracks[window.scene.screenState.track - 1].title, time: window.__previews.position() })));
         if (i < playable.length - 1) await page.getByRole('button', { name: 'Next track', exact: true }).click();
       }
       assert.deepEqual(played.map((p) => p.track), playable, 'Every track with a preview plays, the others are skipped');
