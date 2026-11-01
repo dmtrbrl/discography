@@ -2609,6 +2609,9 @@ export class GalleryScene {
   private bookletShift = 0.5;
   private bookletTarget = 0.5;
   private closingBooklet = false;
+  // The page the booklet was on when Close was pressed (closeBooklet): the centring on the way
+  // back is paced by the pages left to turn.
+  private closingFrom = 0;
   private bookletRequest = 0;
   // Interior pages that arrived while the booklet was still flying, to go in once it has landed
   // (see loadBooklet).
@@ -2791,6 +2794,10 @@ export class GalleryScene {
     if (this.prepared || this.destroyed) return;
     clearTimeout(this.loadTimer);
     this.prepared = true;
+    // On a touch device the player is built now, under the loading screen: Safari compiles its
+    // shaders on the main thread whatever the extension says, and built after the intro it froze
+    // the page for a second or two (seen in the iOS simulator) just as the row came to hand.
+    if (this.touch) this.buildPlayer();
     // Revealed by the timeout, a case still waiting for its artwork shows the generated art
     // instead of its colour; the artwork replaces it if it comes.
     if (timedOut) this.cases.forEach((item, index) => {
@@ -3332,9 +3339,10 @@ export class GalleryScene {
   }
 
   // The player, built if it isn't yet. Its extruded body, buttons and screen are a slice of the
-  // start the row doesn't need, so it is made in idle time after the intro (playIntro), or at
-  // once for a Listen before that. Its shaders compile from here, in parallel, rather than in the
-  // first frame it shows.
+  // start the row doesn't need, so on desktop it is made in idle time after the intro (playIntro),
+  // or at once for a Listen before that; on touch devices under the loading screen (prepare). Its
+  // shaders compile from here, in parallel where the browser does that, rather than in the first
+  // frame it shows.
   private buildPlayer() {
     if (this.playerBuilt) return this.playerBuilt;
     const player = (this.playerBuilt = makePlayer(this.shared.anisotropy, this.shared.textures.trayNormal));
@@ -3469,6 +3477,7 @@ export class GalleryScene {
     if (magazine) magazine.enabled = false;
     if (this.bookletShown && magazine && magazine.page !== 0) {
       this.closingBooklet = true;
+      this.closingFrom = magazine.page;
       magazine.goTo(0, { animate: !this.reducedMotion });
       this.request();
     } else this.putBookletBack();
@@ -4774,9 +4783,14 @@ export class GalleryScene {
     // it opens; a closed one (on its cover or back page) only once the last turn has landed, so it
     // doesn't slide while a page is still turning.
     const pages = magazine.visiblePages;
-    // Closing, the booklet centres on its cover while its pages turn back, so the way back can
-    // start as the turn lands (centred only after it, the flight waited most of a second).
-    if (!this.bookletShown || magazine.layout === 'single' || this.closingBooklet) this.bookletTarget = 0.5;
+    if (!this.bookletShown || magazine.layout === 'single') this.bookletTarget = 0.5;
+    else if (this.closingBooklet) {
+      // Closing, the booklet centres on its cover along with the pages turning back, a step a
+      // page, so it arrives as the last one lands and the way back can start then (centred only
+      // after the turn, the flight waited most of a second; all at once, it jumped ahead of it).
+      const remaining = Math.max(0, magazine.page - 2);
+      this.bookletTarget = 0.5 * (1 - (this.closingFrom > 0 ? remaining / this.closingFrom : 0));
+    }
     else if (pages.length > 1) this.bookletTarget = 0;
     else if (!magazine.turning) this.bookletTarget = pages[0] === 0 ? 0.5 : -0.5;
     const target = this.bookletTarget;

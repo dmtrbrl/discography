@@ -44,6 +44,8 @@ body::before { content: ''; position: fixed; inset: 0; z-index: 1; pointer-event
 /* Nothing on the page is to select but the about page's text: a long touch on a phone would
    otherwise open the selection instead of turning the case (scene.ts, holdFlip). */
 body { -webkit-user-select: none; user-select: none; }
+/* No double-tap zoom on the controls (pinch zoom and panning stay). */
+body { touch-action: manipulation; }
 .about { -webkit-user-select: text; user-select: text; }
 .stage canvas { display: block; width: 100%; height: 100%; }
 .stage { transition: opacity .7s ease; }

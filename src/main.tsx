@@ -10,6 +10,28 @@ import type { PageSource } from 'leafthrough';
 import './style.css';
 
 const repository = 'https://github.com/dmtrbrl/discography';
+
+// Diagnostics on the screen, with `?diag=1` before the hash: what the preview player and the
+// frame loop do, for looking at a phone. Nothing is made without the flag.
+const DIAG = new URLSearchParams(window.location.search).has('diag');
+const diag = (() => {
+  if (!DIAG) return { log: (_line: string) => {}, live: (_line: string) => {} };
+  const box = document.createElement('pre');
+  box.style.cssText = 'position:fixed;left:0;top:env(safe-area-inset-top,0px);z-index:99;margin:0;padding:6px 8px;max-width:100vw;font:11px/1.3 ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.72);white-space:pre-wrap;pointer-events:none';
+  document.body.appendChild(box);
+  const lines: string[] = [];
+  let live = '';
+  const t0 = performance.now();
+  const draw = () => { box.textContent = `${live}\n${lines.slice(-16).join('\n')}`; };
+  const log = (line: string) => { lines.push(`${((performance.now() - t0) / 1000).toFixed(2)} ${line}`); draw(); };
+  // A gap between animation frames over 80 ms is a stall of the frame loop.
+  let last = performance.now();
+  const tick = (now: number) => { if (now - last > 80) log(`frame gap ${Math.round(now - last)} ms`); last = now; requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+  document.addEventListener('visibilitychange', () => log(`visibility ${document.visibilityState}`));
+  (window as unknown as { __diag: { lines: string[] } }).__diag = { lines };
+  return { log, live: (line: string) => { live = line; draw(); } };
+})();
 const website = 'https://dmytrobarylo.com';
 const leafthrough = 'https://github.com/dmtrbrl/leafthrough';
 
@@ -354,6 +376,7 @@ function createPreviews(options: {
   // silence: iPhones let an element load and play on its own only after a gesture has played it.
   const players = [new Audio(), new Audio()];
   for (const player of players) player.preload = 'auto';
+  if (DIAG) players.forEach((player, n) => ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'pause', 'waiting', 'stalled', 'suspend', 'ended', 'error', 'emptied', 'abort'].forEach((type) => player.addEventListener(type, () => diag.log(`${n ? 'B' : 'A'} ${type} t=${player.currentTime.toFixed(1)} rs=${player.readyState} ${player.src.slice(0, 5)}`))));
   let audio = players[0];
   const other = () => (audio === players[0] ? players[1] : players[0]);
   const objectUrls = new Map<HTMLAudioElement, string>();
@@ -431,6 +454,7 @@ function createPreviews(options: {
     const album = options.album();
     const track = tracks()[index];
     if (!track?.apple || !album.appleMusic) return;
+    diag.log(`play(${index}) autoplay=${autoplay} primed=${ahead?.index === index} state=${state()}`);
     if (autoplay && index === current() && state() !== 'stopped' && audio.getAttribute('src')) {
       if (audio.paused) audio.play().catch(() => {});
       else audio.pause();
@@ -466,7 +490,8 @@ function createPreviews(options: {
     }
     setFailed(false);
     if (!autoplay) return;
-    audio.play().catch(() => {
+    audio.play().catch((error: unknown) => {
+      diag.log(`play() rejected: ${(error as Error)?.name ?? error}`);
       // Refused or aborted while still wanted: stopped (a pause meanwhile, say for a hidden tab,
       // has already settled the state).
       if (ticket === request && state() === 'loading') stop();
@@ -493,6 +518,7 @@ function createPreviews(options: {
   // otherwise goes back one. Only Play starts the music: unless a track is playing, next and
   // previous only cue one, paused at its start. Stopped counts as sitting at the first track.
   function button(kind: PlayerButton) {
+    diag.log(`button ${kind} state=${state()}`);
     unlock();
     const stopped = state() === 'stopped';
     const index = stopped ? -1 : current();
@@ -686,7 +712,7 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
   const caseActions = createMemo(() => pointer().opened >= 0 && !pointer().discOut && !pointer().bookletOut);
   const previews = createPreviews({
     album: selected, shown: listening,
-    onPlaying: (playing) => scene?.setPlaying(playing), onDisplay: (track, seconds) => scene?.setDisplay(track, seconds),
+    onPlaying: (playing) => { diag.log(`onPlaying(${playing})`); scene?.setPlaying(playing); }, onDisplay: (track, seconds) => scene?.setDisplay(track, seconds),
   });
   let playButton!: HTMLButtonElement;
   // The track phones show under the transport row: on a change the old one fades out, then the new
@@ -1060,6 +1086,11 @@ function App(props: { collection: Collection; link: GalleryLink; jump: () => Gal
   }
 
   onMount(() => {
+    if (DIAG && new URLSearchParams(window.location.search).has('auto')) {
+      let step = 0;
+      document.addEventListener('click', () => { step += 1; diag.log(`auto tap ${step}: ${step === 1 ? 'play' : 'next'}`); scene?.pressButton(step === 1 ? 'play' : 'next'); }, true);
+    }
+    if (DIAG) window.setInterval(() => diag.live(`spin ${((scene as unknown as { spinRate?: number })?.spinRate ?? 0).toFixed(1)} rad/s  playing ${String((scene as unknown as { playing?: boolean })?.playing)}`), 100);
     // Built after the loading screen's first paint: a frame's callbacks run before that paint, so
     // the timer after one. Building the scene (the cases, their booklets, the procedural textures)
     // holds the main thread for a moment that would otherwise come before anything shows.

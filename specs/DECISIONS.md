@@ -307,7 +307,9 @@ paper's show-through and the phone's single layout stay as they are. The decisio
 - The start: the disc print's and tray's procedural maps and LeafThrough's paper grain are
   generated in a worker, one grain for all ten booklets; the scene is built after the loading
   screen's first paint; the player is built after the intro in idle time, or on the first Listen
-  (its extruded body and buttons were a quarter of the start); the disc is found in each scan on
+  (its extruded body and buttons were a quarter of the start), except on touch devices, where it
+  is built under the loading screen: Safari compiles its shaders on the main thread, and built
+  after the intro it froze the page for a second or two (the iOS simulator) as the row came to hand; the disc is found in each scan on
   a small copy made off the main thread (`locateDisc`); the stand-in art is the album's colour,
   the generated art drawn only when nothing comes; every texture upload and each case's inside
   goes through a queue, one job per frame in a task of its own (`inFrame`), since ten arrivals
