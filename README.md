@@ -6,6 +6,8 @@ An experiment in browsing music as physical CDs: each album in its plastic jewel
 
 Flick through a row of favorite albums, turn a case over to read its back and spines, open it, leaf through the booklet, and put the disc on a CD player to hear 30-second song previews.
 
+https://github.com/user-attachments/assets/511ae609-4041-45d6-b840-794cd68c3484
+
 ## The idea
 
 Streaming made albums into a square thumbnail. A CD was an object: a case that clicked open, a disc with its own printed face, a booklet with lyrics and photos to read while the music played. Discography tries to bring that back on a screen, so an album is something you pick up and handle rather than a link.
