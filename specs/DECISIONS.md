@@ -419,6 +419,12 @@ paper's show-through and the phone's single layout stay as they are. The decisio
   (`7ikuEzL6xeAgu6yT6YVLy7`; the other is `2tHCY2fDMi0NqeGZcAxNSc`). MusicBrainz has no Spotify
   links for these albums and Odesli's public API is closed.
 
+### Licensing
+
+- The author's original source code is under PolyForm Noncommercial 1.0.0 to allow noncommercial
+  reuse, modification and distribution. The license does not cover third-party album artwork,
+  scans, logos or previews; the self-hosted fonts keep their SIL Open Font License.
+
 ## Known gaps and ideas not planned
 
 - "Lose It" (Feel It Break, track 2) has no preview: Apple's album listing omits it in every

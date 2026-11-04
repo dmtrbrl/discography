@@ -22,6 +22,12 @@ Cover art, booklet scans, disc designs, and logos belong to their respective rig
 
 The type is DM Sans, DM Mono and Instrument Serif, served from the page under the SIL Open Font License (see `public/fonts/`).
 
+## License
+
+The original source code in this repository is available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). It permits noncommercial use, modification and distribution, as well as the specific organizational uses listed in the license. Other uses require separate permission from the copyright holder.
+
+This license applies only to material owned by this project's author. It does not license the album artwork, booklet scans, disc designs, logos, song previews or other third-party content. The fonts in `public/fonts/` remain under their own SIL Open Font License.
+
 ## Running it
 
 ```bash
